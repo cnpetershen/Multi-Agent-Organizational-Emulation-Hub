@@ -300,7 +300,7 @@ export function markedPid(marker: string, self: number = process.pid): number | 
 }
 
 /**
- * Kill a process **and its children**, reporting whether the process tree is gone.
+ * Kill a process **and its children**, reporting whether the signal was delivered.
  *
  * A delivered launcher starts the real service as a grandchild, so signalling only the pid we
  * spawned would leave a server holding a port forever. Two mechanisms are tried because neither
@@ -314,10 +314,8 @@ export function markedPid(marker: string, self: number = process.pid): number | 
  *    account, a hardened host), which is why its exit status is checked instead of ignored: a
  *    denied tree kill must fall through to the primitive rather than be mistaken for a success.
  *
- * On both platforms this blocks until the process is actually dead (or the grace period elapses),
- * so callers that immediately inspect the pid can trust the result. Before the POSIX branch did
- * not wait — it only sent SIGTERM and returned — which let callers race a liveness check against
- * the signal delivery and report a false "still alive" on CI.
+ * The return value is "something was told to stop", not "it is gone"; callers that need the
+ * stronger guarantee verify it (see `waitForSilence`).
  */
 export function killTree(pid: number, platform: NodeJS.Platform = process.platform): boolean {
   if (!Number.isInteger(pid) || pid <= 0) return false;
@@ -342,41 +340,14 @@ export function killTree(pid: number, platform: NodeJS.Platform = process.platfo
     } catch {
       /* no group of our own — fall through to the process itself */
     }
-    if (!signalled) {
-      try {
-        process.kill(pid, 'SIGTERM');
-        signalled = true;
-      } catch {
-        // ESRCH: the process is already gone, which is the outcome we wanted.
-        signalled = false;
-      }
-    }
-    if (signalled) waitUntilDead(pid, KILL_GRACE_MS);
   }
-  return signalled;
-}
-
-/**
- * Synchronously block until `pid` no longer responds to signal 0, or `timeoutMs` elapses.
- *
- * Polls the pid with signal 0 every ~2ms. The sleep is done via `spawnSync` of a tiny
- * node -e child — this is deliberate: it works identically on every Node runtime (no
- * SharedArrayBuffer concerns), is fully synchronous like `spawnSync` on Windows, and the
- * spawn cost (~ms) is acceptable because the caller only runs this on the rare path where
- * a SIGTERM was actually delivered. A confirmed-dead check short-circuits immediately.
- */
-function waitUntilDead(pid: number, timeoutMs: number): void {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    let alive = true;
-    try {
-      process.kill(pid, 0);
-    } catch {
-      alive = false;
-    }
-    if (!alive) return;
-    // Synchronous sleep — spawnSync blocks until this little child exits.
-    spawnSync(process.execPath, ['-e', 'setTimeout(() => {}, 2)'], { stdio: 'ignore', timeout: 1000 });
+  if (signalled) return true;
+  try {
+    process.kill(pid, 'SIGTERM');
+    return true;
+  } catch {
+    // ESRCH: the process is already gone, which is the outcome we wanted.
+    return false;
   }
 }
 

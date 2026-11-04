@@ -87,6 +87,13 @@ describe('preview pid marker: the marker names the preview, never the API', () =
       expect(await served.text()).toContain('served');
 
       await runtime.dispose();
+      // On POSIX a signalled pid can linger as a zombie until this process reaps it on the
+      // event loop; poll instead of asserting one synchronous check, which can observe the
+      // zombie as alive on Linux CI.
+      const goneDeadline = Date.now() + 5_000;
+      while (isAlive(marked) && Date.now() < goneDeadline) {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
       if (canKill) expect(isAlive(marked)).toBe(false);
     } finally {
       await runtime.dispose();

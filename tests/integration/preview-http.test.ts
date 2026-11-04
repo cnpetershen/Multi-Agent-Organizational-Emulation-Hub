@@ -361,11 +361,20 @@ describe('M1.6 Preview Runtime failure paths (stub reader, no product surface ad
     // A new runtime must reclaim what a crashed previous API process left behind.
     const runtime = new PreviewRuntime(stubReader({}), { workspaceRoot, reapIntervalMs: 0 });
     expect(existsSync(staleDir)).toBe(false);
+    // On POSIX a signalled pid lingers as a zombie until *this* process reaps it (libuv does
+    // that on the event loop), and signal 0 answers "alive" for a zombie. The constructor's
+    // kill is synchronous, so poll with event-loop turns before asserting — a single check
+    // right after construction reports the zombie as alive on Linux CI.
     let alive = true;
-    try {
-      process.kill(Number(sleeper.pid), 0);
-    } catch {
-      alive = false;
+    const reapDeadline = Date.now() + 5_000;
+    while (Date.now() < reapDeadline) {
+      try {
+        process.kill(Number(sleeper.pid), 0);
+      } catch {
+        alive = false;
+        break;
+      }
+      await sleep(20);
     }
     if (killPrimitiveWorks) expect(alive).toBe(false);
     else console.warn('[preview test] this host denies taskkill (see scripts/verify-preview.mjs item 9b): the marked pid survived the reap');
