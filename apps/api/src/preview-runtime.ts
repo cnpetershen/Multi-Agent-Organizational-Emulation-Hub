@@ -359,9 +359,11 @@ export function killTree(pid: number, platform: NodeJS.Platform = process.platfo
 /**
  * Synchronously block until `pid` no longer responds to signal 0, or `timeoutMs` elapses.
  *
- * Uses `Atomics.wait` (available since Node 16) to sleep without burning CPU — an
- * `Atomics.wait` on a 4-byte SharedArrayBuffer with no other waker simply times out after
- * the requested interval. The pid is polled every 5ms so the total latency is bounded.
+ * Polls the pid with signal 0 every ~2ms. The sleep is done via `spawnSync` of a tiny
+ * node -e child — this is deliberate: it works identically on every Node runtime (no
+ * SharedArrayBuffer concerns), is fully synchronous like `spawnSync` on Windows, and the
+ * spawn cost (~ms) is acceptable because the caller only runs this on the rare path where
+ * a SIGTERM was actually delivered. A confirmed-dead check short-circuits immediately.
  */
 function waitUntilDead(pid: number, timeoutMs: number): void {
   const deadline = Date.now() + timeoutMs;
@@ -373,12 +375,8 @@ function waitUntilDead(pid: number, timeoutMs: number): void {
       alive = false;
     }
     if (!alive) return;
-    // Sleep 5ms without yielding the event loop — a blocking primitive is acceptable here
-    // because the caller (killTree) is already a synchronous path (spawnSync on Windows,
-    // direct process.kill on POSIX).
-    const sab = new SharedArrayBuffer(4);
-    const view = new Int32Array(sab);
-    Atomics.wait(view, 0, 0, 5);
+    // Synchronous sleep — spawnSync blocks until this little child exits.
+    spawnSync(process.execPath, ['-e', 'setTimeout(() => {}, 2)'], { stdio: 'ignore', timeout: 1000 });
   }
 }
 
