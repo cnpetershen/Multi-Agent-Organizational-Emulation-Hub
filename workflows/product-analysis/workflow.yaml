@@ -1,0 +1,127 @@
+workflow_id: product-analysis
+version: 1
+name: Product Analysis
+# 任务步只声明「需要哪一类工作」（capability），由运行中的组织解析出具体岗位——
+# 与生成的 workflow 走同一套路由。模板一旦把任务步钉死在某个岗位（position_id），
+# 就等于绕过了「能力 → 岗位」这条唯一路由契约；入口与交付两步固定交给 CEO 就是这么来的。
+# 审批门仍然写 required_roles：审批是治理动作，本来就由持有该权限的岗位承担。
+description: Frame the problem, design the approach, approve the design, then synthesize the analysis.
+cycle_policy: forbid
+entry_stage: intake
+terminal_stages: [delivery]
+stages:
+  - stage_id: intake
+    name: Intake
+    steps:
+      - step_id: intake-brief
+        name: Define analysis brief
+        kind: task
+        assignment:
+          kind: capability
+          capability: product_requirement
+        verification:
+          kind: deterministic
+          required_output_keys: [problem, success_criteria]
+        max_attempts: 2
+    transitions:
+      - transition_id: intake-brief__completed
+        from_step_id: intake-brief
+        when:
+          kind: task_status
+          status: completed
+        to:
+          kind: stage
+          stage_id: design
+      - transition_id: intake-brief__rejected
+        from_step_id: intake-brief
+        when:
+          kind: task_status
+          status: rejected
+        to:
+          kind: fail
+          reason: intake_failed
+  - stage_id: design
+    name: Design
+    steps:
+      - step_id: design-approach
+        name: Draft technical approach
+        kind: task
+        assignment:
+          kind: capability
+          capability: technical_design
+        verification:
+          kind: deterministic
+          required_output_keys: [approach, risks]
+        max_attempts: 1
+      - step_id: design-gate
+        name: Review the technical approach
+        kind: approval
+        description: Single approval by the seat holding product authority, before delivery starts.
+        required_roles: [ceo]
+        required_authority:
+          domain: product
+          level: 3
+        approval_policy: single
+        required_count: 1
+    transitions:
+      - transition_id: design-approach__completed
+        from_step_id: design-approach
+        when:
+          kind: task_status
+          status: completed
+        to:
+          kind: step
+          step_id: design-gate
+      - transition_id: design-approach__rejected
+        from_step_id: design-approach
+        when:
+          kind: task_status
+          status: rejected
+        to:
+          kind: fail
+          reason: design_failed
+      - transition_id: design-gate__granted
+        from_step_id: design-gate
+        when:
+          kind: approval_decision
+          decision: granted
+        to:
+          kind: stage
+          stage_id: delivery
+      - transition_id: design-gate__denied
+        from_step_id: design-gate
+        when:
+          kind: approval_decision
+          decision: denied
+        to:
+          kind: fail
+          reason: approval_denied
+  - stage_id: delivery
+    name: Delivery
+    steps:
+      - step_id: delivery-synthesize
+        name: Synthesize final analysis
+        kind: task
+        assignment:
+          kind: capability
+          capability: product_requirement
+        verification:
+          kind: deterministic
+          required_output_keys: [recommendation]
+        max_attempts: 1
+    transitions:
+      - transition_id: delivery-synthesize__completed
+        from_step_id: delivery-synthesize
+        when:
+          kind: task_status
+          status: completed
+        to:
+          kind: complete
+      - transition_id: delivery-synthesize__rejected
+        from_step_id: delivery-synthesize
+        when:
+          kind: task_status
+          status: rejected
+        to:
+          kind: fail
+          reason: delivery_failed

@@ -1,0 +1,1063 @@
+{
+  "app": {
+    "documentTitle": "MAOEH Console",
+    "brand": "MAOEH",
+    "brandSuffix": "COMPANY",
+    "tagline": "AI operating company",
+    "companyFallback": "Company Runtime",
+    "eyebrowFallback": "AI COMPANY",
+    "loadingWorkspace": "Loading company workspace…",
+    "dataUnavailable": "Company data is temporarily unavailable.",
+    "dataUnavailableShort": "Company data is temporarily unavailable",
+    "boundary": {
+      "eyebrow": "OPERATING CONSOLE",
+      "title": "The console failed to render"
+    }
+  },
+  "foundry": {
+    "eyebrow": "AI COMPANY PLATFORM",
+    "title": "Create Your AI Company",
+    "subtitle": "Name the founder, name the company, and MAOEH stands up the organization: a CEO first, then every AI employee you hire.",
+    "createCta": "Create my AI company",
+    "signIn": "Sign in",
+    "howTitle": "Three steps to your own AI company",
+    "step1": "Founder",
+    "step1Detail": "You found the company. Ownership is yours and no password is asked for.",
+    "step2": "Company name",
+    "step2Detail": "The name your AI employees will see everywhere in the console.",
+    "step3": "CEO agent",
+    "step3Detail": "A generated CEO joins the company the moment it is founded, ready to hire the rest.",
+    "noPassword": "No password, no account. Your company runs on this machine and belongs to you.",
+    "point1": "The founder owns the company",
+    "point2": "The company employs the agents",
+    "point3": "Every decision stays observable",
+    "stepOf": "Step {step} of {total}",
+    "founderTitle": "Who is founding this company?",
+    "founderLabel": "Your name as founder",
+    "founderHint": "What your AI employees will call you.",
+    "founderPlaceholder": "Ada Lovelace",
+    "companyTitle": "Name your AI company",
+    "companyLabel": "Company name",
+    "companyHint": "Anything you like — the CEO is generated when the company is founded.",
+    "companyPlaceholder": "Jack AI Lab",
+    "ownedBy": "Owned by {name}",
+    "ceoNote": "Your CEO agent is ready the moment the company is founded.",
+    "createSubmit": "Create company",
+    "continue": "Continue",
+    "back": "Back",
+    "signInTitle": "Sign in to your company",
+    "signInEmpty": "No company yet — found one first.",
+    "loading": "Reading your companies…",
+    "unavailable": "Company list unavailable.",
+    "errorFounderName": "A founder needs a name.",
+    "errorCompanyName": "Your company needs a name.",
+    "errorTooLong": "That name is too long.",
+    "errorUnknownCompany": "That company no longer exists.",
+    "switchCompany": "Switch company"
+  },
+  "api": {
+    "receivedArray": "an array",
+    "receivedObject": "an object",
+    "receivedType": "a {type}",
+    "emptyBody": "empty body",
+    "object": "{where} must be an object, received {received}",
+    "array": "{where} must be an array, received {received}",
+    "string": "{where} must be a non-empty string, received {received}",
+    "number": "{where} must be a finite number, received {received}",
+    "boolean": "{where} must be a boolean, received {received}",
+    "unreachable": "{method} {path} could not reach the API — {cause}",
+    "httpFailure": "{method} {path} failed with HTTP {status}{detail}",
+    "nonJson": "{method} {path} returned HTTP {status} with a non-JSON body — {snippet}",
+    "unknownStatus": "POST /api/command returned an unknown status \"{status}\"",
+    "unknownCommand": "unknown command"
+  },
+  "common": {
+    "refresh": "Refresh",
+    "retry": "Retry",
+    "submitting": "Submitting…",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleteTaskConfirm": "Delete this task? It leaves the organization and cannot be undone.",
+    "deleteTaskWorkflowConfirm": "Delete this task and the workflow it belongs to? Both leave the organization and cannot be undone.",
+    "deleteWorkflowConfirm": "Delete this workflow and every task it owns? This cannot be undone.",
+    "close": "Close",
+    "change": "Change",
+    "viewAll": "View all",
+    "pause": "Pause",
+    "resume": "Resume",
+    "approve": "Approve",
+    "reject": "Reject",
+    "selectPosition": "Select a position…",
+    "unknownError": "Unknown error",
+    "unassigned": "unassigned",
+    "agentFallback": "Agent",
+    "untitledWorkflow": "Untitled workflow",
+    "untitledTask": "Untitled task",
+    "noObjective": "No objective recorded",
+    "noGoal": "No goal recorded",
+    "noReason": "No reason recorded",
+    "noTask": "No task",
+    "noTasks": "No tasks",
+    "noActivity": "No activity yet",
+    "noActivityHint": "Company activity appears as agents begin work",
+    "noActivityShort": "No activity yet",
+    "noAgentsOnDuty": "No agents on duty",
+    "noAgentsHint": "Agents appear here when the organization staffs a position",
+    "noWorkflows": "No workflows yet",
+    "approvalInboxUnavailable": "Approval inbox unavailable",
+    "decisionStep": "Decision step",
+    "workflowFallback": "Workflow",
+    "stagePlanning": "Planning",
+    "recentActivity": "Recent activity",
+    "openActivity": "Open activity"
+  },
+  "nav": {
+    "ariaLabel": "Company navigation",
+    "openMenu": "Open navigation",
+    "closeMenu": "Close navigation",
+    "group": {
+      "company": "Company",
+      "work": "Work",
+      "decisions": "Decisions",
+      "activity": "Activity",
+      "system": "System"
+    }
+  },
+  "page": {
+    "overview": { "title": "Overview", "label": "Overview" },
+    "agents": { "title": "Agents", "label": "AI employees" },
+    "deliverables": { "title": "Deliverables", "label": "Delivered work" },
+    "results": { "title": "Delivery Center", "label": "Delivery Center" },
+    "tasks": { "title": "Tasks", "label": "Tasks" },
+    "workflows": { "title": "Workflows", "label": "Workflows" },
+    "approvals": { "title": "Approvals", "label": "Approvals" },
+    "communications": { "title": "Communications", "label": "Communications" },
+    "runtime": { "title": "Runtime", "label": "Runtime" },
+    "events": { "title": "Events", "label": "Activity" }
+  },
+  "shell": {
+    "connected": "Connected to runtime",
+    "disconnected": "Connection unavailable",
+    "statusConnected": "Connected",
+    "statusOffline": "Offline",
+    "runtimeHeld": "HELD FOR YOU",
+    "runtimePaused": "PAUSED",
+    "runtimeLive": "LIVE",
+    "stateHeld": "Held for review",
+    "statePaused": "Paused",
+    "stateRunning": "Running",
+    "tick": "Tick {tick}"
+  },
+  "language": {
+    "ariaLabel": "Language",
+    "cn": "中文",
+    "us": "English"
+  },
+  "table": {
+    "actions": "actions",
+    "noRecords": "No records"
+  },
+  "status": {
+    "completed": "Completed",
+    "inProgress": "In progress",
+    "inReview": "In review",
+    "blocked": "Blocked",
+    "needsAttention": "Needs attention",
+    "paused": "Paused",
+    "active": "Active",
+    "archived": "Archived",
+    "cancelled": "Cancelled",
+    "queued": "Queued",
+    "idle": "Idle",
+    "working": "Working",
+    "running": "Running",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "available": "Available for a new mandate",
+    "unassigned": "Unassigned"
+  },
+  "statusToken": {
+    "created": "created",
+    "assigned": "assigned",
+    "accepted": "accepted",
+    "started": "started",
+    "submitted": "submitted",
+    "running": "running",
+    "paused": "paused",
+    "pending": "pending",
+    "open": "open",
+    "done": "done",
+    "completed": "completed",
+    "granted": "granted",
+    "denied": "denied",
+    "failed": "failed",
+    "blocked": "blocked",
+    "cancelled": "cancelled",
+    "canceled": "canceled",
+    "aborted": "aborted",
+    "queued": "queued",
+    "idle": "idle",
+    "working": "working",
+    "defined": "defined",
+    "onboarding": "onboarding",
+    "active": "active",
+    "on_leave": "on leave",
+    "suspended": "suspended",
+    "transferred": "transferred",
+    "offboarded": "offboarded"
+  },
+  "presence": {
+    "idle": "idle",
+    "perceiving": "perceiving",
+    "thinking": "thinking",
+    "planning": "planning",
+    "acting": "acting",
+    "reflecting": "reflecting",
+    "waiting_input": "waiting_input",
+    "blocked": "blocked",
+    "in_meeting": "in_meeting",
+    "faulted": "faulted"
+  },
+  "feedback": {
+    "submitting": "Submitting…",
+    "commandFailed": "Command failed",
+    "runtimeHeld": "Runtime held — approval gates now wait for you",
+    "runtimeResumed": "Runtime resumed",
+    "runtimePaused": "Runtime paused",
+    "oneTickAdvanced": "One tick advanced",
+    "briefSubmitted": "Brief submitted — {title}",
+    "briefDecomposed": "The Chief Officer turned it into a workflow — {count} work item(s) so far",
+    "briefNoItems": "The brief was not decomposed",
+    "instructionSent": "Instruction sent — Agent: {agent}",
+    "instructionEmpty": "Instruction is empty",
+    "agentResumed": "Agent resumed — {agent}",
+    "agentPaused": "Agent paused — {agent}",
+    "agentCreated": "Agent created — {agent}",
+    "agentArchived": "Agent archived — {agent}",
+    "taskInjected": "Task injected — assigned to {position}",
+    "taskInjectedByCapability": "Task injected — matched by capability: {capabilities}",
+    "taskReassigned": "Task reassigned — {position}",
+    "taskAssignedToAgent": "Task assigned — {agent}",
+    "taskAssignedByCapability": "Task reassigned — re-matched by capability",
+    "reviewRequested": "Review requested",
+    "taskCancelled": "Task cancelled",
+    "taskDeleted": "Task deleted",
+    "workflowDeleted": "Workflow deleted",
+    "approved": "Approved — {title} continues",
+    "rejected": "Rejected — {title} records your decision"
+  },
+  "overview": {
+    "eyebrow": "COMPANY HOME",
+    "description": "See the people, work, and decisions moving through the company right now.",
+    "startWork": "Start work",
+    "status": {
+      "held": "Held for review",
+      "paused": "Paused",
+      "normal": "Operating normally"
+    },
+    "workInMotion": {
+      "one": "{count} workflow in motion",
+      "other": "{count} workflows in motion"
+    },
+    "ready": "Ready for the next brief",
+    "heroMeta": "Runtime tick {tick} · simulation time {simTime} · queue {queue}",
+    "stat": {
+      "agents": "Agents",
+      "agentsDetail": "{count} active now",
+      "activeWork": "Active work",
+      "activeWorkDetail": "{count} total tasks",
+      "workflows": "Workflows",
+      "workflowsDetail": "{count} total instances",
+      "waiting": "Waiting on you",
+      "approvalRequired": "Approval required",
+      "noDecisions": "No open decisions"
+    },
+    "brief": {
+      "panel": "Start a company brief",
+      "hint": "The CEO turns your brief into coordinated work",
+      "workTitle": "Work title",
+      "workTitlePlaceholder": "Churn driver report",
+      "objective": "Objective",
+      "objectiveHint": "What must be true when the company is done",
+      "objectivePlaceholder": "Find the driver of churn and ship a recommendation",
+      "context": "Context (optional)",
+      "contextHint": "Anything else the CEO should know",
+      "contextPlaceholder": "Focus on enterprise accounts from last quarter",
+      "hold": "Pause at approval gates so I can decide",
+      "startWork": "Start Work",
+      "keys": "Verification keys",
+      "keysHint": "One acceptance key per line — a brief without any is refused",
+      "keysPlaceholder": "endpoint\ntest-report",
+      "priority": "Priority (1–9, optional)",
+      "priorityPlaceholder": "2",
+      "dueAtSim": "Due at sim time (optional)",
+      "dueAtSimPlaceholder": "600",
+      "reason": "Reason (audited)",
+      "reasonHint": "Why the company takes this on — written to the audit trail",
+      "reasonPlaceholder": "the board asked for it this quarter",
+      "decomposeTimeoutDetail": "The runtime was released after {steps} steps with no work item — watch Overview for what happened",
+      "keysRequired": "Verification keys are required",
+      "keysRequiredDetail": "Without an acceptance key the organization cannot prove the brief is done",
+      "reasonRequired": "A reason is required",
+      "reasonRequiredDetail": "Every brief is an auditable command, so the operator states why",
+      "priorityInvalid": "Priority must be a whole number from 1 to 9",
+      "priorityInvalidDetail": "Leave it empty to let the organization decide the order",
+      "dueInvalid": "Due at sim time must be a whole number of 0 or more",
+      "dueInvalidDetail": "Leave it empty when the brief carries no deadline",
+      "result": {
+        "panel": "Submission result",
+        "creating": "Submitting the brief…",
+        "creatingDetail": "The console is handing this brief to the Chief Officer",
+        "created": "Task created — {title}",
+        "createdDetail": "It is real work in the organization now; find it on the Tasks page",
+        "heldDetail": "The runtime is held for you — nothing advances until you decide",
+        "failed": "The brief was not submitted",
+        "failedDetail": "The organization did not accept this brief",
+        "briefId": "Brief id",
+        "commandId": "Command id",
+        "statusLabel": "Status",
+        "workItems": "Work items",
+        "taskId": "Task id",
+        "openTask": "Open task",
+        "viewTasks": "See it in Tasks",
+        "goApprovals": "Decide now",
+        "gate": "Approval gate",
+        "gateDetail": "Workflow {instance} · step {step} · {count} approver(s) required",
+        "workflow": "Workflow",
+        "noWorkflow": "No workflow yet — the items are standalone tasks",
+        "stepwise": "Work items are created one per workflow step; more appear as the run continues",
+        "awaitGate": "The approval gate opens when the workflow reaches that step, and will show on the Approvals page",
+        "progress": "{completed}/{total} done",
+        "steps": "{steps} tick(s) used",
+        "status": {
+          "creating": "Submitting",
+          "failed": "Not submitted",
+          "filed": "Accepted, reading back",
+          "decomposing": "Awaiting breakdown",
+          "running": "In progress",
+          "held": "Paused — waiting for your decision",
+          "approval": "Pending approval",
+          "completed": "Completed"
+        }
+      }
+    },
+    "briefs": {
+      "panel": "Company briefs",
+      "hint": "Brief → work items → status",
+      "empty": "No briefs yet",
+      "emptyHint": "Submit a brief above — the Chief Officer turns it into work items",
+      "submittedBy": "Submitted by",
+      "simTime": "Submitted at",
+      "itemsLabel": "Work items",
+      "taskId": "Task id",
+      "progress": "{completed}/{total} done",
+      "achievement": "Achievement",
+      "noItems": "Not decomposed yet — the next tick will split it",
+      "pending": "Awaiting decomposition",
+      "blockers": {
+        "one": "{count} work item needs you before this brief can finish",
+        "other": "{count} work items need you before this brief can finish"
+      }
+    },
+    "motion": {
+      "panel": "Work in motion",
+      "empty": "No active workflows",
+      "emptyHint": "Start a brief to put the company to work",
+      "cardMeta": "{stage} · {events} events"
+    },
+    "team": {
+      "panel": "Your AI team",
+      "meet": "Meet the team",
+      "chipMeta": "{position} · {state}"
+    },
+    "titleRequired": "Work title and objective are required",
+    "titleRequiredDetail": "The brief is what the CEO plans from — it cannot be empty",
+    "noAgent": "No agent can receive the work",
+    "noAgentDetail": "The organization has no agents on duty"
+  },
+  "agents": {
+    "eyebrow": "COMPANY / PEOPLE",
+    "description": "Meet the agents running the company, see what they own, hire and archive them, and give them a clear next move.",
+    "pageCount": "{onDuty} on duty · {working} working",
+    "stat": {
+      "onDuty": "On duty",
+      "onDutyDetail": "AI employees in the org",
+      "workingNow": "Working now",
+      "workingNowDetail": "Holding an active task",
+      "paused": "Paused",
+      "pausedDetail": "Waiting for a resume",
+      "archived": "Archived",
+      "archivedDetail": "Off the roster, history kept"
+    },
+    "create": {
+      "panel": "Create an agent",
+      "hint": "A real Agent.Create command",
+      "name": "Name",
+      "namePlaceholder": "Priya",
+      "employeeId": "Employee id",
+      "employeeIdHint": "Stable id used by events and audit",
+      "position": "Position",
+      "employeeNo": "Employee number (optional)",
+      "employeeNoPlaceholder": "FAL-004",
+      "responsibilities": "Responsibilities",
+      "responsibilitiesHint": "One per line — an agent needs a mandate",
+      "responsibilitiesPlaceholder": "test_strategy\nrelease_verification",
+      "traits": "Traits (optional)",
+      "traitsPlaceholder": "methodical, candid",
+      "template": "Start from (optional)",
+      "templateHint": "Capabilities, memory and tool policy come from the template",
+      "templateAuto": "Auto — the position's current SOP",
+      "submit": "Create agent",
+      "required": "Name, employee id, position and at least one responsibility are required",
+      "requiredDetail": "An agent without identity or mandate would be a nameless function call",
+      "positionNew": "+ New position…",
+      "department": "Department",
+      "selectDepartment": "Select department",
+      "positionTitle": "New position title",
+      "positionTitleHint": "The console derives the position id from this title",
+      "positionTitlePlaceholder": "Game Developer",
+      "capabilities": "Capabilities",
+      "capabilitiesHint": "At least one — the kind of work the CEO can route to this seat",
+      "newPositionRequired": "Department, position title and at least one capability are required",
+      "newPositionRequiredDetail": "A typed-in seat needs a box on the chart and the capabilities work is routed by",
+      "capabilityLabels": {
+        "product_requirement": "Product requirement",
+        "technical_design": "Technical design",
+        "implementation": "Implementation",
+        "frontend": "Frontend",
+        "backend": "Backend",
+        "testing": "Testing",
+        "marketing": "Marketing"
+      }
+    },
+    "action": {
+      "details": "Details",
+      "archive": "Archive",
+      "close": "Close record"
+    },
+    "detail": {
+      "panel": "Agent record",
+      "section": {
+        "identity": "Identity",
+        "placement": "Org placement",
+        "runtime": "Runtime state",
+        "advanced": "Advanced"
+      },
+      "employeeId": "Employee id",
+      "employeeNo": "Employee number",
+      "name": "Name",
+      "kind": "Kind",
+      "kindAgent": "AI employee",
+      "kindHuman": "Human",
+      "position": "Position",
+      "department": "Department",
+      "capabilities": "Seat capabilities",
+      "expertise": "Personal expertise",
+      "lifecycle": "Lifecycle",
+      "employment": "Employment status",
+      "presence": "Presence",
+      "paused": "Runtime paused",
+      "cycle": "Current cycle",
+      "focus": "Focus",
+      "updatedAt": "State updated at",
+      "manager": "Reports to",
+      "departmentHead": "Department head",
+      "reports": "Direct reports",
+      "peers": "Same position",
+      "colleagues": "Same department",
+      "none": "None",
+      "currentWork": "Current work",
+      "task": "Current task",
+      "taskStatus": "Task status",
+      "workflow": "Current workflow",
+      "workflowStatus": "Workflow status",
+      "yes": "Yes",
+      "no": "No",
+      "history": "Lifecycle history",
+      "noHistory": "No lifecycle events recorded yet",
+      "diagnostic": "Diagnostic instruction (Agent.Instruct)",
+      "diagnosticHint": "A one-off mandate to this seat. Company-wide work belongs in a brief on Overview."
+    },
+    "archive": {
+      "panel": "Archive an agent",
+      "hint": "Nothing is deleted: the record, its events and its audit trail stay.",
+      "open": "Archive this agent",
+      "reason": "Reason (audited)",
+      "reasonPlaceholder": "role retired by the board",
+      "reasonDefault": "archived by the operator from the console",
+      "confirm": "Archive agent",
+      "self": "You cannot archive the agent you are acting as",
+      "blockedRunning": "This agent still owns a running task"
+    },
+    "archived": {
+      "panel": "Archived agents",
+      "hint": "Archive is a status, not a deletion",
+      "empty": "No archived agents",
+      "retained": "Archived agents keep their identity, events and history"
+    },
+    "mandate": {
+      "instruction": "Instruction",
+      "instructionPlaceholder": "Answer the product request and attach your evidence",
+      "send": "Send instruction"
+    },
+    "team": {
+      "panel": "The team",
+      "coverage": "{staffed} staffed · {total} positions"
+    },
+    "person": {
+      "currentWork": "Current work",
+      "expertise": "Expertise",
+      "lastActivity": "Last activity",
+      "vacant": "Vacant",
+      "noHolder": "No one staffs this position",
+      "hire": "Create agent"
+    },
+    "activity": {
+      "panel": "Agent activity",
+      "viewAll": "View all activity",
+      "empty": "No activity recorded",
+      "emptyHint": "Events appear as soon as agents act"
+    },
+    "instructionEmptyDetail": "Tell the agent what to do"
+  },
+  "tasks": {
+    "eyebrow": "COMPANY / WORK",
+    "description": "Track the work each AI employee owns, intervene when it is blocked, and keep delivery moving.",
+    "createTask": "Create task",
+    "stat": {
+      "active": "Active",
+      "activeDetail": "{count} total tasks",
+      "inReview": "In review",
+      "inReviewDetail": "Waiting for a review",
+      "attention": "Needs attention",
+      "attentionDetail": "Blocked or failed"
+    },
+    "create": {
+      "panel": "Create a task",
+      "hint": "Creates a real task in the TaskService",
+      "title": "Title",
+      "titlePlaceholder": "Quantify Q3 churn",
+      "goal": "Goal",
+      "goalHint": "What the assignee must deliver",
+      "goalPlaceholder": "Publish the churn driver table with sources",
+      "detail": "Detail (optional)",
+      "mode": "Routing",
+      "modePosition": "Assign to a position",
+      "modeCapability": "Match by capability",
+      "assignTo": "Assign to position",
+      "assignHint": "Unstaffed positions remain waiting for assignment",
+      "unstaffed": "{name} (unstaffed)",
+      "capabilities": "Required capabilities",
+      "capabilitiesHint": "The matcher picks the best available holder — no seat needed",
+      "directNotice": "Direct dispatch: this bypasses the brief and the CEO's decomposition — state why.",
+      "reason": "Reason (audited)",
+      "reasonHint": "Why this direct dispatch exists — written to the audit trail",
+      "reasonPlaceholder": "the board asked for it before the next brief"
+    },
+    "queue": {
+      "panel": "Work queue",
+      "hint": "{count} tasks · live from Runtime",
+      "empty": "No work in the queue",
+      "emptyHint": "Create a task or start a company brief to give the team work."
+    },
+    "card": {
+      "standalone": "Standalone task",
+      "owner": "Owner",
+      "attempts": "Attempts",
+      "taskId": "Task ID",
+      "reassign": "Reassign",
+      "requestReview": "Request review",
+      "whyAssigned": "Why assigned",
+      "whyAssignedNone": "Assigned through the seat",
+      "matchedCapabilities": "Matched capabilities"
+    },
+    "reassign": {
+      "panel": "Reassign task",
+      "mode": "Reassign by",
+      "modePosition": "Position",
+      "modeAgent": "Named agent",
+      "modeCapability": "Capability match",
+      "newPosition": "New position",
+      "newAgent": "Agent to assign",
+      "selectAgent": "Choose an agent",
+      "capabilityHint": "The matcher re-runs against this task's own capabilities",
+      "capabilityNeedsSkills": "This task declares no capabilities — it can only move to a position or a named agent"
+    },
+    "titleRequired": "Title and goal are required",
+    "titleRequiredDetail": "A task the system cannot act on has no purpose",
+    "skillsRequired": "Choose at least one capability",
+    "skillsRequiredDetail": "Capability routing needs something to match on",
+    "positionRequired": "Choose a position",
+    "positionRequiredDetail": "Somebody has to own the work",
+    "reasonRequired": "A reason is required for a direct dispatch",
+    "reasonRequiredDetail": "A direct dispatch skips the brief, so the operator owns the justification on the record"
+  },
+  "deliverables": {
+    "eyebrow": "CEO WORKSPACE",
+    "description": "See what your AI company is working on right now, what needs your decision, and what has been delivered.",
+    "pageCount": "{running} running · {needAction} need you · {completed} completed",
+    "workspace": {
+      "panel": "Active tasks",
+      "hint": "{count} tasks in the workspace",
+      "empty": "No work in the workspace",
+      "emptyHint": "Start a company brief from Overview to put the organization to work",
+      "noneInFilter": "Nothing in this state",
+      "noneInFilterHint": "Switch the filter to see the rest of the workspace",
+      "filter": {
+        "all": "All",
+        "running": "Running",
+        "needAction": "Need action",
+        "completed": "Completed"
+      }
+    },
+    "card": {
+      "standalone": "Standalone task",
+      "role": "Role",
+      "stage": "Stage",
+      "noStage": "No workflow stage",
+      "delivery": "Delivery",
+      "progressSteps": "{done} of {total} steps complete",
+      "progressStandalone": "Delivered directly on this task",
+      "needsYou": "Needs your decision",
+      "open": "View result",
+      "decide": "Decide now"
+    },
+    "state": {
+      "running": "Running",
+      "needAction": "Need action",
+      "completed": "Completed"
+    }
+  },
+  "results": {
+    "eyebrow": "DELIVERY CENTER",
+    "description": "What your AI company hands over for this task: the brief, the outcome, the roles behind it, and the path they took.",
+    "back": "Back to the workspace",
+    "header": {
+      "creator": "Created by",
+      "creatorFallback": "The CEO",
+      "completedAt": "Completed at",
+      "simTime": "sim time {time}",
+      "notFinished": "Not finished yet",
+      "workflow": "Workflow",
+      "noWorkflow": "Standalone task"
+    },
+    "state": {
+      "completed": "Completed",
+      "running": "In progress",
+      "failed": "Needs your attention"
+    },
+    "summary": {
+      "panel": "Executive summary",
+      "goal": "User goal",
+      "detail": "Request detail",
+      "execution": "AI execution summary",
+      "executionPending": "No AI work has been recorded for this task yet.",
+      "executionRunning": "The assigned agent is still working — the summary appears when the result is submitted.",
+      "executionFailed": "The agent stopped before delivering, so there is no execution summary to read.",
+      "outcome": "Delivery",
+      "outcomeDelivered": {
+        "one": "{count} deliverable handed over",
+        "other": "{count} deliverables handed over"
+      },
+      "outcomeFailed": "Nothing was handed over — {reason}",
+      "outcomeRunning": "The delivery is still being produced"
+    },
+    "deliverable": {
+      "panel": "Final deliverable",
+      "empty": "Nothing has been delivered yet",
+      "emptyHint": "The delivery appears here the moment the agent submits its result.",
+      "kind": {
+        "code": "Code",
+        "document": "Document",
+        "report": "Report"
+      },
+      "stack": "Built with",
+      "stackMissing": "The delivery did not name its technology stack.",
+      "preview": "Preview",
+      "previewMissing": "This document was delivered without previewable text.",
+      "conclusions": "Key conclusions",
+      "details": "Everything delivered",
+      "files": "Attached files",
+      "filesEmpty": "No file was attached to this delivery.",
+      "viewCode": "View code",
+      "demo": "Open demo",
+      "download": "Download",
+      "downloadReady": "Download ready"
+    },
+    "preview": {
+      "panel": "Run preview",
+      "hint": "This is the delivered project running on your machine, not a recording.",
+      "sources": {
+        "one": "Runs {count} delivered step",
+        "other": "Runs {count} delivered steps"
+      },
+      "wholeProduct": "This preview runs the whole product the workflow produced, not only this task's part.",
+      "skipped": {
+        "one": "{count} delivered step could not be read: {reason}",
+        "other": "{count} delivered steps could not be read: {reason}"
+      },
+      "headingFallback": "Delivered project",
+      "runCommand": "Start command",
+      "iframeTitle": "Live project preview",
+      "unavailable": "Preview unavailable",
+      "unknownState": "{where} is not a preview state this console knows: {state}",
+      "state": {
+        "stopped": "Stopped",
+        "starting": "Starting",
+        "running": "Running",
+        "failed": "Failed"
+      },
+      "action": {
+        "start": "Start preview",
+        "rerun": "Restart",
+        "stop": "Stop",
+        "fullscreen": "Fullscreen"
+      },
+      "error": {
+        "title": "The project could not start",
+        "retry": "Try again"
+      }
+    },
+    "product": {
+      "panel": "The whole delivery",
+      "hint": "{count} files ready to download",
+      "loading": "Loading this step…",
+      "failed": "This step could not be loaded",
+      "download": "Download"
+    },
+    "contribution": {
+      "panel": "Who delivered it",
+      "empty": "No role is recorded yet",
+      "emptyHint": "Roles appear once the work is assigned, delivered or reviewed.",
+      "responsible": "Part played",
+      "owns": "Owns this task",
+      "delivered": "Delivered the result",
+      "reviewed": "Reviewed the delivery"
+    },
+    "journey": {
+      "panel": "Work journey",
+      "hint": "Stages, not logs",
+      "empty": "No journey recorded yet",
+      "emptyHint": "The path appears as the work moves forward.",
+      "phase": {
+        "assigned": "Assigned to a role",
+        "working": "Agent working",
+        "delivered": "Delivered to you",
+        "stopped": "Stopped before delivery"
+      }
+    },
+    "actions": {
+      "panel": "Next moves",
+      "hintCompleted": "The delivery is ready to keep, share or push further.",
+      "hintRunning": "The company is still working — watch the journey while it runs.",
+      "hintFailed": "This work stopped early. Send it back to the role that owns it.",
+      "view": "View deliverable",
+      "progress": "View progress",
+      "newTask": "Create a new task",
+      "optimize": "Optimize result",
+      "optimizeInstruction": "Improve the deliverable for {title}: tighten the findings, close any gap against the goal, and resubmit.",
+      "retry": "Retry"
+    },
+    "error": {
+      "notFound": "This delivery no longer exists",
+      "failed": "This delivery could not be loaded"
+    }
+  },
+  "workflows": {
+    "eyebrow": "COMPANY / WORK",
+    "description": "Follow how a company brief moves from intent to coordinated execution, one stage at a time.",
+    "pageCount": "{active} in motion · {waiting} waiting on approval",
+    "steps": "{done}/{total} steps",
+    "events": "{count} events",
+    "stat": {
+      "inMotion": "In motion",
+      "inMotionDetail": "Live workflow instances",
+      "completed": "Completed",
+      "completedDetail": "Reached their objective",
+      "gates": "Approval gates",
+      "gatesDetail": "Need your decision"
+    },
+    "map": {
+      "panel": "Work map",
+      "hint": "{count} workflow instances · live from Runtime",
+      "failed": "Workflows could not be loaded",
+      "emptyHint": "Start a company brief from Overview to create the first workflow"
+    },
+    "register": {
+      "panel": "Workflow register",
+      "hint": "Status read directly from Runtime",
+      "status": "status",
+      "stage": "current stage",
+      "steps": "steps"
+    },
+    "detail": {
+      "currentStage": "Current stage",
+      "workflowId": "Workflow id",
+      "instance": "Instance",
+      "startedCompleted": "Started / completed",
+      "initiatedBy": "Initiated by",
+      "objective": "Objective",
+      "executionSteps": "Execution steps",
+      "stepFallback": "Step",
+      "stepMeta": "{status} · {task}",
+      "approvalGate": "Approval gate",
+      "gateMeta": "{step} · {status}",
+      "approvalsRequired": "{count} approval required",
+      "reviewApproval": "Review approval"
+    },
+    "tasks": {
+      "panel": "Task assignments",
+      "emptyHint": "Workflows break the objective into tasks",
+      "meta": "{status} · {owner} · {position}"
+    },
+    "activity": {
+      "panel": "Workflow activity",
+      "open": "Open events",
+      "empty": "No workflow activity yet"
+    }
+  },
+  "hiring": {
+    "eyebrow": "HIRING",
+    "decisionRequired": "Hiring decision required",
+    "overview": {
+      "panel": "Hiring decisions",
+      "hint": "Requests the organization raised to fill a seat"
+    },
+    "fact": {
+      "role": "Role",
+      "why": "Why",
+      "requester": "Requested by",
+      "status": "Status",
+      "tasks": "Related tasks",
+      "task": "Related task"
+    },
+    "status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "whyFallback": "The organization lacks a capability this work needs.",
+    "requesterFallback": "The company",
+    "tasksNone": "No task linked yet",
+    "eta": {
+      "approved": "Hiring approved → assigning to {seat}",
+      "rejected": "Blocked — hiring request was rejected"
+    },
+    "explanation": {
+      "noCapability": "No employee currently has the required capability.",
+      "rejectedDetail": "The hiring request was rejected, so the work cannot continue until a human decides."
+    },
+    "joined": {
+      "title": "New teammate",
+      "line": "{seat} has joined the company. The task has resumed."
+    },
+    "tasks": {
+      "waiting": "Waiting for hiring approval",
+      "detail": "Hiring request",
+      "rationale": "Hiring rationale",
+      "requester": "Requester",
+      "outcome": "Approval outcome",
+      "humanDecision": "Why this task entered Human Decision"
+    },
+    "approvals": {
+      "panel": "Hiring requests",
+      "hint": "Seats the company asked to fill",
+      "empty": "No hiring requests",
+      "emptyHint": "When work needs a capability no seat can carry, the request appears here.",
+      "approve": "Approve hire",
+      "outcomeApproved": "The agent has joined the team and the original task has resumed.",
+      "outcomeRejected": "Hiring was rejected; the task moved to Human Decision."
+    }
+  },
+  "approvals": {
+    "eyebrow": "COMPANY / DECISIONS",
+    "description": "Make the decisions that keep company work moving. Every action is recorded and reflected in the runtime.",
+    "pageCount": "{count} waiting for you",
+    "openGates": {
+      "one": "{count} open gate",
+      "other": "{count} open gates"
+    },
+    "hold": {
+      "title": "Runtime held for your decision",
+      "detail": "The company is waiting at an approval gate. Approve or reject to continue execution."
+    },
+    "inbox": {
+      "panel": "Decision inbox",
+      "empty": "Nothing needs your decision",
+      "emptyHint": "When a workflow reaches a human approval gate, it will appear here."
+    },
+    "card": {
+      "required": "Required",
+      "stage": "Workflow stage",
+      "instance": "Instance",
+      "viewWorkflow": "View workflow"
+    },
+    "register": {
+      "panel": "Approval register",
+      "hint": "Gate status from Runtime",
+      "gate": "gate",
+      "status": "status",
+      "votes": "votes",
+      "empty": "No open approval gates"
+    },
+    "escalations": {
+      "panel": "Escalations",
+      "hint": "Audit-derived pending commands",
+      "empty": "No escalations",
+      "emptyHint": "Commands that require additional authority will appear here.",
+      "commandFallback": "Command",
+      "awaitingAuthority": "Awaiting authority"
+    },
+    "history": {
+      "panel": "Decision history",
+      "open": "Open all activity",
+      "empty": "No approval decisions yet",
+      "emptyHint": "Decisions appear here after an operator acts on a gate."
+    },
+    "resumedDetail": "Runtime resumed, the company continues from the gate",
+    "workflowFallback": "workflow"
+  },
+  "communications": {
+    "channelOpened": "channel opened",
+    "channelMembers": "{count} channel members",
+    "messages": {
+      "panel": "Agent messages",
+      "count": "{count} messages",
+      "empty": "No agent messages yet",
+      "emptyHint": "Messages appear when agents answer each other's requests during a run — start work and watch",
+      "time": "time",
+      "from": "from",
+      "to": "to",
+      "subject": "subject",
+      "body": "message",
+      "tableEmpty": "No messages"
+    },
+    "channels": {
+      "panel": "Channels",
+      "empty": "No channels opened yet",
+      "emptyHint": "A channel opens when agents coordinate on work",
+      "openedBy": "opened by",
+      "members": "members",
+      "type": "channel type",
+      "tableEmpty": "No channels"
+    },
+    "collaboration": {
+      "panel": "Collaboration requests",
+      "count": "{count} requests",
+      "empty": "No collaboration requests yet",
+      "emptyHint": "An agent asks a colleague for help when one task needs both their skills",
+      "task": "task",
+      "purpose": "purpose",
+      "tableEmpty": "No collaboration requests"
+    },
+    "events": {
+      "panel": "Communication events",
+      "empty": "Nothing recorded",
+      "emptyHint": "The event log is the single source of truth for communication"
+    }
+  },
+  "events": {
+    "panel": "Event log",
+    "count": "{count} events",
+    "unavailable": "Event log unavailable",
+    "empty": "No events recorded",
+    "emptyHint": "Every command and every agent action lands here",
+    "seq": "#",
+    "actor": "actor",
+    "subject": "subject",
+    "simTime": "sim time",
+    "payload": "payload",
+    "tableEmpty": "No events",
+    "showDeleted": "Show deleted",
+    "hideDeleted": "Hide deleted"
+  },
+  "runtime": {
+    "ariaLabel": "Company runtime",
+    "state": {
+      "running": "Running",
+      "paused": "Paused"
+    },
+    "tickMeta": "tick {tick} · sim time {simTime}",
+    "stepOnce": "Step once",
+    "stepHint": "Step advances exactly one tick — enough to walk a workflow to its next decision.",
+    "pauseHint": "Pause holds the runtime so approval gates wait for you.",
+    "heldNote": "The console is holding the runtime for gate review — decide on the Approvals page to let the company continue.",
+    "readFailed": "Live /api/simulation read failed — showing the runtime state carried by /api/snapshot. {error}",
+    "tags": {
+      "company": "Company",
+      "tick": "Tick",
+      "activity": "Activity",
+      "agents": "Agents",
+      "simTime": "sim time {simTime}",
+      "working": "{working} working / {total}",
+      "queue": "queue {queue} · wakeups {wakeups}"
+    },
+    "activity": {
+      "paused": "Paused",
+      "pausedDetail": "No agent is dispatched while the runtime is held.",
+      "working": "Working",
+      "workingDetail": "{tasks} task(s) · {workflows} workflow(s) · queue {queue} · wakeups {wakeups}",
+      "idle": "Idle",
+      "idleDetail": "No task, workflow or wakeup is queued."
+    },
+    "brief": {
+      "held": "Held at tick {tick} — the company cannot advance until the runtime resumes.",
+      "idle": "The company is idle at tick {tick} — nothing is in flight and no agent is queued.",
+      "working": "The company is working: {parts}.",
+      "workstreams": {
+        "one": "{count} workstream in flight",
+        "other": "{count} workstreams in flight"
+      },
+      "decisions": {
+        "one": "{count} decision waiting on you",
+        "other": "{count} decisions waiting on you"
+      }
+    },
+    "agents": {
+      "panel": "AI employees on duty",
+      "count": "{working} working · {idle} idle"
+    },
+    "currentWork": {
+      "panel": "Current work",
+      "open": "Open workflows",
+      "workflows": "Workflows in motion",
+      "noWorkflows": "No workflow is running — the company has nothing in motion.",
+      "tasks": "Tasks in flight",
+      "noTasks": "No task is assigned to an agent right now.",
+      "workRowMeta": "{stage}{progress} · {events} events"
+    },
+    "taskRowMeta": "{owner} · attempt {attempt}/{maxAttempts} · {events} events",
+    "approvals": {
+      "panel": "Pending approvals",
+      "open": "Open approvals",
+      "decide": "Decide ({count})",
+      "apiError": "The API did not answer /api/workflows or /api/approvals",
+      "empty": "No decision is waiting",
+      "emptyHint": "Approval gates and escalated commands appear here the moment they open.",
+      "votes": "{granted}/{required} approvals",
+      "escalated": "Escalated command"
+    },
+    "recent": {
+      "panel": "Recent activity",
+      "empty": "No activity recorded yet",
+      "emptyHint": "Company events appear as agents begin work"
+    },
+    "advanced": {
+      "title": "Advanced details",
+      "hint": "Raw /api/simulation payload — tick {tick} · queue {queue} · wakeups {wakeups}"
+    },
+    "facts": {
+      "status": "status",
+      "tick": "tick",
+      "simTime": "sim time",
+      "tickDuration": "tick duration",
+      "queueDepth": "queue depth",
+      "pendingWakeups": "pending wakeups",
+      "pausedAgents": "paused agents",
+      "lastTick": "last tick",
+      "budgetOverruns": "budget overruns",
+      "none": "none"
+    }
+  }
+}

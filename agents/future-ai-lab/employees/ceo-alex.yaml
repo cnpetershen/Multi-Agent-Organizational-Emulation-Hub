@@ -1,0 +1,8 @@
+id: ceo-alex
+name: Alex
+position: ceo
+kind: agent
+expertise:
+  - strategy
+  - org_design
+  - capital_allocation

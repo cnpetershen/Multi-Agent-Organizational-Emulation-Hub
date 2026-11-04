@@ -1,0 +1,523 @@
+/*
+ * Runtime operations console (apps/web/src/pages/Runtime.tsx).
+ *
+ * Reads the same visual language as the rest of the console (phase1..6 tokens), but the
+ * page is a status board first: the company state, the people, the work in flight and the
+ * decisions waiting on the operator are all visible before the raw payload is folded away.
+ */
+
+.runtime-console {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* --- top: running / paused / idle, company, tick --------------------------- */
+
+.runtime-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  min-width: 0;
+  padding: 20px 22px;
+  border: 1px solid #253b32;
+  border-radius: var(--radius);
+  background: #17221f;
+  color: #f6fbf8;
+}
+
+.runtime-hero-main {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+/*
+ * `.runtime-state` is scoped under `.runtime-hero` on purpose: `console.css` still carries
+ * the legacy debug-page rule `.runtime-state{...}`/`.runtime-state strong{color:#26313c}`
+ * and runtime.css is bundled before it, so only a higher specificity keeps the headline
+ * readable on the dark console header.
+ */
+.runtime-hero .runtime-state {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 0;
+  color: #dcefe5;
+}
+
+.runtime-hero .runtime-state strong {
+  color: #f6fbf8;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.runtime-hero .runtime-state span {
+  color: #a9bab3;
+  font-size: 12px;
+}
+
+.runtime-pulse {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: #62c58e;
+  box-shadow: 0 0 0 4px rgba(98, 197, 142, 0.16);
+}
+
+.runtime-pulse.paused {
+  background: #e9ad61;
+  box-shadow: 0 0 0 4px rgba(233, 173, 97, 0.16);
+}
+
+.runtime-brief {
+  color: #dcefe5;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.runtime-tags {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.runtime-tag {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1px solid #2a3b34;
+  border-radius: 6px;
+  background: #1c2925;
+}
+
+.runtime-tag small {
+  color: #8fa69c;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.runtime-tag b {
+  overflow: hidden;
+  color: #f3faf6;
+  font-size: 14px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-tag span {
+  overflow: hidden;
+  color: #93a8a0;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-tag.activity-ok b {
+  color: #8fe0b3;
+}
+
+.runtime-tag.activity-warn b {
+  color: #eec27f;
+}
+
+.runtime-tag.activity-muted b {
+  color: #c9d6d1;
+}
+
+.runtime-note {
+  color: #a9bab3;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.runtime-note.held {
+  padding: 9px 11px;
+  border: 1px solid #4a3f24;
+  border-radius: 6px;
+  background: #241f14;
+  color: #eec27f;
+}
+
+.runtime-hero-actions {
+  align-items: center;
+  gap: 10px;
+  margin-top: 0;
+  min-width: 0;
+  max-width: 320px;
+}
+
+.runtime-hint {
+  color: #93a8a0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* --- people and work ------------------------------------------------------ */
+
+.runtime-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+  align-items: start;
+}
+
+.runtime-agents {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px 16px;
+}
+
+.runtime-agent {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-subtle);
+}
+
+.runtime-agent-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.runtime-agent-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.runtime-agent-top b {
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-agent-role {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-agent-copy small {
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-chip {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef1f4;
+  color: #41505e;
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.runtime-chip.tone-ok {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.runtime-chip.tone-warn {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.runtime-chip.tone-muted {
+  background: #f1f3f5;
+  color: var(--faint);
+}
+
+.runtime-work {
+  display: grid;
+  gap: 16px;
+  padding: 14px 16px 16px;
+}
+
+.runtime-work-group {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.runtime-work-group h4 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.runtime-work-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-subtle);
+}
+
+.runtime-work-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.runtime-work-main b {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-work-main span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-empty {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* --- approvals ------------------------------------------------------------ */
+
+.runtime-approvals {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px 16px;
+}
+
+.runtime-approval {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--amber);
+  border-radius: 6px;
+  background: var(--surface-subtle);
+}
+
+.runtime-approval-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.runtime-kicker {
+  overflow: hidden;
+  color: var(--amber);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.runtime-approval-main b {
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-approval-main span:not(.runtime-kicker) {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.runtime-approval-side {
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+  flex: none;
+}
+
+.runtime-approval-side small {
+  max-width: 170px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- advanced details (raw payload) --------------------------------------- */
+
+/*
+ * The details element is a grid item of `.runtime-console`, so like `.panel` it must clip
+ * its content: a non-visible overflow keeps its automatic minimum size at 0 and stops the
+ * summary's text from widening the page on a narrow viewport.
+ */
+.runtime-advanced {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.runtime-advanced > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  list-style: none;
+}
+
+.runtime-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.runtime-advanced > summary::before {
+  content: "▸";
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.runtime-advanced[open] > summary::before {
+  content: "▾";
+}
+
+.runtime-advanced > summary:hover {
+  background: var(--surface-subtle);
+}
+
+.runtime-advanced-title {
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.runtime-advanced-hint {
+  flex: 1 1 140px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.runtime-advanced-body {
+  padding: 0 16px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.runtime-advanced-body .detail-grid {
+  margin-top: 14px;
+}
+
+.runtime-advanced-body pre {
+  max-height: 420px;
+  margin: 0;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid #e7eaee;
+  border-radius: 6px;
+  background: #fafbfc;
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* --- responsive ----------------------------------------------------------- */
+
+@media (max-width: 1080px) {
+  .runtime-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .runtime-hero {
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .runtime-hero-actions {
+    width: 100%;
+    max-width: none;
+  }
+
+  .runtime-hint {
+    flex: 1 1 100%;
+  }
+
+  .runtime-tags {
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  }
+
+  .runtime-approval {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .runtime-approval-side {
+    justify-items: start;
+  }
+
+  .runtime-approval-side small {
+    max-width: none;
+    text-align: left;
+  }
+}

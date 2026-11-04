@@ -1,0 +1,10 @@
+id: frontend-engineer
+title: Frontend Engineer
+department: engineering
+reports_to: cto
+authority_level: 2
+decision_domains:
+  engineering: 1
+capabilities:
+  - implementation
+  - frontend

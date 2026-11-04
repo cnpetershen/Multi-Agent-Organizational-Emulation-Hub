@@ -1,0 +1,10 @@
+id: devops-engineer
+title: DevOps Engineer
+department: engineering
+reports_to: cto
+authority_level: 2
+decision_domains:
+  engineering: 1
+  ops: 1
+capabilities:
+  - implementation

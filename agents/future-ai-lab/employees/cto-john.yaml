@@ -1,0 +1,8 @@
+id: cto-john
+name: John
+position: cto
+kind: agent
+expertise:
+  - architecture
+  - systems_design
+  - code_review

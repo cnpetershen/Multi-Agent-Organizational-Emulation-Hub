@@ -1,0 +1,5 @@
+id: tech-task
+reasoning_style: technical
+planning_style: task_oriented
+decision_framework: first_principles
+reflection_policy: after_action

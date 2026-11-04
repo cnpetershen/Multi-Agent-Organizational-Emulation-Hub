@@ -1,0 +1,9 @@
+id: product-manager
+title: Product Manager
+department: product
+reports_to: ceo
+authority_level: 4
+decision_domains:
+  product: 3
+capabilities:
+  - product_requirement

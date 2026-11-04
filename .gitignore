@@ -1,0 +1,33 @@
+# 依赖与构建产物
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# 环境
+.env
+.env.local
+.env.*.local
+
+# 生成的图表派生物（真相源是文档里的 mermaid 代码块）
+docs/diagrams/*.mmd
+docs/diagrams/manifest.json
+
+# 工具链缓存
+.tooling/
+.npm-cache/
+
+# 运行时状态：默认状态目录在仓库之外（%LOCALAPPDATA%\maoeh / ~/.local/state/maoeh），
+# 这里只兜住把 MAOEH_EVENT_LOG 指到仓库内的自定义路径。
+.maoeh/
+
+# 编辑器 / 系统
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+npm-debug.log*

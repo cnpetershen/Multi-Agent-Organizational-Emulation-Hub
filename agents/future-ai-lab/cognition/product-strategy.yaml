@@ -1,0 +1,5 @@
+id: product-strategy
+reasoning_style: user_value
+planning_style: roadmap_oriented
+decision_framework: prioritisation_based
+reflection_policy: weekly_retrospective

@@ -1,0 +1,8 @@
+id: pm-bona
+name: Bona
+position: product-manager
+kind: agent
+expertise:
+  - product_requirement
+  - ux_research
+  - roadmapping

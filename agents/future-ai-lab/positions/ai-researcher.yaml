@@ -1,0 +1,9 @@
+id: ai-researcher
+title: AI Researcher
+department: research
+reports_to: ceo
+authority_level: 3
+decision_domains:
+  engineering: 3
+capabilities:
+  - technical_design

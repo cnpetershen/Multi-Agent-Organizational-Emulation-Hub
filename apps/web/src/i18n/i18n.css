@@ -1,0 +1,10 @@
+/* Language switch — topbar entry `CN 中文 | US English`.
+   Kept to text + a thin active rule so it stays below the console's operational data. */
+.lang-switch{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.lang-switch button{display:inline-flex;align-items:baseline;gap:4px;border:0;border-bottom:2px solid transparent;background:none;padding:3px 1px;color:var(--muted);font:inherit;font-size:12px;line-height:1.2;cursor:pointer}
+.lang-switch button:hover{color:var(--ink)}
+.lang-switch button[aria-pressed="true"]{color:var(--ink);font-weight:650;border-bottom-color:#69c092}
+.lang-switch .lang-code{font-size:10px;font-weight:750;letter-spacing:.08em;color:var(--faint)}
+.lang-switch button[aria-pressed="true"] .lang-code{color:var(--green)}
+.lang-switch .lang-sep{color:var(--border-strong);font-size:11px}
+@media(max-width:700px){.lang-switch{gap:5px}.lang-switch button{font-size:11px;padding:2px 0}}

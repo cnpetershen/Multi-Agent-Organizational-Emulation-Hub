@@ -1,0 +1,9 @@
+id: ux-designer
+title: UX Designer
+department: product
+reports_to: product-manager
+authority_level: 2
+decision_domains:
+  product: 1
+capabilities:
+  - product_requirement

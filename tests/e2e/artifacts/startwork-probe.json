@@ -1,0 +1,361 @@
+{
+  "calls": [
+    {
+      "at": 1791343172822,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/ownership",
+      "requestId": "35744.13",
+      "post": null,
+      "status": 200,
+      "body": "{\"users\":[{\"id\":\"user-guest-founder\",\"name\":\"Guest Founder\"}],\"organizations\":[{\"id\":\"future-ai-lab\",\"name\":\"Future AI Lab\",\"ownerId\":\"user-guest-founder\",\"seed\":\"lab\"}],\"activeOrganizationId\":\"future-ai-lab\"}"
+    },
+    {
+      "at": 1791343172822,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/snapshot",
+      "requestId": "35744.14",
+      "post": null,
+      "status": 200,
+      "body": "{\"company\":{\"id\":\"future-ai-lab\",\"name\":\"Future AI Lab\",\"ownerId\":\"user-guest-founder\"},\"simulation\":{\"status\":\"running\",\"paused\":false,\"tick\":1,\"simTime\":1,\"tickDuration\":1,\"budgets\":{\"maxAgentTurns\":32,\"maxEvents\":256,\"maxTasks\":64,\"maxWorkflowTransitions\":64,\"maxLlmCalls\":32},\"lastTickStatus\":\"idle\",\"lastTickExceeded\":[],\"queueDepth\":0,\"pendingWakeups\":0,\"pausedAgentIds\":[],\"recovery\":{\"cursor\":0,\"tickNumber\":0,\"taskCount\":0,\"workflowInstanceCount\":0,\"agentStateCount\":0,\"eventCount\":1}},\"departments\":[{\"departmentId\":\"business\",\"name\":\"Business\",\"parentDepartmentId\":null,\"headPositionId\":\"g"
+    },
+    {
+      "at": 1791343173012,
+      "method": "POST",
+      "url": "http://127.0.0.1:4210/api/ownership/session",
+      "requestId": "35744.15",
+      "post": "{\"organizationId\":\"future-ai-lab\"}",
+      "status": 200,
+      "body": "{\"user\":{\"id\":\"user-guest-founder\",\"name\":\"Guest Founder\"},\"organization\":{\"id\":\"future-ai-lab\",\"name\":\"Future AI Lab\",\"ownerId\":\"user-guest-founder\",\"seed\":\"lab\"}}"
+    },
+    {
+      "at": 1791343173020,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/workflows",
+      "requestId": "35744.16",
+      "post": null,
+      "status": 200,
+      "body": "[]"
+    },
+    {
+      "at": 1791343173021,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/work-briefs",
+      "requestId": "35744.17",
+      "post": null,
+      "status": 200,
+      "body": "{\"briefs\":[]}"
+    },
+    {
+      "at": 1791343173021,
+      "method": "POST",
+      "url": "http://127.0.0.1:4210/api/ownership/session",
+      "requestId": "35744.18",
+      "post": "{\"organizationId\":\"future-ai-lab\"}",
+      "status": 200,
+      "body": "{\"user\":{\"id\":\"user-guest-founder\",\"name\":\"Guest Founder\"},\"organization\":{\"id\":\"future-ai-lab\",\"name\":\"Future AI Lab\",\"ownerId\":\"user-guest-founder\",\"seed\":\"lab\"}}"
+    },
+    {
+      "at": 1791343173254,
+      "method": "POST",
+      "url": "http://127.0.0.1:4210/api/command",
+      "requestId": "35744.19",
+      "post": "{\"commandId\":\"ui-1791343173252-1\",\"actor\":{\"operatorId\":\"ceo-alex\",\"displayName\":\"Alex\",\"positionId\":\"ceo\",\"kind\":\"human\"},\"reason\":\"operator holds the runtime for gate review\",\"correlationId\":\"ui-1791343173252-1\",\"causationId\":null,\"createdAtSim\":1,\"commandType\":\"Simulation.Pause\",\"target\":{\"targetType\":\"simulation\",\"targetId\":\"future-ai-lab\"}}",
+      "status": 200,
+      "body": "{\"status\":\"accepted\",\"commandId\":\"ui-1791343173252-1\",\"commandType\":\"Simulation.Pause\",\"replayed\":false,\"events\":[\"ctrl-evt-1\"],\"auditId\":\"audit-1\",\"failure\":null}"
+    },
+    {
+      "at": 1791343173268,
+      "method": "POST",
+      "url": "http://127.0.0.1:4210/api/command",
+      "requestId": "35744.20",
+      "post": "{\"commandId\":\"ui-1791343173266-2\",\"actor\":{\"operatorId\":\"ceo-alex\",\"displayName\":\"Alex\",\"positionId\":\"ceo\",\"kind\":\"human\"},\"reason\":\"probe run\",\"correlationId\":\"ui-1791343173266-2\",\"causationId\":null,\"createdAtSim\":1,\"commandType\":\"Work.SubmitBrief\",\"target\":{\"targetType\":\"agent\",\"targetId\":\"ceo-alex\"},\"workBrief\":{\"title\":\"Probe brief\",\"goal\":\"Prove the Start Work chain reaches the API\",\"verificationKeys\":[\"probe-key\"]}}",
+      "status": 200,
+      "body": "{\"status\":\"accepted\",\"commandId\":\"ui-1791343173266-2\",\"commandType\":\"Work.SubmitBrief\",\"replayed\":false,\"events\":[\"ctrl-evt-2\"],\"auditId\":\"audit-2\",\"failure\":null}"
+    },
+    {
+      "at": 1791343173269,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/workflows",
+      "requestId": "35744.21",
+      "post": null,
+      "status": 200,
+      "body": "[]"
+    },
+    {
+      "at": 1791343173269,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/work-briefs",
+      "requestId": "35744.22",
+      "post": null,
+      "status": 200,
+      "body": "{\"briefs\":[{\"briefId\":\"brief-1\",\"commandId\":\"ui-1791343173266-2\",\"agentId\":\"ceo-alex\",\"operatorId\":\"ceo-alex\",\"reason\":\"probe run\",\"correlationId\":\"ui-1791343173266-2\",\"title\":\"Probe brief\",\"goal\":\"Prove the Start Work chain reaches the API\",\"context\":null,\"verificationKeys\":[\"probe-key\"],\"priority\":null,\"dueAtSim\":null,\"submittedAtSim\":1,\"items\":[],\"counts\":{\"total\":0,\"assigned\":0,\"completed\":0,\"blocked\":0,\"rejected\":0}}]}"
+    },
+    {
+      "at": 1791343173270,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/snapshot",
+      "requestId": "35744.23",
+      "post": null,
+      "status": 200,
+      "body": "{\"company\":{\"id\":\"future-ai-lab\",\"name\":\"Future AI Lab\",\"ownerId\":\"user-guest-founder\"},\"simulation\":{\"status\":\"paused\",\"paused\":true,\"tick\":1,\"simTime\":1,\"tickDuration\":1,\"budgets\":{\"maxAgentTurns\":32,\"maxEvents\":256,\"maxTasks\":64,\"maxWorkflowTransitions\":64,\"maxLlmCalls\":32},\"lastTickStatus\":\"idle\",\"lastTickExceeded\":[],\"queueDepth\":1,\"pendingWakeups\":1,\"pausedAgentIds\":[],\"recovery\":{\"cursor\":0,\"tickNumber\":0,\"taskCount\":0,\"workflowInstanceCount\":0,\"agentStateCount\":0,\"eventCount\":1}},\"departments\":[{\"departmentId\":\"business\",\"name\":\"Business\",\"parentDepartmentId\":null,\"headPositionId\":\"gro"
+    },
+    {
+      "at": 1791343173278,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/work-briefs",
+      "requestId": "35744.24",
+      "post": null,
+      "status": 200,
+      "body": "{\"briefs\":[{\"briefId\":\"brief-1\",\"commandId\":\"ui-1791343173266-2\",\"agentId\":\"ceo-alex\",\"operatorId\":\"ceo-alex\",\"reason\":\"probe run\",\"correlationId\":\"ui-1791343173266-2\",\"title\":\"Probe brief\",\"goal\":\"Prove the Start Work chain reaches the API\",\"context\":null,\"verificationKeys\":[\"probe-key\"],\"priority\":null,\"dueAtSim\":null,\"submittedAtSim\":1,\"items\":[],\"counts\":{\"total\":0,\"assigned\":0,\"completed\":0,\"blocked\":0,\"rejected\":0}}]}"
+    },
+    {
+      "at": 1791343173279,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/workflows",
+      "requestId": "35744.25",
+      "post": null,
+      "status": 200,
+      "body": "[]"
+    },
+    {
+      "at": 1791343173280,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/work-briefs",
+      "requestId": "35744.26",
+      "post": null,
+      "status": 200,
+      "body": "{\"briefs\":[{\"briefId\":\"brief-1\",\"commandId\":\"ui-1791343173266-2\",\"agentId\":\"ceo-alex\",\"operatorId\":\"ceo-alex\",\"reason\":\"probe run\",\"correlationId\":\"ui-1791343173266-2\",\"title\":\"Probe brief\",\"goal\":\"Prove the Start Work chain reaches the API\",\"context\":null,\"verificationKeys\":[\"probe-key\"],\"priority\":null,\"dueAtSim\":null,\"submittedAtSim\":1,\"items\":[],\"counts\":{\"total\":0,\"assigned\":0,\"completed\":0,\"blocked\":0,\"rejected\":0}}]}"
+    },
+    {
+      "at": 1791343173280,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/snapshot",
+      "requestId": "35744.27",
+      "post": null,
+      "status": 200,
+      "body": "{\"company\":{\"id\":\"future-ai-lab\",\"name\":\"Future AI Lab\",\"ownerId\":\"user-guest-founder\"},\"simulation\":{\"status\":\"paused\",\"paused\":true,\"tick\":1,\"simTime\":1,\"tickDuration\":1,\"budgets\":{\"maxAgentTurns\":32,\"maxEvents\":256,\"maxTasks\":64,\"maxWorkflowTransitions\":64,\"maxLlmCalls\":32},\"lastTickStatus\":\"idle\",\"lastTickExceeded\":[],\"queueDepth\":1,\"pendingWakeups\":1,\"pausedAgentIds\":[],\"recovery\":{\"cursor\":0,\"tickNumber\":0,\"taskCount\":0,\"workflowInstanceCount\":0,\"agentStateCount\":0,\"eventCount\":1}},\"departments\":[{\"departmentId\":\"business\",\"name\":\"Business\",\"parentDepartmentId\":null,\"headPositionId\":\"gro"
+    },
+    {
+      "at": 1791343173289,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/workflows",
+      "requestId": "35744.28",
+      "post": null,
+      "status": 200,
+      "body": "[]"
+    },
+    {
+      "at": 1791343173307,
+      "method": "POST",
+      "url": "http://127.0.0.1:4210/api/command",
+      "requestId": "35744.29",
+      "post": "{\"commandId\":\"ui-1791343173305-3\",\"actor\":{\"operatorId\":\"ceo-alex\",\"displayName\":\"Alex\",\"positionId\":\"ceo\",\"kind\":\"human\"},\"reason\":\"operator action from console\",\"correlationId\":\"ui-1791343173305-3\",\"causationId\":null,\"createdAtSim\":1,\"commandType\":\"Simulation.Step\",\"target\":{\"targetType\":\"simulation\",\"targetId\":\"future-ai-lab\"}}",
+      "status": 200,
+      "body": "{\"status\":\"accepted\",\"commandId\":\"ui-1791343173305-3\",\"commandType\":\"Simulation.Step\",\"replayed\":false,\"events\":[\"ctrl-evt-3\"],\"auditId\":\"audit-3\",\"failure\":null}"
+    },
+    {
+      "at": 1791343173337,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/work-briefs",
+      "requestId": "35744.30",
+      "post": null,
+      "status": 200,
+      "body": "{\"briefs\":[{\"briefId\":\"brief-1\",\"commandId\":\"ui-1791343173266-2\",\"agentId\":\"ceo-alex\",\"operatorId\":\"ceo-alex\",\"reason\":\"probe run\",\"correlationId\":\"ui-1791343173266-2\",\"title\":\"Probe brief\",\"goal\":\"Prove the Start Work chain reaches the API\",\"context\":null,\"verificationKeys\":[\"probe-key\"],\"priority\":null,\"dueAtSim\":null,\"submittedAtSim\":1,\"items\":[{\"taskId\":\"task-1\",\"title\":\"Implementation\",\"goal\":\"Complete step \\\"Implementation\\\" of workflow \\\"Probe brief\\\": Prove the Start Work chain reaches the API\",\"status\":\"assigned\",\"positionId\":\"engineer\",\"assigneeEmployeeId\":\"engineer-mike\",\"priority\":"
+    },
+    {
+      "at": 1791343173339,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/workflows",
+      "requestId": "35744.31",
+      "post": null,
+      "status": 200,
+      "body": "[{\"instanceId\":\"instance-1\",\"workflowId\":\"generated-instance-1\",\"title\":\"Probe brief\",\"status\":\"running\",\"stageId\":\"stage-1\",\"activeStepIds\":[\"step-1\"],\"blockedReason\":null,\"paused\":false,\"startedAtSim\":2,\"completedAtSim\":null,\"eventCount\":4,\"approval\":null,\"goal\":\"Prove the Start Work chain reaches the API\",\"correlationId\":\"ui-1791343173266-2\",\"initiatedBy\":\"ceo-alex\",\"stepStates\":[{\"stepId\":\"step-1\",\"status\":\"active\",\"taskId\":\"task-1\"}]}]"
+    },
+    {
+      "at": 1791343173339,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/work-briefs",
+      "requestId": "35744.32",
+      "post": null,
+      "status": 200,
+      "body": "{\"briefs\":[{\"briefId\":\"brief-1\",\"commandId\":\"ui-1791343173266-2\",\"agentId\":\"ceo-alex\",\"operatorId\":\"ceo-alex\",\"reason\":\"probe run\",\"correlationId\":\"ui-1791343173266-2\",\"title\":\"Probe brief\",\"goal\":\"Prove the Start Work chain reaches the API\",\"context\":null,\"verificationKeys\":[\"probe-key\"],\"priority\":null,\"dueAtSim\":null,\"submittedAtSim\":1,\"items\":[{\"taskId\":\"task-1\",\"title\":\"Implementation\",\"goal\":\"Complete step \\\"Implementation\\\" of workflow \\\"Probe brief\\\": Prove the Start Work chain reaches the API\",\"status\":\"assigned\",\"positionId\":\"engineer\",\"assigneeEmployeeId\":\"engineer-mike\",\"priority\":"
+    },
+    {
+      "at": 1791343173339,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/snapshot",
+      "requestId": "35744.33",
+      "post": null,
+      "status": 200,
+      "body": "{\"company\":{\"id\":\"future-ai-lab\",\"name\":\"Future AI Lab\",\"ownerId\":\"user-guest-founder\"},\"simulation\":{\"status\":\"paused\",\"paused\":true,\"tick\":2,\"simTime\":2,\"tickDuration\":1,\"budgets\":{\"maxAgentTurns\":32,\"maxEvents\":256,\"maxTasks\":64,\"maxWorkflowTransitions\":64,\"maxLlmCalls\":32},\"lastTickStatus\":\"ok\",\"lastTickExceeded\":[],\"queueDepth\":0,\"pendingWakeups\":0,\"pausedAgentIds\":[],\"recovery\":{\"cursor\":0,\"tickNumber\":0,\"taskCount\":0,\"workflowInstanceCount\":0,\"agentStateCount\":0,\"eventCount\":1}},\"departments\":[{\"departmentId\":\"business\",\"name\":\"Business\",\"parentDepartmentId\":null,\"headPositionId\":\"growt"
+    },
+    {
+      "at": 1791343173344,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/workflows",
+      "requestId": "35744.34",
+      "post": null,
+      "status": 200,
+      "body": "[{\"instanceId\":\"instance-1\",\"workflowId\":\"generated-instance-1\",\"title\":\"Probe brief\",\"status\":\"running\",\"stageId\":\"stage-1\",\"activeStepIds\":[\"step-1\"],\"blockedReason\":null,\"paused\":false,\"startedAtSim\":2,\"completedAtSim\":null,\"eventCount\":4,\"approval\":null,\"goal\":\"Prove the Start Work chain reaches the API\",\"correlationId\":\"ui-1791343173266-2\",\"initiatedBy\":\"ceo-alex\",\"stepStates\":[{\"stepId\":\"step-1\",\"status\":\"active\",\"taskId\":\"task-1\"}]}]"
+    },
+    {
+      "at": 1791343175335,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/snapshot",
+      "requestId": "35744.35",
+      "post": null,
+      "status": 500,
+      "body": ""
+    },
+    {
+      "at": 1791343175728,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/workflows",
+      "requestId": "35744.36",
+      "post": null,
+      "status": 500,
+      "body": ""
+    },
+    {
+      "at": 1791343175728,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/work-briefs",
+      "requestId": "35744.37",
+      "post": null,
+      "status": 500,
+      "body": ""
+    },
+    {
+      "at": 1791343177837,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/workflows",
+      "requestId": "35744.38",
+      "post": null,
+      "status": 500,
+      "body": ""
+    },
+    {
+      "at": 1791343177837,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/work-briefs",
+      "requestId": "35744.39",
+      "post": null,
+      "status": 500,
+      "body": ""
+    },
+    {
+      "at": 1791343177837,
+      "method": "GET",
+      "url": "http://127.0.0.1:4210/api/snapshot",
+      "requestId": "35744.40",
+      "post": null,
+      "status": 500,
+      "body": ""
+    },
+    {
+      "at": 1791343178354,
+      "method": "POST",
+      "url": "http://127.0.0.1:4210/api/command",
+      "requestId": "35744.41",
+      "post": "{\"commandId\":\"ui-1791343178352-4\",\"actor\":{\"operatorId\":\"ceo-alex\",\"displayName\":\"Alex\",\"positionId\":\"ceo\",\"kind\":\"human\"},\"reason\":\"probe run\",\"correlationId\":\"ui-1791343178352-4\",\"causationId\":null,\"createdAtSim\":2,\"commandType\":\"Work.SubmitBrief\",\"target\":{\"targetType\":\"agent\",\"targetId\":\"ceo-alex\"},\"workBrief\":{\"title\":\"Probe brief offline\",\"goal\":\"Prove a refused command is reported\",\"verificationKeys\":[\"probe-key\"]}}",
+      "status": 500,
+      "body": ""
+    }
+  ],
+  "before": {
+    "feedback": [],
+    "button": {
+      "text": "开始工作",
+      "disabled": false
+    },
+    "report": null,
+    "briefs": 0,
+    "briefItems": 0,
+    "sideRuntime": "运行中",
+    "errors": []
+  },
+  "immediate": {
+    "firstSeenMs": 4,
+    "firstStage": "creating",
+    "firstButton": "提交中…"
+  },
+  "at300": {
+    "feedback": [
+      "feedback success :: ✓ 任务书已提交 — Probe brief首席官已把它变成工作流 — 当前 1 个工作项"
+    ],
+    "button": {
+      "text": "开始工作",
+      "disabled": false
+    },
+    "report": {
+      "stage": "held",
+      "headline": "任务已创建 — Probe brief",
+      "status": "已暂停 — 等待你的决定",
+      "detail": "运行时已为你挂起 — 在你决定之前，组织不会继续推进",
+      "briefId": "brief-1",
+      "taskIds": [
+        "task-1"
+      ],
+      "gate": null
+    },
+    "briefs": 1,
+    "briefItems": 1,
+    "sideRuntime": "已为你挂起",
+    "errors": [],
+    "elapsed": 321
+  },
+  "held": {
+    "feedback": [
+      "feedback success :: ✓ 任务书已提交 — Probe brief首席官已把它变成工作流 — 当前 1 个工作项"
+    ],
+    "button": {
+      "text": "开始工作",
+      "disabled": false
+    },
+    "report": {
+      "stage": "held",
+      "headline": "任务已创建 — Probe brief",
+      "status": "已暂停 — 等待你的决定",
+      "detail": "运行时已为你挂起 — 在你决定之前，组织不会继续推进",
+      "briefId": "brief-1",
+      "taskIds": [
+        "task-1"
+      ],
+      "gate": null
+    },
+    "briefs": 1,
+    "briefItems": 1,
+    "sideRuntime": "已为你挂起",
+    "errors": []
+  },
+  "runtime": {
+    "simulationPaused": true,
+    "tick": 2
+  },
+  "tasksPage": {
+    "cards": 1,
+    "first": "ImplementationProbe brief进行中未记录目标负责人Software Engineer · Mike尝试次数1/1任务 IDtask-1分配依据按岗位分配改派请求评审取消"
+  },
+  "failed": {
+    "feedback": [
+      "feedback error :: ✕ 公司数据暂时不可用POST /api/command 返回 HTTP 500: 空响应体"
+    ],
+    "button": {
+      "text": "开始工作",
+      "disabled": false
+    },
+    "report": {
+      "stage": "failed",
+      "headline": "任务书提交失败",
+      "status": null,
+      "detail": "POST /api/command 返回 HTTP 500: 空响应体",
+      "briefId": null,
+      "taskIds": [],
+      "gate": null
+    },
+    "briefs": 0,
+    "briefItems": 0,
+    "sideRuntime": "已为你挂起",
+    "errors": []
+  }
+}

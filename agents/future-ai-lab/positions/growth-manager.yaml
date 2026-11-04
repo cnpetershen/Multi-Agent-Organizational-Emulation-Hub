@@ -1,0 +1,9 @@
+id: growth-manager
+title: Growth Manager
+department: business
+reports_to: ceo
+authority_level: 3
+decision_domains:
+  marketing: 3
+capabilities:
+  - marketing

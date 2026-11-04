@@ -1,0 +1,16 @@
+id: ceo
+title: Chief Executive Officer
+# 两条正交的轴：authority_level 是组织图上的职级徽章（文档 §3.2.3），
+# decision_domains 才是 authority-engine 真正强制的决策域等级（文档 §3.4.2）。
+# 公司的终裁者必须在每个域都够得上部门级审批门，所以跨域给 L4（§3.4.2 的"公司执行"），
+# 战略/预算/人事所在的 org 与 finance 才是 L5。
+authority_level: 5
+decision_domains:
+  org: 5
+  finance: 5
+  engineering: 4
+  product: 4
+  marketing: 4
+  ops: 4
+capabilities:
+  - product_requirement

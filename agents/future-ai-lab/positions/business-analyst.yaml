@@ -1,0 +1,9 @@
+id: business-analyst
+title: Business Analyst
+department: business
+reports_to: growth-manager
+authority_level: 2
+decision_domains:
+  finance: 2
+capabilities:
+  - product_requirement

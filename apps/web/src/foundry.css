@@ -1,0 +1,64 @@
+/* --- M1.5 · Identity & company ownership: the gate "Create Your AI Company" --- */
+/* Dark hero on the left (the pitch), light panel on the right (the two-step form). The console
+   it guards is the same MAOEH shell as before; only founders see this screen. */
+.foundry{min-height:100vh;display:grid;grid-template-columns:minmax(0,1.06fr) minmax(0,.94fr);background:var(--canvas)}
+.foundry-hero{position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:42px;padding:30px 44px 42px;background:var(--nav);color:#fff;overflow:hidden}
+.foundry-hero:after{content:"";position:absolute;right:-18%;top:-34%;width:72%;height:76%;border-radius:50%;background:radial-gradient(circle at 34% 34%,rgba(37,133,90,.45),transparent 64%);pointer-events:none}
+.foundry-hero-top{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.foundry-brand{font-size:12px;letter-spacing:.16em;font-weight:750}
+.foundry-brand span{color:#84909d;font-weight:500}
+.foundry-hero .lang-switch button{color:#84909d}
+.foundry-hero .lang-switch button:hover{color:#fff}
+.foundry-hero .lang-switch button[aria-pressed="true"]{color:#fff}
+.foundry-hero .lang-switch .lang-code{color:#5f6b78}
+.foundry-hero .lang-switch button[aria-pressed="true"] .lang-code{color:#69c092}
+.foundry-hero .lang-switch .lang-sep{color:#3a4552}
+.foundry-hero-copy{position:relative;z-index:1;display:grid;gap:20px;max-width:560px}
+.foundry-kicker{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#8fb7a3;font-weight:750}
+.foundry-hero-copy h1{font-size:clamp(34px,4.2vw,52px);line-height:1.06;letter-spacing:-.02em;font-weight:650;color:#fff}
+.foundry-lede{font-size:15px;line-height:1.65;color:#b9c3cd}
+.foundry-cta{display:flex;flex-wrap:wrap;gap:12px}
+.foundry-cta .primary{padding:12px 22px;font-size:14px;box-shadow:0 10px 26px rgba(37,133,90,.35)}
+.foundry-secondary{border:1px solid #3a4552;background:transparent;color:#e7ecf1;border-radius:5px;padding:12px 22px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.foundry-secondary:hover{background:#1b232c}
+.foundry-note{font-size:12px;color:#84909d}
+.foundry-points{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:10px 22px;margin:0;padding:0;list-style:none;font-size:12.5px;color:#a9b4bf}
+.foundry-points li:before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#69c092;margin-right:8px;vertical-align:middle}
+.foundry-panel{display:flex;align-items:center;justify-content:center;padding:40px 36px;background:var(--surface);border-left:1px solid var(--border)}
+.foundry-panel-inner{display:grid;gap:18px;width:100%;max-width:470px}
+.foundry-steps h2,.foundry-form h2{font-size:24px;letter-spacing:-.01em;font-weight:650}
+.foundry-steps ol{display:grid;gap:12px;margin:4px 0 0;padding:0;list-style:none;counter-reset:foundry-step}
+.foundry-steps li{position:relative;counter-increment:foundry-step;display:grid;gap:4px;padding:14px 58px 14px 16px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-subtle)}
+.foundry-steps li:before{content:counter(foundry-step,decimal-leading-zero);position:absolute;right:15px;top:14px;font-size:11px;letter-spacing:.1em;color:var(--faint);font-weight:750}
+.foundry-steps li b{font-size:13.5px;font-weight:650}
+.foundry-steps li span{font-size:12.5px;line-height:1.55;color:var(--muted)}
+.foundry-stepline{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--green);font-weight:750}
+.foundry-form{display:grid;gap:16px}
+.foundry-form .button-row{padding:0}
+.foundry-founder-chip{display:inline-flex;align-items:center;gap:8px;width:fit-content;margin:0;padding:6px 12px;border:1px solid #cfe7db;border-radius:999px;background:var(--green-soft);color:#1d5e43;font-size:13px;font-weight:600}
+.foundry-founder-chip:before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green)}
+.foundry-ceo{margin:0;font-size:12.5px;line-height:1.55;color:var(--muted)}
+.foundry-error{margin:0;padding:9px 12px;border:1px solid #f3c2bd;border-radius:var(--radius);background:var(--red-soft);color:var(--red);font-size:13px}
+.foundry-error button{margin-left:8px;border:1px solid #f3c2bd;border-radius:5px;background:#fff;color:var(--red);font:inherit;font-size:12px;padding:3px 8px;cursor:pointer}
+.foundry-muted{margin:0;font-size:13px;color:var(--muted)}
+.foundry-companies{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.foundry-companies button{display:flex;align-items:center;gap:12px;width:100%;padding:13px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.foundry-companies button:hover{border-color:#a9b6c2;background:var(--surface-subtle)}
+.foundry-companies button:disabled{opacity:.6;cursor:not-allowed}
+.foundry-company-mark{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:8px;background:#dce8e1;color:#1d5e43;font-size:14px;font-weight:750}
+.foundry-company-copy{display:grid;gap:2px;min-width:0;flex:1}
+.foundry-company-copy b{font-size:14px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.foundry-company-copy small{font-size:12px;color:var(--muted)}
+.foundry-company-go{color:var(--faint);font-size:15px}
+/* Sidebar: who owns the running company, and the way back out to the gate. */
+.founder-line{display:block;color:#84909d;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.founder-switch{width:100%;margin-top:4px;border:1px solid #29333d;border-radius:5px;background:transparent;color:#84909d;font:inherit;font-size:11px;padding:6px 8px;cursor:pointer}
+.founder-switch:hover{background:var(--nav-soft);color:#fff;border-color:#3a4552}
+.foundry.foundry-boot{display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--canvas)}
+.foundry.foundry-boot .loading-state{padding:0}
+@media(max-width:900px){
+  .foundry{grid-template-columns:1fr}
+  .foundry-hero{gap:30px;padding:22px 18px 32px}
+  .foundry-hero-copy h1{font-size:34px}
+  .foundry-panel{border-left:0;padding:28px 18px 44px}
+}

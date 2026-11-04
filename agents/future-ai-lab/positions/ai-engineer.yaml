@@ -1,0 +1,9 @@
+id: ai-engineer
+title: AI Engineer
+department: engineering
+reports_to: cto
+authority_level: 2
+decision_domains:
+  engineering: 2
+capabilities:
+  - implementation

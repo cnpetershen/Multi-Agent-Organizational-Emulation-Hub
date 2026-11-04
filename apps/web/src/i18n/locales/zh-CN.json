@@ -1,0 +1,1063 @@
+{
+  "app": {
+    "documentTitle": "MAOEH 控制台",
+    "brand": "MAOEH",
+    "brandSuffix": "公司",
+    "tagline": "AI 运营公司",
+    "companyFallback": "公司运行时",
+    "eyebrowFallback": "AI 公司",
+    "loadingWorkspace": "正在加载公司工作区…",
+    "dataUnavailable": "公司数据暂时不可用。",
+    "dataUnavailableShort": "公司数据暂时不可用",
+    "boundary": {
+      "eyebrow": "运营控制台",
+      "title": "控制台渲染失败"
+    }
+  },
+  "foundry": {
+    "eyebrow": "AI 公司平台",
+    "title": "创建你的 AI 公司",
+    "subtitle": "写下创始人，起一个公司名，MAOEH 就会为你组建组织：先有一位 CEO，再由你招募每一位 AI 员工。",
+    "createCta": "创建我的 AI 公司",
+    "signIn": "登录",
+    "howTitle": "三步拥有你自己的 AI 公司",
+    "step1": "创始人",
+    "step1Detail": "你来创办公司，所有权归你，全程无需密码。",
+    "step2": "公司名称",
+    "step2Detail": "AI 员工在控制台各处看到的就是这个名字。",
+    "step3": "CEO 智能体",
+    "step3Detail": "公司成立的瞬间，一位自动生成的 CEO 就会入职，随时准备继续招人。",
+    "noPassword": "没有密码，也没有账号。公司运行在这台机器上，归你所有。",
+    "point1": "创始人拥有公司",
+    "point2": "公司雇佣智能体",
+    "point3": "每一次决策都可观察",
+    "stepOf": "第 {step} 步，共 {total} 步",
+    "founderTitle": "谁来创办这家公司？",
+    "founderLabel": "你的创始人姓名",
+    "founderHint": "AI 员工会这样称呼你。",
+    "founderPlaceholder": "例如：林岚",
+    "companyTitle": "给你的 AI 公司起名",
+    "companyLabel": "公司名称",
+    "companyHint": "随你发挥——公司成立时会自动生成 CEO。",
+    "companyPlaceholder": "例如：Jack AI Lab",
+    "ownedBy": "所有者 {name}",
+    "ceoNote": "公司成立的瞬间，你的 CEO 智能体就已就位。",
+    "createSubmit": "创建公司",
+    "continue": "继续",
+    "back": "返回",
+    "signInTitle": "登录你的公司",
+    "signInEmpty": "还没有公司——先创办一家。",
+    "loading": "正在读取你的公司列表…",
+    "unavailable": "公司列表暂不可用。",
+    "errorFounderName": "创始人需要一个名字。",
+    "errorCompanyName": "公司需要一个名字。",
+    "errorTooLong": "名字太长了。",
+    "errorUnknownCompany": "这家公司已不存在。",
+    "switchCompany": "切换公司"
+  },
+  "api": {
+    "receivedArray": "数组",
+    "receivedObject": "对象",
+    "receivedType": "类型 {type}",
+    "emptyBody": "空响应体",
+    "object": "{where} 必须是对象，实际收到 {received}",
+    "array": "{where} 必须是数组，实际收到 {received}",
+    "string": "{where} 必须是非空字符串，实际收到 {received}",
+    "number": "{where} 必须是有限数值，实际收到 {received}",
+    "boolean": "{where} 必须是布尔值，实际收到 {received}",
+    "unreachable": "{method} {path} 无法连接 API — {cause}",
+    "httpFailure": "{method} {path} 返回 HTTP {status}{detail}",
+    "nonJson": "{method} {path} 返回 HTTP {status}，响应体不是 JSON — {snippet}",
+    "unknownStatus": "POST /api/command 返回了未知状态 “{status}”",
+    "unknownCommand": "未知指令"
+  },
+  "common": {
+    "refresh": "刷新",
+    "retry": "重试",
+    "submitting": "提交中…",
+    "cancel": "取消",
+    "delete": "删除",
+    "deleteTaskConfirm": "确定删除该任务吗？任务将退出组织，且无法撤销。",
+    "deleteTaskWorkflowConfirm": "确定删除该任务及其所属工作流吗？两者都将退出组织，且无法撤销。",
+    "deleteWorkflowConfirm": "确定删除该工作流及其全部任务吗？此操作无法撤销。",
+    "close": "关闭",
+    "change": "更换",
+    "viewAll": "查看全部",
+    "pause": "暂停",
+    "resume": "恢复",
+    "approve": "批准",
+    "reject": "驳回",
+    "selectPosition": "选择岗位…",
+    "unknownError": "未知错误",
+    "unassigned": "未指派",
+    "agentFallback": "Agent",
+    "untitledWorkflow": "未命名工作流",
+    "untitledTask": "未命名任务",
+    "noObjective": "未记录目标",
+    "noGoal": "未记录目标",
+    "noReason": "未记录原因",
+    "noTask": "无任务",
+    "noTasks": "暂无任务",
+    "noActivity": "暂无活动",
+    "noActivityHint": "Agent 开始工作后，公司活动会显示在这里",
+    "noActivityShort": "暂无活动",
+    "noAgentsOnDuty": "暂无在岗 Agent",
+    "noAgentsHint": "组织为岗位配置人员后，Agent 会显示在这里",
+    "noWorkflows": "暂无工作流",
+    "approvalInboxUnavailable": "审批收件箱不可用",
+    "decisionStep": "决策步骤",
+    "workflowFallback": "工作流",
+    "stagePlanning": "规划",
+    "recentActivity": "最近活动",
+    "openActivity": "打开活动"
+  },
+  "nav": {
+    "ariaLabel": "公司导航",
+    "openMenu": "打开导航",
+    "closeMenu": "关闭导航",
+    "group": {
+      "company": "公司",
+      "work": "工作",
+      "decisions": "决策",
+      "activity": "活动",
+      "system": "系统"
+    }
+  },
+  "page": {
+    "overview": { "title": "总览", "label": "总览" },
+    "agents": { "title": "Agent", "label": "AI 员工" },
+    "deliverables": { "title": "交付成果", "label": "交付成果" },
+    "results": { "title": "成果交付中心", "label": "成果交付中心" },
+    "tasks": { "title": "任务", "label": "任务" },
+    "workflows": { "title": "工作流", "label": "工作流" },
+    "approvals": { "title": "审批", "label": "审批" },
+    "communications": { "title": "沟通", "label": "沟通" },
+    "runtime": { "title": "运行时", "label": "运行时" },
+    "events": { "title": "事件", "label": "活动" }
+  },
+  "shell": {
+    "connected": "已连接运行时",
+    "disconnected": "连接不可用",
+    "statusConnected": "已连接",
+    "statusOffline": "离线",
+    "runtimeHeld": "已为你挂起",
+    "runtimePaused": "已暂停",
+    "runtimeLive": "运行中",
+    "stateHeld": "为你挂起待审",
+    "statePaused": "已暂停",
+    "stateRunning": "运行中",
+    "tick": "Tick {tick}"
+  },
+  "language": {
+    "ariaLabel": "语言",
+    "cn": "中文",
+    "us": "English"
+  },
+  "table": {
+    "actions": "操作",
+    "noRecords": "暂无记录"
+  },
+  "status": {
+    "completed": "已完成",
+    "inProgress": "进行中",
+    "inReview": "评审中",
+    "blocked": "已阻塞",
+    "needsAttention": "需关注",
+    "paused": "已暂停",
+    "active": "在岗",
+    "archived": "已归档",
+    "cancelled": "已取消",
+    "queued": "排队中",
+    "idle": "空闲",
+    "working": "工作中",
+    "running": "运行中",
+    "pending": "待处理",
+    "approved": "已批准",
+    "rejected": "已驳回",
+    "available": "可接受新任务",
+    "unassigned": "未指派"
+  },
+  "statusToken": {
+    "created": "已创建",
+    "assigned": "已指派",
+    "accepted": "已接受",
+    "started": "已开始",
+    "submitted": "已提交",
+    "running": "运行中",
+    "paused": "已暂停",
+    "pending": "待处理",
+    "open": "待决策",
+    "done": "已完成",
+    "completed": "已完成",
+    "granted": "已批准",
+    "denied": "已驳回",
+    "failed": "失败",
+    "blocked": "已阻塞",
+    "cancelled": "已取消",
+    "canceled": "已取消",
+    "aborted": "已中止",
+    "queued": "排队中",
+    "idle": "空闲",
+    "working": "工作中",
+    "defined": "已定义",
+    "onboarding": "入职中",
+    "active": "在职",
+    "on_leave": "休假中",
+    "suspended": "已停职",
+    "transferred": "已调岗",
+    "offboarded": "已离职"
+  },
+  "presence": {
+    "idle": "空闲",
+    "perceiving": "感知中",
+    "thinking": "思考中",
+    "planning": "规划中",
+    "acting": "行动中",
+    "reflecting": "反思中",
+    "waiting_input": "等待输入",
+    "blocked": "已阻塞",
+    "in_meeting": "会议中",
+    "faulted": "故障"
+  },
+  "feedback": {
+    "submitting": "提交中…",
+    "commandFailed": "指令执行失败",
+    "runtimeHeld": "运行时已挂起 — 审批闸门现在会等待你",
+    "runtimeResumed": "运行时已恢复",
+    "runtimePaused": "运行时已暂停",
+    "oneTickAdvanced": "已推进一个 tick",
+    "briefSubmitted": "任务书已提交 — {title}",
+    "briefDecomposed": "首席官已把它变成工作流 — 当前 {count} 个工作项",
+    "briefNoItems": "任务书未被拆分",
+    "instructionSent": "指令已发送 — Agent：{agent}",
+    "instructionEmpty": "指令为空",
+    "agentResumed": "Agent 已恢复 — {agent}",
+    "agentPaused": "Agent 已暂停 — {agent}",
+    "agentCreated": "Agent 已创建 — {agent}",
+    "agentArchived": "Agent 已归档 — {agent}",
+    "taskInjected": "任务已注入 — 已指派给 {position}",
+    "taskInjectedByCapability": "任务已注入 — 按能力匹配分配：{capabilities}",
+    "taskReassigned": "任务已改派 — {position}",
+    "taskAssignedToAgent": "任务已指派 — {agent}",
+    "taskAssignedByCapability": "任务已改派 — 重新按能力匹配",
+    "reviewRequested": "已请求评审",
+    "taskCancelled": "任务已取消",
+    "taskDeleted": "任务已删除",
+    "workflowDeleted": "工作流已删除",
+    "approved": "已批准 — {title} 继续执行",
+    "rejected": "已驳回 — {title} 已记录你的决定"
+  },
+  "overview": {
+    "eyebrow": "公司主页",
+    "description": "查看此刻正在公司中流动的人、工作与决策。",
+    "startWork": "开始工作",
+    "status": {
+      "held": "为你挂起待审",
+      "paused": "已暂停",
+      "normal": "正常运行"
+    },
+    "workInMotion": {
+      "one": "{count} 个工作流进行中",
+      "other": "{count} 个工作流进行中"
+    },
+    "ready": "可以开始下一项任务",
+    "heroMeta": "运行时 tick {tick} · 仿真时间 {simTime} · 队列 {queue}",
+    "stat": {
+      "agents": "Agent",
+      "agentsDetail": "{count} 个活跃",
+      "activeWork": "进行中的工作",
+      "activeWorkDetail": "共 {count} 个任务",
+      "workflows": "工作流",
+      "workflowsDetail": "共 {count} 个实例",
+      "waiting": "等待你处理",
+      "approvalRequired": "需要审批",
+      "noDecisions": "没有待决事项"
+    },
+    "brief": {
+      "panel": "发起公司任务书",
+      "hint": "CEO 会把你的任务书变成协同工作",
+      "workTitle": "工作标题",
+      "workTitlePlaceholder": "客户流失归因报告",
+      "objective": "目标",
+      "objectiveHint": "公司完成时，什么必须为真",
+      "objectivePlaceholder": "找出流失的驱动因素并给出建议",
+      "context": "背景（可选）",
+      "contextHint": "其他需要 CEO 了解的信息",
+      "contextPlaceholder": "重点关注上一季度的企业客户",
+      "hold": "在审批闸门暂停，让我来决定",
+      "startWork": "开始工作",
+      "keys": "验收键",
+      "keysHint": "每行一个验收键 — 没有验收键的任务书会被拒绝",
+      "keysPlaceholder": "endpoint\ntest-report",
+      "priority": "优先级（1–9，可选）",
+      "priorityPlaceholder": "2",
+      "dueAtSim": "截止仿真时间（可选）",
+      "dueAtSimPlaceholder": "600",
+      "reason": "原因（进入审计）",
+      "reasonHint": "公司为何承接此事 — 将写入审计轨迹",
+      "reasonPlaceholder": "董事会要求本季度完成",
+      "decomposeTimeoutDetail": "运行时在 {steps} 步后已释放，仍没有工作项 — 请在概览页查看发生了什么",
+      "keysRequired": "验收键为必填",
+      "keysRequiredDetail": "没有验收键，组织无法证明任务书已完成",
+      "reasonRequired": "原因不能为空",
+      "reasonRequiredDetail": "每份任务书都是可审计的指令，操作员必须说明缘由",
+      "priorityInvalid": "优先级必须是 1 到 9 之间的整数",
+      "priorityInvalidDetail": "留空即可由组织自行决定顺序",
+      "dueInvalid": "截止仿真时间必须是 0 或以上的整数",
+      "dueInvalidDetail": "任务书没有截止时间时请留空",
+      "result": {
+        "panel": "提交结果",
+        "creating": "正在提交任务书…",
+        "creatingDetail": "控制台正在把这份任务书交给首席官",
+        "created": "任务已创建 — {title}",
+        "createdDetail": "它已经是组织中的真实工作，可以在 Tasks 页找到",
+        "heldDetail": "运行时已为你挂起 — 在你决定之前，组织不会继续推进",
+        "failed": "任务书提交失败",
+        "failedDetail": "组织没有接受这份任务书",
+        "briefId": "任务书 ID",
+        "commandId": "命令 ID",
+        "statusLabel": "当前状态",
+        "workItems": "工作项",
+        "taskId": "任务 ID",
+        "openTask": "打开任务",
+        "viewTasks": "在 Tasks 页查看",
+        "goApprovals": "去审批",
+        "gate": "审批闸门",
+        "gateDetail": "工作流 {instance} · 步骤 {step} · 需要 {count} 位批准人",
+        "workflow": "工作流",
+        "noWorkflow": "尚未生成工作流 — 当前是独立任务",
+        "stepwise": "工作项按工作流步骤逐个生成，运行时放行后会继续出现",
+        "awaitGate": "审批闸门会在工作流推进到该步骤时打开，并出现在审批页",
+        "progress": "已完成 {completed}/{total}",
+        "steps": "已用 {steps} 个 tick",
+        "status": {
+          "creating": "提交中",
+          "failed": "提交失败",
+          "filed": "已受理，读取中",
+          "decomposing": "等待拆分",
+          "running": "进行中",
+          "held": "已暂停 — 等待你的决定",
+          "approval": "等待审批（Pending approval）",
+          "completed": "已完成"
+        }
+      }
+    },
+    "briefs": {
+      "panel": "公司任务书",
+      "hint": "任务书 → 工作项 → 状态",
+      "empty": "还没有任务书",
+      "emptyHint": "在上方提交任务书 — 首席官会把它变成工作项",
+      "submittedBy": "提交人",
+      "simTime": "提交于",
+      "itemsLabel": "工作项",
+      "taskId": "任务 ID",
+      "progress": "已完成 {completed}/{total}",
+      "achievement": "达成度",
+      "noItems": "尚未拆分 — 下一个 tick 将完成拆分",
+      "pending": "等待拆分",
+      "blockers": {
+        "one": "{count} 个工作项需要你处理，任务书才能完成",
+        "other": "{count} 个工作项需要你处理，任务书才能完成"
+      }
+    },
+    "motion": {
+      "panel": "进行中的工作",
+      "empty": "没有进行中的工作流",
+      "emptyHint": "发起一项任务书，让公司开始工作",
+      "cardMeta": "{stage} · {events} 个事件"
+    },
+    "team": {
+      "panel": "你的 AI 团队",
+      "meet": "认识团队",
+      "chipMeta": "{position} · {state}"
+    },
+    "titleRequired": "工作标题与目标为必填",
+    "titleRequiredDetail": "任务书是 CEO 规划的依据 — 不能为空",
+    "noAgent": "没有 Agent 可以承接这项工作",
+    "noAgentDetail": "组织中当前没有在岗 Agent"
+  },
+  "agents": {
+    "eyebrow": "公司 / 人员",
+    "description": "认识运营这家公司的 Agent，了解他们负责什么，创建或归档 Agent，并给出明确的下一步。",
+    "pageCount": "{onDuty} 人在岗 · {working} 人工作中",
+    "stat": {
+      "onDuty": "在岗",
+      "onDutyDetail": "组织中的 AI 员工",
+      "workingNow": "正在工作",
+      "workingNowDetail": "持有进行中的任务",
+      "paused": "已暂停",
+      "pausedDetail": "等待恢复",
+      "archived": "已归档",
+      "archivedDetail": "已离开名册，历史保留"
+    },
+    "create": {
+      "panel": "创建 Agent",
+      "hint": "真实的 Agent.Create 指令",
+      "name": "姓名",
+      "namePlaceholder": "Priya",
+      "employeeId": "员工 ID",
+      "employeeIdHint": "事件与审计使用的稳定 ID",
+      "position": "岗位",
+      "employeeNo": "工号（可选）",
+      "employeeNoPlaceholder": "FAL-004",
+      "responsibilities": "职责",
+      "responsibilitiesHint": "每行一条 — Agent 必须有明确职责",
+      "responsibilitiesPlaceholder": "test_strategy\nrelease_verification",
+      "traits": "特质（可选）",
+      "traitsPlaceholder": "严谨, 直言",
+      "template": "参照 Agent（可选）",
+      "templateHint": "能力、记忆与工具策略来自参照对象",
+      "templateAuto": "自动 — 该岗位现有 SOP",
+      "submit": "创建 Agent",
+      "required": "姓名、员工 ID、岗位与至少一条职责为必填",
+      "requiredDetail": "没有身份与职责的 Agent 只是一次匿名的函数调用",
+      "positionNew": "+ 新建职位…",
+      "department": "部门",
+      "selectDepartment": "选择部门",
+      "positionTitle": "新职位名称",
+      "positionTitleHint": "控制台会据此生成职位 ID",
+      "positionTitlePlaceholder": "游戏开发者",
+      "capabilities": "能力标签",
+      "capabilitiesHint": "至少一项 — CEO 据此把工作派给该职位",
+      "newPositionRequired": "部门、职位名称与至少一项能力标签为必填",
+      "newPositionRequiredDetail": "新建职位需要先确定所属部门，以及工作据以路由的能力标签",
+      "capabilityLabels": {
+        "product_requirement": "产品需求",
+        "technical_design": "技术设计",
+        "implementation": "开发实现",
+        "frontend": "前端",
+        "backend": "后端",
+        "testing": "测试",
+        "marketing": "市场营销"
+      }
+    },
+    "action": {
+      "details": "详情",
+      "archive": "归档",
+      "close": "关闭档案"
+    },
+    "detail": {
+      "panel": "Agent 档案",
+      "section": {
+        "identity": "身份",
+        "placement": "组织归属",
+        "runtime": "运行状态",
+        "advanced": "高级"
+      },
+      "employeeId": "员工 ID",
+      "employeeNo": "工号",
+      "name": "姓名",
+      "kind": "类型",
+      "kindAgent": "AI 员工",
+      "kindHuman": "人类",
+      "position": "岗位",
+      "department": "部门",
+      "capabilities": "岗位能力",
+      "expertise": "个人专长",
+      "lifecycle": "生命周期",
+      "employment": "雇佣状态",
+      "presence": "在岗状态",
+      "paused": "运行暂停",
+      "cycle": "当前周期",
+      "focus": "关注焦点",
+      "updatedAt": "状态更新于",
+      "manager": "汇报对象",
+      "departmentHead": "部门负责人",
+      "reports": "直接下属",
+      "peers": "同岗位同事",
+      "colleagues": "同部门同事",
+      "none": "无",
+      "currentWork": "当前工作",
+      "task": "当前任务",
+      "taskStatus": "任务状态",
+      "workflow": "当前工作流",
+      "workflowStatus": "工作流状态",
+      "yes": "是",
+      "no": "否",
+      "history": "生命周期历史",
+      "noHistory": "暂无生命周期事件",
+      "diagnostic": "诊断指令（Agent.Instruct）",
+      "diagnosticHint": "向该岗位发送一次性任务。公司级工作请在概览页提交任务书。"
+    },
+    "archive": {
+      "panel": "归档 Agent",
+      "hint": "不会删除任何数据：记录、事件与审计都保留。",
+      "open": "归档该 Agent",
+      "reason": "原因（进入审计）",
+      "reasonPlaceholder": "岗位已被董事会撤销",
+      "reasonDefault": "操作员在控制台执行归档",
+      "confirm": "确认归档",
+      "self": "你不能归档当前操作身份所属的 Agent",
+      "blockedRunning": "该 Agent 仍持有运行中的任务"
+    },
+    "archived": {
+      "panel": "已归档 Agent",
+      "hint": "归档是状态变更，不是删除",
+      "empty": "暂无已归档 Agent",
+      "retained": "已归档 Agent 保留身份、事件与全部历史"
+    },
+    "mandate": {
+      "instruction": "指令",
+      "instructionPlaceholder": "回应产品需求并附上你的依据",
+      "send": "发送指令"
+    },
+    "team": {
+      "panel": "团队",
+      "coverage": "{staffed} 人在岗 · 共 {total} 个岗位"
+    },
+    "person": {
+      "currentWork": "当前工作",
+      "expertise": "专长",
+      "lastActivity": "最近活动",
+      "vacant": "空缺",
+      "noHolder": "该岗位暂无员工",
+      "hire": "创建 Agent"
+    },
+    "activity": {
+      "panel": "Agent 活动",
+      "viewAll": "查看全部活动",
+      "empty": "暂无活动记录",
+      "emptyHint": "Agent 一旦行动，事件就会出现"
+    },
+    "instructionEmptyDetail": "告诉 Agent 需要做什么"
+  },
+  "tasks": {
+    "eyebrow": "公司 / 工作",
+    "description": "跟踪每位 AI 员工负责的工作，在受阻时介入，让交付持续推进。",
+    "createTask": "创建任务",
+    "stat": {
+      "active": "进行中",
+      "activeDetail": "共 {count} 个任务",
+      "inReview": "评审中",
+      "inReviewDetail": "等待评审",
+      "attention": "需关注",
+      "attentionDetail": "已阻塞或失败"
+    },
+    "create": {
+      "panel": "创建任务",
+      "hint": "在 TaskService 中创建真实任务",
+      "title": "标题",
+      "titlePlaceholder": "量化第三季度流失",
+      "goal": "目标",
+      "goalHint": "承接人必须交付什么",
+      "goalPlaceholder": "发布带来源的流失驱动因素表",
+      "detail": "详情（可选）",
+      "mode": "分配方式",
+      "modePosition": "指派到岗位",
+      "modeCapability": "按能力匹配",
+      "assignTo": "指派岗位",
+      "assignHint": "未配人的岗位会一直等待指派",
+      "unstaffed": "{name}（未配人）",
+      "capabilities": "所需能力",
+      "capabilitiesHint": "由匹配引擎选出最合适的人，无需指定岗位",
+      "directNotice": "直接派发：此路径绕过任务书与 CEO 的拆分 — 请说明原因。",
+      "reason": "原因（进入审计）",
+      "reasonHint": "这次直接派发的缘由 — 将写入审计轨迹",
+      "reasonPlaceholder": "董事会要求在下一份任务书之前先做"
+    },
+    "queue": {
+      "panel": "工作队列",
+      "hint": "{count} 个任务 · 实时来自运行时",
+      "empty": "队列中没有工作",
+      "emptyHint": "创建任务或发起公司任务书，给团队安排工作。"
+    },
+    "card": {
+      "standalone": "独立任务",
+      "owner": "负责人",
+      "attempts": "尝试次数",
+      "taskId": "任务 ID",
+      "reassign": "改派",
+      "requestReview": "请求评审",
+      "whyAssigned": "分配依据",
+      "whyAssignedNone": "按岗位分配",
+      "matchedCapabilities": "命中能力"
+    },
+    "reassign": {
+      "panel": "改派任务",
+      "mode": "改派方式",
+      "modePosition": "岗位",
+      "modeAgent": "指定 agent",
+      "modeCapability": "按能力匹配",
+      "newPosition": "新岗位",
+      "newAgent": "要指派的 Agent",
+      "selectAgent": "选择 agent",
+      "capabilityHint": "匹配引擎会按该任务自带的能力重新匹配",
+      "capabilityNeedsSkills": "该任务未声明能力，只能改派到岗位或指定 agent"
+    },
+    "titleRequired": "标题和目标为必填",
+    "titleRequiredDetail": "系统无法执行的任务没有意义",
+    "skillsRequired": "请至少选择一项能力",
+    "skillsRequiredDetail": "按能力分配需要匹配依据",
+    "positionRequired": "请选择岗位",
+    "positionRequiredDetail": "工作必须有人负责",
+    "reasonRequired": "直接派发必须填写原因",
+    "reasonRequiredDetail": "直接派发跳过任务书，操作员必须在记录中说明缘由"
+  },
+  "deliverables": {
+    "eyebrow": "CEO 工作台",
+    "description": "同时查看 AI 公司正在处理的任务、需要你决定的事项，以及已经交付的成果。",
+    "pageCount": "{running} 进行中 · {needAction} 待你决定 · {completed} 已完成",
+    "workspace": {
+      "panel": "进行中的任务",
+      "hint": "工作区共 {count} 个任务",
+      "empty": "工作区暂无任务",
+      "emptyHint": "在首页提交一份公司任务书，让组织开始工作",
+      "noneInFilter": "该状态下暂无任务",
+      "noneInFilterHint": "切换筛选条件可查看工作区的其他任务",
+      "filter": {
+        "all": "全部",
+        "running": "进行中",
+        "needAction": "待你决定",
+        "completed": "已完成"
+      }
+    },
+    "card": {
+      "standalone": "独立任务",
+      "role": "负责岗位",
+      "stage": "当前阶段",
+      "noStage": "无工作流阶段",
+      "delivery": "交付状态",
+      "progressSteps": "已完成 {done}/{total} 个步骤",
+      "progressStandalone": "由该任务直接交付",
+      "needsYou": "需要你决定",
+      "open": "查看结果",
+      "decide": "立即决定"
+    },
+    "state": {
+      "running": "进行中",
+      "needAction": "待你决定",
+      "completed": "已完成"
+    }
+  },
+  "results": {
+    "eyebrow": "成果交付中心",
+    "description": "你的 AI 公司为这个任务交付的内容：任务要求、交付结果、参与角色，以及它们走过的路径。",
+    "back": "返回工作区",
+    "header": {
+      "creator": "创建者",
+      "creatorFallback": "CEO（公司负责人）",
+      "completedAt": "完成时间",
+      "simTime": "仿真时间 {time}",
+      "notFinished": "尚未完成",
+      "workflow": "所属流程",
+      "noWorkflow": "独立任务"
+    },
+    "state": {
+      "completed": "已完成",
+      "running": "进行中",
+      "failed": "需要你处理"
+    },
+    "summary": {
+      "panel": "执行摘要",
+      "goal": "用户目标",
+      "detail": "任务说明",
+      "execution": "AI 执行总结",
+      "executionPending": "该任务还没有记录任何 AI 执行过程。",
+      "executionRunning": "负责的 Agent 仍在推进，提交结果后这里会显示执行总结。",
+      "executionFailed": "Agent 中途停止，没有提交可阅读的执行总结。",
+      "outcome": "交付结果",
+      "outcomeDelivered": {
+        "one": "已交付 {count} 项成果",
+        "other": "已交付 {count} 项成果"
+      },
+      "outcomeFailed": "没有交付任何内容——{reason}",
+      "outcomeRunning": "交付内容仍在产出中"
+    },
+    "deliverable": {
+      "panel": "最终交付物",
+      "empty": "尚未交付任何内容",
+      "emptyHint": "Agent 提交结果后，交付内容会显示在这里。",
+      "kind": {
+        "code": "代码",
+        "document": "文档",
+        "report": "报告"
+      },
+      "stack": "技术栈",
+      "stackMissing": "本次交付没有说明使用的技术栈。",
+      "preview": "内容预览",
+      "previewMissing": "这份文档没有可预览的正文内容。",
+      "conclusions": "关键结论",
+      "details": "全部交付内容",
+      "files": "附带文件",
+      "filesEmpty": "本次交付没有附带文件。",
+      "viewCode": "查看代码",
+      "demo": "打开演示",
+      "download": "下载成果",
+      "downloadReady": "下载已就绪"
+    },
+    "preview": {
+      "panel": "运行预览",
+      "hint": "这里运行的是本次交付的真实项目，不是录屏或截图。",
+      "sources": {
+        "one": "运行 {count} 个已交付步骤",
+        "other": "运行 {count} 个已交付步骤"
+      },
+      "wholeProduct": "此预览运行的是该工作流产出的整套产品，而不只是本任务的这一部分。",
+      "skipped": {
+        "one": "{count} 个已交付步骤无法读取：{reason}",
+        "other": "{count} 个已交付步骤无法读取：{reason}"
+      },
+      "headingFallback": "交付的项目",
+      "runCommand": "启动命令",
+      "iframeTitle": "项目实机预览",
+      "unavailable": "预览暂时不可用",
+      "unknownState": "{where} 不是本控制台认识的预览状态：{state}",
+      "state": {
+        "stopped": "已停止",
+        "starting": "启动中",
+        "running": "运行中",
+        "failed": "启动失败"
+      },
+      "action": {
+        "start": "启动预览",
+        "rerun": "重新运行",
+        "stop": "停止",
+        "fullscreen": "全屏"
+      },
+      "error": {
+        "title": "项目未能启动",
+        "retry": "重试"
+      }
+    },
+    "product": {
+      "panel": "交付成果（整套）",
+      "hint": "共 {count} 个文件可下载",
+      "loading": "正在加载该步骤…",
+      "failed": "该步骤加载失败",
+      "download": "下载"
+    },
+    "contribution": {
+      "panel": "谁交付了它",
+      "empty": "尚未记录任何角色",
+      "emptyHint": "任务被分配、交付或评审后，这里会显示相关角色。",
+      "responsible": "承担的部分",
+      "owns": "负责该任务",
+      "delivered": "提交了成果",
+      "reviewed": "评审了本次交付"
+    },
+    "journey": {
+      "panel": "工作历程",
+      "hint": "只展示阶段，不展示日志",
+      "empty": "尚无历程记录",
+      "emptyHint": "工作推进后，这里会显示它走过的阶段。",
+      "phase": {
+        "assigned": "已分配到岗位",
+        "working": "Agent 执行中",
+        "delivered": "已交付给你",
+        "stopped": "交付前被中断"
+      }
+    },
+    "actions": {
+      "panel": "可以做的操作",
+      "hintCompleted": "成果已就绪，可以留存、分享或继续推进。",
+      "hintRunning": "公司仍在推进工作，可以边看历程边等待。",
+      "hintFailed": "工作提前中止，可以把它退回给负责岗位。",
+      "view": "查看成果",
+      "progress": "查看进度",
+      "newTask": "创建新任务",
+      "optimize": "优化成果",
+      "optimizeInstruction": "改进 {title} 的交付物：让结论更扎实，补齐与目标之间的差距，然后重新提交。",
+      "retry": "重试"
+    },
+    "error": {
+      "notFound": "该交付记录已不存在",
+      "failed": "无法加载这份交付记录"
+    }
+  },
+  "workflows": {
+    "eyebrow": "公司 / 工作",
+    "description": "跟随公司任务书从意图到协同执行的推进过程，逐阶段查看。",
+    "pageCount": "{active} 个进行中 · {waiting} 个等待审批",
+    "steps": "{done}/{total} 步",
+    "events": "{count} 个事件",
+    "stat": {
+      "inMotion": "进行中",
+      "inMotionDetail": "活跃的工作流实例",
+      "completed": "已完成",
+      "completedDetail": "已达成目标",
+      "gates": "审批闸门",
+      "gatesDetail": "需要你决定"
+    },
+    "map": {
+      "panel": "工作地图",
+      "hint": "{count} 个工作流实例 · 实时来自运行时",
+      "failed": "无法加载工作流",
+      "emptyHint": "在总览页发起公司任务书以创建第一个工作流"
+    },
+    "register": {
+      "panel": "工作流登记表",
+      "hint": "状态直接读取自运行时",
+      "status": "状态",
+      "stage": "当前阶段",
+      "steps": "步骤"
+    },
+    "detail": {
+      "currentStage": "当前阶段",
+      "workflowId": "工作流 ID",
+      "instance": "实例",
+      "startedCompleted": "开始 / 完成",
+      "initiatedBy": "发起人",
+      "objective": "目标",
+      "executionSteps": "执行步骤",
+      "stepFallback": "步骤",
+      "stepMeta": "{status} · {task}",
+      "approvalGate": "审批闸门",
+      "gateMeta": "{step} · {status}",
+      "approvalsRequired": "需要 {count} 个审批",
+      "reviewApproval": "查看审批"
+    },
+    "tasks": {
+      "panel": "任务分派",
+      "emptyHint": "工作流会把目标拆解为任务",
+      "meta": "{status} · {owner} · {position}"
+    },
+    "activity": {
+      "panel": "工作流活动",
+      "open": "打开事件",
+      "empty": "暂无工作流活动"
+    }
+  },
+  "hiring": {
+    "eyebrow": "招聘",
+    "decisionRequired": "需要招聘决策",
+    "overview": {
+      "panel": "招聘决策",
+      "hint": "组织为补位岗位提出的招聘请求"
+    },
+    "fact": {
+      "role": "岗位",
+      "why": "原因",
+      "requester": "发起人",
+      "status": "状态",
+      "tasks": "关联任务",
+      "task": "关联任务"
+    },
+    "status": {
+      "pending": "待审批",
+      "approved": "已批准",
+      "rejected": "已拒绝"
+    },
+    "whyFallback": "组织缺少这项工作所需的能力。",
+    "requesterFallback": "公司",
+    "tasksNone": "暂无关联任务",
+    "eta": {
+      "approved": "招聘已批准 → 正在指派给 {seat}",
+      "rejected": "已阻塞 —— 招聘请求被拒绝"
+    },
+    "explanation": {
+      "noCapability": "当前没有员工具备所需能力。",
+      "rejectedDetail": "招聘请求被拒绝，在人工决策之前这项工作无法继续。"
+    },
+    "joined": {
+      "title": "新同事",
+      "line": "{seat} 已加入公司，原任务已恢复。"
+    },
+    "tasks": {
+      "waiting": "等待招聘审批",
+      "detail": "招聘请求",
+      "rationale": "招聘原因",
+      "requester": "发起人",
+      "outcome": "审批结果",
+      "humanDecision": "该任务进入人工决策的原因"
+    },
+    "approvals": {
+      "panel": "招聘请求",
+      "hint": "公司申请补位的岗位",
+      "empty": "暂无招聘请求",
+      "emptyHint": "当工作所需能力无人可承担时，请求会显示在这里。",
+      "approve": "批准招聘",
+      "outcomeApproved": "该 Agent 已加入团队，原任务已恢复。",
+      "outcomeRejected": "招聘被拒绝，该任务已转入人工决策。"
+    }
+  },
+  "approvals": {
+    "eyebrow": "公司 / 决策",
+    "description": "做出让公司工作持续推进的决策。每个动作都会被记录并反映到运行时。",
+    "pageCount": "{count} 项等待你处理",
+    "openGates": {
+      "one": "{count} 个待决策闸门",
+      "other": "{count} 个待决策闸门"
+    },
+    "hold": {
+      "title": "运行时已挂起，等待你的决定",
+      "detail": "公司正停在审批闸门前。批准或驳回以继续执行。"
+    },
+    "inbox": {
+      "panel": "决策收件箱",
+      "empty": "没有需要你决定的事项",
+      "emptyHint": "当工作流到达人工审批闸门时，会显示在这里。"
+    },
+    "card": {
+      "required": "所需票数",
+      "stage": "工作流阶段",
+      "instance": "实例",
+      "viewWorkflow": "查看工作流"
+    },
+    "register": {
+      "panel": "审批登记表",
+      "hint": "闸门状态来自运行时",
+      "gate": "闸门",
+      "status": "状态",
+      "votes": "票数",
+      "empty": "没有待决策的审批闸门"
+    },
+    "escalations": {
+      "panel": "上报事项",
+      "hint": "由审计派生出的待处理指令",
+      "empty": "暂无上报事项",
+      "emptyHint": "需要更高权限的指令会显示在这里。",
+      "commandFallback": "指令",
+      "awaitingAuthority": "等待授权"
+    },
+    "history": {
+      "panel": "决策历史",
+      "open": "打开全部活动",
+      "empty": "暂无审批决策",
+      "emptyHint": "操作员对闸门做出决定后，记录会显示在这里。"
+    },
+    "resumedDetail": "运行时已恢复，公司从该闸门继续执行",
+    "workflowFallback": "工作流"
+  },
+  "communications": {
+    "channelOpened": "频道已开启",
+    "channelMembers": "{count} 名频道成员",
+    "messages": {
+      "panel": "Agent 消息",
+      "count": "{count} 条消息",
+      "empty": "暂无 Agent 消息",
+      "emptyHint": "当 Agent 在运行中互相回应请求时会出现消息 — 开始工作并观察",
+      "time": "时间",
+      "from": "发件人",
+      "to": "收件人",
+      "subject": "主题",
+      "body": "消息",
+      "tableEmpty": "暂无消息"
+    },
+    "channels": {
+      "panel": "频道",
+      "empty": "暂无已开启的频道",
+      "emptyHint": "当 Agent 就工作展开协同时会开启频道",
+      "openedBy": "开启者",
+      "members": "成员",
+      "type": "频道类型",
+      "tableEmpty": "暂无频道"
+    },
+    "collaboration": {
+      "panel": "协作请求",
+      "count": "{count} 条请求",
+      "empty": "暂无协作请求",
+      "emptyHint": "当一个任务同时需要两种能力时，Agent 会向同事发起协作",
+      "task": "任务",
+      "purpose": "事由",
+      "tableEmpty": "暂无协作请求"
+    },
+    "events": {
+      "panel": "沟通事件",
+      "empty": "暂无记录",
+      "emptyHint": "事件日志是沟通的唯一真相来源"
+    }
+  },
+  "events": {
+    "panel": "事件日志",
+    "count": "{count} 个事件",
+    "unavailable": "事件日志不可用",
+    "empty": "暂无事件记录",
+    "emptyHint": "每条指令和每个 Agent 动作都会落在这里",
+    "seq": "#",
+    "actor": "行为者",
+    "subject": "对象",
+    "simTime": "仿真时间",
+    "payload": "载荷",
+    "tableEmpty": "暂无事件",
+    "showDeleted": "显示已删除",
+    "hideDeleted": "隐藏已删除"
+  },
+  "runtime": {
+    "ariaLabel": "公司运行时",
+    "state": {
+      "running": "运行中",
+      "paused": "已暂停"
+    },
+    "tickMeta": "tick {tick} · 仿真时间 {simTime}",
+    "stepOnce": "单步推进",
+    "stepHint": "单步恰好推进一个 tick — 足以把工作流走到下一个决策点。",
+    "pauseHint": "暂停会挂起运行时，让审批闸门等待你。",
+    "heldNote": "控制台正在为闸门审核挂起运行时 — 到审批页面做出决定即可让公司继续。",
+    "readFailed": "实时读取 /api/simulation 失败 — 正在显示 /api/snapshot 携带的运行时状态。{error}",
+    "tags": {
+      "company": "公司",
+      "tick": "Tick",
+      "activity": "活动",
+      "agents": "Agent",
+      "simTime": "仿真时间 {simTime}",
+      "working": "{working} 人工作中 / 共 {total} 人",
+      "queue": "队列 {queue} · 待唤醒 {wakeups}"
+    },
+    "activity": {
+      "paused": "已暂停",
+      "pausedDetail": "运行时挂起期间不会调度任何 Agent。",
+      "working": "工作中",
+      "workingDetail": "{tasks} 个任务 · {workflows} 个工作流 · 队列 {queue} · 待唤醒 {wakeups}",
+      "idle": "空闲",
+      "idleDetail": "没有排队中的任务、工作流或唤醒。"
+    },
+    "brief": {
+      "held": "已挂起在 tick {tick} — 运行时恢复前公司无法推进。",
+      "idle": "公司在 tick {tick} 处于空闲 — 没有进行中的工作，也没有排队的 Agent。",
+      "working": "公司正在工作：{parts}。",
+      "workstreams": {
+        "one": "{count} 条工作流在推进",
+        "other": "{count} 条工作流在推进"
+      },
+      "decisions": {
+        "one": "{count} 个决策等待你处理",
+        "other": "{count} 个决策等待你处理"
+      }
+    },
+    "agents": {
+      "panel": "在岗 AI 员工",
+      "count": "{working} 人工作中 · {idle} 人空闲"
+    },
+    "currentWork": {
+      "panel": "当前工作",
+      "open": "打开工作流",
+      "workflows": "进行中的工作流",
+      "noWorkflows": "没有正在运行的工作流 — 公司当前没有在推进的事情。",
+      "tasks": "进行中的任务",
+      "noTasks": "当前没有指派给 Agent 的任务。",
+      "workRowMeta": "{stage}{progress} · {events} 个事件"
+    },
+    "taskRowMeta": "{owner} · 第 {attempt}/{maxAttempts} 次尝试 · {events} 个事件",
+    "approvals": {
+      "panel": "待处理审批",
+      "open": "打开审批",
+      "decide": "去决策（{count}）",
+      "apiError": "API 未响应 /api/workflows 或 /api/approvals",
+      "empty": "没有等待中的决策",
+      "emptyHint": "审批闸门和上报指令一旦开启就会显示在这里。",
+      "votes": "{granted}/{required} 个审批",
+      "escalated": "上报的指令"
+    },
+    "recent": {
+      "panel": "最近活动",
+      "empty": "暂无活动记录",
+      "emptyHint": "Agent 开始工作后会出现公司事件"
+    },
+    "advanced": {
+      "title": "高级详情",
+      "hint": "原始 /api/simulation 载荷 — tick {tick} · 队列 {queue} · 待唤醒 {wakeups}"
+    },
+    "facts": {
+      "status": "状态",
+      "tick": "tick",
+      "simTime": "仿真时间",
+      "tickDuration": "tick 时长",
+      "queueDepth": "队列深度",
+      "pendingWakeups": "待唤醒",
+      "pausedAgents": "已暂停 Agent",
+      "lastTick": "最近一次 tick",
+      "budgetOverruns": "预算超限",
+      "none": "无"
+    }
+  }
+}

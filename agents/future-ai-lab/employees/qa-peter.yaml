@@ -1,0 +1,8 @@
+id: qa-peter
+name: Peter
+position: qa
+kind: agent
+expertise:
+  - testing
+  - automation
+  - playwright

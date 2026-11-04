@@ -1,0 +1,5 @@
+id: exec-strategic
+reasoning_style: strategic
+planning_style: long_term
+decision_framework: risk_adjusted
+reflection_policy: weekly_retrospective

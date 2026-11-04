@@ -1,0 +1,9 @@
+id: qa
+title: QA Engineer
+department: engineering
+reports_to: cto
+authority_level: 2
+decision_domains:
+  engineering: 2
+capabilities:
+  - testing

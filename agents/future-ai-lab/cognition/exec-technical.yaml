@@ -1,0 +1,5 @@
+id: exec-technical
+reasoning_style: technical
+planning_style: long_term
+decision_framework: tradeoff_based
+reflection_policy: weekly_retrospective

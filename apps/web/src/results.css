@@ -1,0 +1,112 @@
+/* --- Results: the delivery page behind /results/:taskId --------------------- */
+/* Seven blocks — header, summary, deliverable, whole product, contributions, journey, actions.
+   The page reuses the panel, pill, detail-section, objective and field-label contracts; every
+   value below comes from the phase1 design tokens, so the delivery reads as part of the same
+   console. */
+.result-page{max-width:960px}
+.result-back{display:flex;justify-content:flex-start}
+.result-anchor{scroll-margin-top:96px}
+
+/* Header: state, artifact shape and the three facts an owner checks first. */
+.result-hero{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow)}
+.result-hero-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.result-hero-kind{border:1px solid var(--border-strong);border-radius:999px;padding:4px 10px;background:var(--surface-subtle);color:var(--ink-soft);font-size:10.5px;font-weight:750;letter-spacing:.08em;text-transform:uppercase}
+.result-meta{display:flex;flex-wrap:wrap;gap:14px 26px}
+.result-meta span{display:grid;gap:3px;min-width:0}
+.result-meta small{color:var(--muted);font-size:10px;font-weight:750;letter-spacing:.08em;text-transform:uppercase}
+.result-meta b{color:var(--ink-soft);font-size:13px;font-weight:600;overflow-wrap:anywhere}
+
+/* Executive summary: the three questions, each answering one of them. */
+.result-summary .objective{margin-top:8px}
+.result-summary .deliverable-summary{margin-top:8px}
+
+/* Run preview: the delivered project itself, running above the artifact it delivered. The frame
+   is a plain bordered box — and, once expanded, the whole screen. */
+.result-preview .preview-body{display:grid;gap:10px}
+.preview-command{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin:0}
+.preview-command code{border:1px solid var(--border);border-radius:5px;background:var(--surface-subtle);padding:3px 8px;color:var(--ink-soft);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;overflow-wrap:anywhere}
+.preview-hint{font-size:12px;margin:0}
+.preview-meta,.preview-note{margin:0;font-size:12px;line-height:1.5}
+.preview-warning{margin:0;padding:8px 11px;border:1px solid #f0d9ae;border-radius:6px;background:var(--amber-soft);color:var(--amber);font-size:12px;line-height:1.5}
+.preview-frame{position:relative;border:1px solid var(--border-strong);border-radius:var(--radius);background:#10161c;overflow:hidden}
+/* Sized against the viewport so the panel's own controls (start / rerun / stop / fullscreen)
+   stay reachable without scrolling to the bottom of a tall game; 全屏 is how to see it full size. */
+.preview-frame iframe{display:block;width:100%;height:min(70vh,560px);border:0;background:#fff}
+.preview-frame:fullscreen{width:100vw;height:100vh;border:0;border-radius:0}
+.preview-frame:fullscreen iframe{height:100vh}
+.preview-failure{display:grid;gap:6px;padding:12px 14px;border:1px solid #f0c3c3;border-radius:var(--radius);background:var(--red-soft);color:var(--red)}
+.preview-failure b{font-size:13px}
+.preview-failure p{margin:0;font-size:12.5px;line-height:1.55;overflow-wrap:anywhere}
+.preview-failure-text{margin:0;color:var(--red);font-size:12.5px;overflow-wrap:anywhere}
+
+/* Final deliverable: the artifact itself, read in the shape it was delivered. */
+.deliverable-head{display:flex;align-items:flex-start;gap:12px}
+.deliverable-head>div{display:grid;gap:4px;min-width:0}
+.deliverable-head h4{font-size:15px;font-weight:680;overflow-wrap:anywhere}
+.deliverable-head p{color:var(--ink-soft);font-size:13px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+.deliverable-kind{flex:none;border:1px solid;border-radius:999px;padding:4px 10px;font-size:10.5px;font-weight:750;letter-spacing:.08em;text-transform:uppercase}
+.kind-code{border-color:#c7d2f7;background:var(--blue-soft);color:var(--blue)}
+.kind-document{border-color:#cfe6d9;background:var(--green-soft);color:var(--green)}
+.kind-report{border-color:#f0d9ae;background:var(--amber-soft);color:var(--amber)}
+.deliverable-block{display:grid;gap:8px;margin-top:16px}
+.deliverable-block .field-label{align-self:start}
+/* The delivered document's preview text: a scrollable block of prose. Named for what it is, so
+   it cannot collide with the Run Preview panel (`.result-preview`) above it — a collision that
+   silently capped the panel at 320px and pushed its own controls out of view. */
+.result-preview-text{max-height:320px;overflow:auto;margin:0;white-space:pre-wrap;color:var(--ink-soft);font-size:13px;line-height:1.6;background:var(--surface-subtle);border:1px solid var(--border);border-radius:6px;padding:12px 14px}
+.chip-list{display:flex;flex-wrap:wrap;gap:7px;margin:0;padding:0;list-style:none}
+.chip-list li{border:1px solid var(--border-strong);border-radius:999px;background:var(--surface-subtle);padding:4px 10px;color:var(--ink-soft);font-size:11.5px;font-weight:600;overflow-wrap:anywhere}
+.chip-file{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px}
+.fact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.fact-item{display:grid;gap:7px;align-content:start;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-subtle)}
+.fact-item>b{color:var(--muted);font-size:10px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;overflow-wrap:anywhere}
+.fact-item .deliverable-text{margin:0}
+.deliverable-actions{margin-top:18px}
+.deliverable-actions a{display:inline-block;border:1px solid var(--border-strong);border-radius:5px;padding:7px 11px;background:#fff;color:#26313c;font-size:13px;text-decoration:none}
+.deliverable-actions a:hover{background:#eef1f4}
+.result-page .detail-section:last-child{padding-bottom:18px}
+
+/* The whole delivery: one block per workflow step, each file downloadable on its own. The list
+   stays a plain monospace row so a long path wraps instead of pushing its button off-screen. */
+.result-product .detail-section{display:grid;gap:4px}
+.product-step-head b{font-size:13.5px;font-weight:650;overflow-wrap:anywhere}
+.product-step-note{margin:0}
+.product-files{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.product-files li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface-subtle)}
+.product-file-path{flex:1 1 auto;min-width:0;color:var(--ink-soft);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;overflow-wrap:anywhere}
+.product-files button{flex:none;padding:5px 10px;font-size:12px}
+
+/* Employee contribution: roles and the part each one played, never an id. */
+.role-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.role-card{display:grid;gap:10px;align-content:start;padding:14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-subtle)}
+.role-head{display:flex;align-items:center;gap:10px;min-width:0}
+.role-head>div{display:grid;gap:2px;min-width:0}
+.role-head b{font-size:13px;font-weight:650;overflow-wrap:anywhere}
+.role-head span{color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.role-card .deliverable-rows{gap:7px}
+
+/* Work journey: one connected path an owner can read at a glance. */
+.journey{display:grid;margin:0;padding:0 0 0 4px;list-style:none}
+.journey-step{position:relative;display:flex;align-items:center;gap:12px;padding:9px 0 9px 4px}
+.journey-step:not(:last-child):after{content:"";position:absolute;left:16px;top:35px;bottom:-5px;width:1.5px;background:var(--border)}
+.journey-step i{display:grid;place-items:center;flex:none;width:26px;height:26px;border:1.5px solid var(--border-strong);border-radius:50%;background:var(--surface);color:var(--muted);font-size:11px;font-style:normal;font-weight:750;z-index:1}
+.journey-step span{color:var(--ink-soft);font-size:13px;overflow-wrap:anywhere}
+.journey-step.is-done i{border-color:var(--green);background:var(--green-soft);color:var(--green)}
+.journey-step.is-current i{border-color:var(--blue);background:var(--blue-soft);color:var(--blue)}
+.journey-step.is-current span{color:var(--ink);font-weight:650}
+.journey-step.is-stopped i{border-color:var(--red);background:var(--red-soft);color:var(--red)}
+.journey-step.is-stopped span{color:var(--red)}
+
+/* Actions: the commands and page jumps that follow from the state above. */
+.result-actions-body{display:grid;gap:12px;padding:14px 18px 18px}
+.result-actions-body p{margin:0;font-size:12.5px;line-height:1.5}
+.result-actions-body button{font-size:13px}
+
+@media(max-width:700px){
+  .result-hero{flex-direction:column;align-items:flex-start;padding:14px}
+  .result-meta{gap:12px 18px}
+  .deliverable-head{flex-direction:column;gap:8px}
+  .preview-frame iframe{height:360px}
+  .fact-grid,.role-grid{grid-template-columns:1fr}
+  .result-actions-body{padding:14px}
+}

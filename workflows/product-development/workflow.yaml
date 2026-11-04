@@ -1,0 +1,184 @@
+workflow_id: product-development
+version: 1
+name: Product Development
+# 与 product-analysis 同一条约定：任务步声明 capability，由运行中的组织解析岗位；
+# 只有审批门写 required_roles（治理动作）。见 product-analysis/workflow.yaml 的注释。
+description: Requirements, design with technical review, implementation, testing, and release.
+cycle_policy: allow
+entry_stage: requirements
+terminal_stages: [release]
+stages:
+  - stage_id: requirements
+    name: Requirements
+    steps:
+      - step_id: requirement-analysis
+        name: Analyze requirements
+        kind: task
+        assignment:
+          kind: capability
+          capability: product_requirement
+        verification:
+          kind: deterministic
+          required_output_keys: [scope]
+        max_attempts: 2
+    transitions:
+      - transition_id: requirement-analysis__completed
+        from_step_id: requirement-analysis
+        when:
+          kind: task_status
+          status: completed
+        to:
+          kind: stage
+          stage_id: design
+      - transition_id: requirement-analysis__rejected
+        from_step_id: requirement-analysis
+        when:
+          kind: task_status
+          status: rejected
+        to:
+          kind: fail
+          reason: requirements_failed
+  - stage_id: design
+    name: Design
+    steps:
+      - step_id: technical-design
+        name: Produce technical design
+        kind: task
+        assignment:
+          kind: capability
+          capability: technical_design
+        verification:
+          kind: deterministic
+          required_output_keys: [architecture]
+        max_attempts: 2
+      - step_id: technical-review
+        name: Technical review
+        kind: approval
+        required_roles: [cto]
+        required_authority:
+          domain: engineering
+          level: 3
+        approval_policy: single
+        required_count: 1
+    transitions:
+      - transition_id: technical-design__completed
+        from_step_id: technical-design
+        when:
+          kind: task_status
+          status: completed
+        to:
+          kind: step
+          step_id: technical-review
+      - transition_id: technical-design__rejected
+        from_step_id: technical-design
+        when:
+          kind: task_status
+          status: rejected
+        to:
+          kind: fail
+          reason: design_failed
+      - transition_id: technical-review__granted
+        from_step_id: technical-review
+        when:
+          kind: approval_decision
+          decision: granted
+        to:
+          kind: stage
+          stage_id: implementation
+      - transition_id: technical-review__denied
+        from_step_id: technical-review
+        when:
+          kind: approval_decision
+          decision: denied
+        to:
+          kind: step
+          step_id: technical-design
+  - stage_id: implementation
+    name: Implementation
+    steps:
+      - step_id: implementation-task
+        name: Implement the feature
+        kind: task
+        assignment:
+          kind: capability
+          capability: implementation
+        verification:
+          kind: deterministic
+          required_output_keys: [deliverable]
+        max_attempts: 2
+    transitions:
+      - transition_id: implementation-task__completed
+        from_step_id: implementation-task
+        when:
+          kind: task_status
+          status: completed
+        to:
+          kind: stage
+          stage_id: testing
+      - transition_id: implementation-task__rejected
+        from_step_id: implementation-task
+        when:
+          kind: task_status
+          status: rejected
+        to:
+          kind: fail
+          reason: implementation_failed
+  - stage_id: testing
+    name: Testing
+    steps:
+      - step_id: testing-task
+        name: Run the test suite
+        kind: task
+        assignment:
+          kind: capability
+          capability: testing
+        verification:
+          kind: deterministic
+          required_output_keys: [test_report]
+        max_attempts: 1
+    transitions:
+      - transition_id: testing-task__completed
+        from_step_id: testing-task
+        when:
+          kind: task_status
+          status: completed
+        to:
+          kind: stage
+          stage_id: release
+      - transition_id: testing-task__rejected
+        from_step_id: testing-task
+        when:
+          kind: task_status
+          status: rejected
+        to:
+          kind: fail
+          reason: testing_failed
+  - stage_id: release
+    name: Release
+    steps:
+      - step_id: release-task
+        name: Ship the release
+        kind: task
+        assignment:
+          kind: capability
+          capability: implementation
+        verification:
+          kind: deterministic
+          required_output_keys: [release_notes]
+        max_attempts: 1
+    transitions:
+      - transition_id: release-task__completed
+        from_step_id: release-task
+        when:
+          kind: task_status
+          status: completed
+        to:
+          kind: complete
+      - transition_id: release-task__rejected
+        from_step_id: release-task
+        when:
+          kind: task_status
+          status: rejected
+        to:
+          kind: fail
+          reason: release_failed

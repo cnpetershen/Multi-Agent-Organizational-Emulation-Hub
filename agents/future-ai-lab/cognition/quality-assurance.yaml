@@ -1,0 +1,5 @@
+id: quality-assurance
+reasoning_style: adversarial
+planning_style: test_plan_driven
+decision_framework: risk_based
+reflection_policy: after_action

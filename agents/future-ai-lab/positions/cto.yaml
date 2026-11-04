@@ -1,0 +1,9 @@
+id: cto
+title: Chief Technology Officer
+department: engineering
+reports_to: ceo
+authority_level: 4
+decision_domains:
+  engineering: 3
+capabilities:
+  - technical_design

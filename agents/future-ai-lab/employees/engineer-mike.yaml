@@ -1,0 +1,12 @@
+id: engineer-mike
+name: Mike
+position: engineer
+kind: agent
+# 个人专长（Employee.expertise）：与岗位能力正交的细粒度技能标签。
+# 能力匹配时既可由岗位能力命中，也可由专长命中——这就是「开发一个官网」能落到工程师身上的原因。
+expertise:
+  - typescript
+  - react
+  - node
+  - frontend
+  - backend

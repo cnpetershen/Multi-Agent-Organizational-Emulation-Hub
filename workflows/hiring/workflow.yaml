@@ -1,0 +1,130 @@
+workflow_id: hiring
+version: 1
+name: Hiring
+# 与 product-analysis/workflow.yaml 同一条约定：任务步只声明「需要哪一类工作」（capability），
+# 由运行中的组织解析出具体岗位；只有审批门写 required_roles（理由见那个文件的头部注释）。
+# 岗位说明书与 offer 信都是把「要什么」写清楚的文件 → product_requirement；
+# 候选人的技术筛选由工程席承担 → implementation。CEO 只在 offer-gate 拍板，不写这些文件。
+description: Requisition, candidate screening, offer approval, and offer delivery.
+cycle_policy: forbid
+entry_stage: intake
+terminal_stages: [offer]
+stages:
+  - stage_id: intake
+    name: Intake
+    steps:
+      - step_id: write-requisition
+        name: Write the requisition
+        kind: task
+        assignment:
+          kind: capability
+          capability: product_requirement
+        verification:
+          kind: deterministic
+          required_output_keys: [role_profile]
+        max_attempts: 2
+    transitions:
+      - transition_id: write-requisition__completed
+        from_step_id: write-requisition
+        when:
+          kind: task_status
+          status: completed
+        to:
+          kind: stage
+          stage_id: interviewing
+      - transition_id: write-requisition__rejected
+        from_step_id: write-requisition
+        when:
+          kind: task_status
+          status: rejected
+        to:
+          kind: fail
+          reason: requisition_failed
+  - stage_id: interviewing
+    name: Interviewing
+    steps:
+      - step_id: screen-candidates
+        name: Screen candidates
+        kind: task
+        assignment:
+          kind: capability
+          capability: implementation
+        verification:
+          kind: deterministic
+          required_output_keys: [shortlist]
+        max_attempts: 2
+    transitions:
+      - transition_id: screen-candidates__completed
+        from_step_id: screen-candidates
+        when:
+          kind: task_status
+          status: completed
+        to:
+          kind: stage
+          stage_id: decision
+      - transition_id: screen-candidates__rejected
+        from_step_id: screen-candidates
+        when:
+          kind: task_status
+          status: rejected
+        to:
+          kind: fail
+          reason: screening_failed
+  - stage_id: decision
+    name: Decision
+    steps:
+      - step_id: offer-gate
+        name: Approve the offer
+        kind: approval
+        required_roles: [ceo]
+        required_authority:
+          domain: org
+          level: 4
+        approval_policy: single
+        required_count: 1
+    transitions:
+      - transition_id: offer-gate__granted
+        from_step_id: offer-gate
+        when:
+          kind: approval_decision
+          decision: granted
+        to:
+          kind: stage
+          stage_id: offer
+      - transition_id: offer-gate__denied
+        from_step_id: offer-gate
+        when:
+          kind: approval_decision
+          decision: denied
+        to:
+          kind: fail
+          reason: offer_rejected
+  - stage_id: offer
+    name: Offer
+    steps:
+      - step_id: extend-offer
+        name: Extend the offer
+        kind: task
+        assignment:
+          kind: capability
+          capability: product_requirement
+        verification:
+          kind: deterministic
+          required_output_keys: [offer_letter]
+        max_attempts: 1
+    transitions:
+      - transition_id: extend-offer__completed
+        from_step_id: extend-offer
+        when:
+          kind: task_status
+          status: completed
+        to:
+          kind: complete
+      - transition_id: extend-offer__rejected
+        from_step_id: extend-offer
+        when:
+          kind: task_status
+          status: rejected
+        to:
+          kind: fail
+          reason: offer_failed

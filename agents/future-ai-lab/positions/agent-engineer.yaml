@@ -1,0 +1,9 @@
+id: agent-engineer
+title: Agent Engineer
+department: research
+reports_to: ai-researcher
+authority_level: 2
+decision_domains:
+  engineering: 1
+capabilities:
+  - implementation
