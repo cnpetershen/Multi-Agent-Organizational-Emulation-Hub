@@ -32,9 +32,12 @@ export function WorkflowsPage({ control }: { control: ConsoleControl }) {
   const gate = detail === null ? null : approvalOf(detail);
   const detailStatus = detail === null ? null : workflowStatus(readString(detail['status'], ''));
   const paused = detail !== null && readBoolean(detail['paused'], false);
+  const detailCode = detail === null ? '' : readString(detail['status'], '').toLowerCase();
+  // Pause is only meaningful for a running instance. An approval block is not a pause: the
+  // engine refuses `Workflow.Pause` there, so the action must not be offered.
   const canPause = detail !== null
     && !readBoolean(detail['draft'], false)
-    && !['completed', 'aborted'].includes(readString(detail['status'], '').toLowerCase());
+    && (paused || detailCode === 'running');
   const togglePaused = async (): Promise<void> => {
     if (detail === null) return;
     const instanceId = readString(detail['instanceId'], '');
