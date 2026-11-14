@@ -261,6 +261,7 @@ Tests 1 failed | 1 passed
 | 真实平台发布 | 未做 | 无适配器/凭据/回执；不声称 |
 | 图片/音视频 | 未做 | 只有文本 provider |
 | 沙盘旧会话转换 | 拒绝 | 无 `companyId` 的旧会话返回 `sandbox_session_legacy`，需重跑新会话 |
+| 自定义公司没有 ceo 席位 | 受限 | 转换命令沿用控制台的操作员身份 `ceo-alex / ceo`；没有该席位的公司会在授权处被拒（`command_refused`） |
 | 浏览器自动化 | 未做 | 前端测试为纯投影/页面契约；全链路为真实 HTTP，不是浏览器点击 |
 | mock 模式下的任务书文案 | 受限 | mock 的沙盘发言是认知 JSON，e2e 草稿目标会包含 JSON 片段；live 模式为自然语言 |
 | 非 pause 的 advance 失败对账 | 未做 | reactor 失败仍只计数；本阶段只修 resume 路径 |
