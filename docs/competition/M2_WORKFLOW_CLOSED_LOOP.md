@@ -247,7 +247,7 @@ Tests 1 failed | 1 passed
 - 开工时工作区已有 19 个 M + 若干未跟踪文件（含 `RoleAvatar`、`Tasks` 头像、网络/招聘样式改动），不属于本阶段。
 - 本阶段提交 `41c3cbd` **只包含本阶段文件**；`Results.tsx`、`WorkflowCanvas.tsx`、`canvas.css` 三个共享文件用「HEAD + 本阶段 hunk」的暂存方式提交，**没有把并行改动带进提交**。
 - 工作区里并行会话的改动保持原样、未覆盖、未回滚、未清理。
-- 本阶段未提交：`docs/competition/WORKFLOW_PRODUCT_AUDIT.md`（上一阶段审计）与本报告将在随后一并提交。
+- 本阶段审计与报告已随本分支提交（`docs/competition/`），不在工作区残留未提交文档。
 
 ---
 
