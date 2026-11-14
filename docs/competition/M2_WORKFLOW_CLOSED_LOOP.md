@@ -2,7 +2,8 @@
 
 - 完成时间：2026-11-14 22:10–22:35（Asia/Shanghai）
 - 工作分支：`feat/m2-workflow-closed-loop`（从 `checkpoint/2026-11-14-night` / `5ae0235` 新建）
-- 代码提交：`41c3cbd` — `feat(m2): close sandbox to brief to workflow to approval loop`
+- 代码提交：`41c3cbd`（主实现）+ `e6ae536`（暂停按钮只在 running/paused 时出现）
+- 文档提交：`67cfa1a`（本报告与审计基线）
 - 审计依据：[WORKFLOW_PRODUCT_AUDIT.md](WORKFLOW_PRODUCT_AUDIT.md)
 - 范围：只做 P0-1…P0-4；不接社交平台发布、不扩多媒体、不重构稳定模块、不改数据库、不动正式演示数据
 
@@ -272,7 +273,7 @@ Tests 1 failed | 1 passed
 ## 8. 回滚方式
 
 - 代码回滚点：`checkpoint/2026-11-14-night`（HEAD `5ae0235`，tag 同名）。
-- 本阶段提交：`41c3cbd`；本报告提交紧随其后。
+- 本阶段提交：`41c3cbd`（主实现）、`e6ae536`（暂停按钮守卫）、`67cfa1a`（报告/审计基线）。
 - 推荐回滚：
   ```bash
   git switch checkpoint/2026-11-14-night
