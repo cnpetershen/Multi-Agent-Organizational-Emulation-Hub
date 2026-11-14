@@ -122,6 +122,15 @@ export interface Task {
   readonly attempt: number;
   readonly maxAttempts: number;
   readonly rejectReason: string | null;
+  /**
+   * F2: why the task failed, when the terminal fact was `Task.Failed`.
+   *
+   * `Task.Failed` folds to `status='rejected'` because the state machine has no separate failed
+   * state, so `rejectReason` alone cannot tell the two facts apart. This field preserves the
+   * failure provenance for the workflow engine's resumed settlement; it is cleared by a new
+   * assignment, a rejection and a completion.
+   */
+  readonly failureReason?: string | null;
   readonly blockedReason: string | null;
   readonly blockedFrom: TaskStatus | null;
   readonly requiredSkills: readonly string[];

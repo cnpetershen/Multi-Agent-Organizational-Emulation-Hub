@@ -707,6 +707,14 @@
       "approve": "验收通过",
       "reject": "驳回并说明"
     },
+    "source": {
+      "panel": "交付来源",
+      "session": "沙盘会话",
+      "brief": "任务书",
+      "title": "任务书标题",
+      "hint": "这份任务书由赛博沙盘会话生成；沙盘页面与本次交付分开打开。",
+      "open": "打开沙盘工作台"
+    },
     "header": {
       "creator": "创建者",
       "creatorFallback": "CEO（公司负责人）",

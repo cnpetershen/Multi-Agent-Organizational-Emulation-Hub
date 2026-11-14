@@ -707,6 +707,14 @@
       "approve": "Accept delivery",
       "reject": "Reject with reason"
     },
+    "source": {
+      "panel": "Delivery source",
+      "session": "Sandbox session",
+      "brief": "Work brief",
+      "title": "Brief title",
+      "hint": "This brief was generated from a 赛博沙盘 session. The session page is separate from this delivery.",
+      "open": "Open sandbox workbench"
+    },
     "header": {
       "creator": "Created by",
       "creatorFallback": "The CEO",

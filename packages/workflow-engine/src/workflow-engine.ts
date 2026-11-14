@@ -2060,11 +2060,17 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
         );
       }
       if (task.status === 'rejected') {
-        // A failed task folds to `rejected`; the rejection branch is the closest match the
-        // task state machine can still prove from the record alone.
+        // A failed task folds to `rejected` so the state machine accepts the retry, but the
+        // original fact is preserved on `failureReason`. Transition selection must use it: a
+        // failed task takes the failed branch, a rejected task the rejected branch.
+        const failed = typeof task.failureReason === 'string' && task.failureReason !== '';
         return settleFailed(ctx, instance, located, task, {
-          cause: 'rejected',
-          reason: task.rejectReason ?? 'task rejected while the workflow was paused',
+          cause: failed ? 'failed' : 'rejected',
+          reason:
+            task.rejectReason ??
+            (failed
+              ? 'task failed while the workflow was paused'
+              : 'task rejected while the workflow was paused'),
           alreadyRejected: true,
           processedIds: [],
         });

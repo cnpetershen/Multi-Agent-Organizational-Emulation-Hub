@@ -137,6 +137,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
 (function () {
   var current = null;
   var $ = function (id) { return document.getElementById(id); };
+  // A literal backslash-n inside this outer template becomes a real newline in the served JS and
+  // kills the page. Build the delimiter at runtime instead of relying on nested escaping.
+  var NL = String.fromCharCode(10);
   var ROLE_LABEL = { proposer: '提案方', challenger: '质询方', defender: '答辩方', evaluator: '评审' };
 
   function setProv(session) {
@@ -241,7 +244,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
   }
 
   function splitLines(id) {
-    return $(id).value.split('\n').map(function (line) { return line.trim(); }).filter(function (line) { return line !== ''; });
+    return $(id).value.split(NL).map(function (line) { return line.trim(); }).filter(function (line) { return line !== ''; });
   }
   function splitList(id) {
     return $(id).value.split(/[,，]/).map(function (item) { return item.trim(); }).filter(function (item) { return item !== ''; });
@@ -250,10 +253,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
   function fillBrief(draft) {
     $('briefTitle').value = draft.title;
     $('briefGoal').value = draft.goal;
-    $('briefRequirements').value = (draft.requirements || []).join('\n');
+    $('briefRequirements').value = (draft.requirements || []).join(NL);
     $('briefCapabilities').value = (draft.capabilities || []).join(', ');
-    $('briefConstraints').value = (draft.constraints || []).join('\n');
-    $('briefAcceptance').value = (draft.acceptanceCriteria || []).join('\n');
+    $('briefConstraints').value = (draft.constraints || []).join(NL);
+    $('briefAcceptance').value = (draft.acceptanceCriteria || []).join(NL);
     $('briefKeys').value = (draft.verificationKeys || []).join(', ');
     $('briefNotes').value = draft.notes || '';
     $('briefContext').textContent = draft.context || '';

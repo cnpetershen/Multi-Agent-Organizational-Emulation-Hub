@@ -279,6 +279,8 @@ export interface TaskRecord {
   readonly assigneeEmployeeId: string | null;
   readonly workflowInstanceId: string | null;
   readonly workflowStepId: string | null;
+  /** F3: the brief/correlation that produced this task; `null` when the API omits it. */
+  readonly correlationId: string | null;
   readonly attempt: number;
   readonly maxAttempts: number;
   /** Simulated time the work was created — the only clock this system keeps. */
@@ -344,6 +346,7 @@ export function parseTaskRecord(value: unknown, path: string): TaskRecord {
     assigneeEmployeeId: optionalString(root['assigneeEmployeeId']),
     workflowInstanceId: optionalString(root['workflowInstanceId']),
     workflowStepId: optionalString(root['workflowStepId']),
+    correlationId: optionalString(root['correlationId']),
     attempt: requiredNumber(root['attempt'], `${where}.attempt`),
     maxAttempts: requiredNumber(root['maxAttempts'], `${where}.maxAttempts`),
     createdAtSim: requiredNumber(root['createdAtSim'], `${where}.createdAtSim`),

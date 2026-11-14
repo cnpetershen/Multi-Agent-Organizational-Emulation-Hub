@@ -11,7 +11,9 @@ import type {
 import { allTransitions, findStage, findStep, isApprovalLike } from './workflow-types.js';
 
 function expandStatus(status: 'completed' | 'rejected' | 'failed'): readonly string[] {
-  if (status === 'rejected') return ['rejected', 'failed'];
+  // F2: the branches are disjoint. The old expansion made a rejected condition overlap a failed
+  // one, which both rejected valid definitions with separate branches and made a failed input
+  // match the wrong transition.
   return [status];
 }
 

@@ -116,6 +116,7 @@ function buildInitial(payload: TaskCreatedPayload, event: OrgEvent): Task {
     attempt: payload.attempt,
     maxAttempts: payload.maxAttempts,
     rejectReason: null,
+    failureReason: null,
     blockedReason: null,
     blockedFrom: null,
     requiredSkills: payload.requiredSkills,
@@ -161,6 +162,7 @@ export function applyTaskEvent(current: Task | null, event: OrgEvent): Task | nu
         status: 'assigned',
         assignmentReason: payload.reason ?? null,
         matchedCapabilities: Object.freeze([...(payload.matchedCapabilities ?? [])]),
+        failureReason: null,
         // The kind of work travels with the assignment (it is what wakes the executor), but an
         // assignment that names none must not erase what the step declared at creation.
         ...(payload.capability === undefined ? {} : { capability: payload.capability }),
@@ -221,6 +223,7 @@ export function applyTaskEvent(current: Task | null, event: OrgEvent): Task | nu
         completedAtSim: event.occurredAtSim,
         result,
         outputs: result === null ? current.outputs : [...result.artifacts],
+        failureReason: null,
         blockedReason: null,
         blockedFrom: null,
       });
@@ -232,6 +235,7 @@ export function applyTaskEvent(current: Task | null, event: OrgEvent): Task | nu
         status: 'rejected',
         rejectReason: payload.reason,
         attempt: payload.attempt,
+        failureReason: null,
         blockedReason: null,
         blockedFrom: null,
       });
@@ -243,6 +247,7 @@ export function applyTaskEvent(current: Task | null, event: OrgEvent): Task | nu
         status: 'rejected',
         rejectReason: payload.reason,
         attempt: payload.attempt,
+        failureReason: payload.reason,
         blockedReason: null,
         blockedFrom: null,
       });
@@ -251,6 +256,7 @@ export function applyTaskEvent(current: Task | null, event: OrgEvent): Task | nu
       return freezeTask({
         ...current,
         status: 'cancelled',
+        failureReason: null,
         blockedReason: null,
         blockedFrom: null,
       });

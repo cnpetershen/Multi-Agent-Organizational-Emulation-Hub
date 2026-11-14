@@ -15,9 +15,8 @@ function matches(transition: WorkflowTransition, input: TransitionInput): boolea
   if (input.kind === 'none') return false;
   if (condition.kind === 'task_status') {
     if (input.kind !== 'task') return false;
-    if (condition.status === 'rejected') {
-      return input.status === 'rejected' || input.status === 'failed';
-    }
+    // F2: `failed` and `rejected` are distinct facts. A rejected branch must never consume a
+    // failed task, and a failed branch must never consume a rejected one.
     return condition.status === input.status;
   }
   if (input.kind !== 'approval') return false;

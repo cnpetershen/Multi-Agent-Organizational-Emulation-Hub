@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { parseRows, parseTaskRecord, readString } from '../api';
+import { parseRows, parseTaskRecord, parseWorkBriefs, readString } from '../api';
 import { instructAgent, taskReassign, type CommandContext } from '../commands';
 import { Avatar, Empty, LoadError, PageIntro, Panel, StatusPill } from '../components';
 import { DeliveryPackage } from '../components/DeliveryPackage';
@@ -8,7 +8,7 @@ import { DocumentPreview } from '../components/DocumentPreview';
 import type { ConsoleControl } from '../control';
 import { isOpenApproval, positionTitle, workflowById } from '../derive';
 import { isPlayableGame } from '../document-preview';
-import { isSandboxScenario } from '../sandbox';
+import { resultSourceOf } from '../results-source';
 import { useJson } from '../hooks';
 import { useI18n, type MessageKey } from '../i18n';
 import { previewActions, previewFrameUrl, previewLabelKey, previewNotices, previewTone, type PreviewActionKind } from '../preview';
@@ -367,6 +367,8 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
   const [busy, setBusy] = useState<'optimize' | 'retry' | null>(null);
   const record = useJson(`/api/tasks/${encodeURIComponent(taskId)}`, parseTaskRecord, control.refreshToken);
   const workflows = useJson('/api/workflows', parseRows, control.refreshToken);
+  // F3: the source is read from the brief record, not inferred from the task title/goal.
+  const briefs = useJson('/api/work-briefs', parseWorkBriefs, control.refreshToken);
   // Each sibling step counts its own files, so the "whole delivery" hint reports what the
   // operator can actually download. Declared *above* the loading return on purpose: a hook
   // below it would run only once the record arrives, which is exactly React's "rendered more
@@ -405,6 +407,7 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
   const isBlocked = task.status.trim().toLowerCase() === 'blocked';
   const blockedOnApproval = isBlocked && /^waiting_for_approval/i.test(blockedReason);
   const workflow = workflowById(workflows.data ?? snapshot.workflows, task.workflowInstanceId);
+  const source = resultSourceOf(briefs.data ?? [], task.correlationId);
   const kind = deliverableKind(task.result, task);
   const view: DeliverableView = deliverableView(task, kind);
   const journey = workflow === null ? taskJourney(task.status) : workflowJourney(workflow);
@@ -499,14 +502,12 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
     control.setFeedback({ kind: 'success', title: t('results.deliverable.downloadReady'), detail: file.filename });
   };
 
-  const sandbox = isSandboxScenario(task, { title: workflowTitle, goal: readString(workflow?.['goal'], '') });
-
   return (
     <div className="stack result-page">
       <PageIntro
         eyebrow={t('results.eyebrow')}
-        title={sandbox ? t('results.sandbox.title') : task.title}
-        description={sandbox ? t('results.sandbox.hint') : t('results.description')}
+        title={task.title}
+        description={t('results.description')}
         actions={<button type="button" className="link" onClick={back}>← {t('results.back')}</button>}
       />
 
@@ -514,7 +515,7 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
       <section className="result-hero">
         <div className="result-hero-top">
           <StatusPill value={state.tone} label={t(state.labelKey)} />
-          <span className="result-hero-kind">{sandbox ? t('results.sandbox.kind') : t(KIND_LABELS[kind])}</span>
+          <span className="result-hero-kind">{t(KIND_LABELS[kind])}</span>
         </div>
         <div className="result-meta">
           <span><small>{t('results.header.creator')}</small><b>{creator === '' ? t('results.header.creatorFallback') : creator}</b></span>
@@ -522,6 +523,23 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
           <span><small>{t('results.header.workflow')}</small><b>{workflowTitle}</b></span>
         </div>
       </section>
+
+      {/* F3: a sandbox-derived brief is shown as a source card, not by regex-matching the
+          title and embedding the workbench. The workbench itself stays at /api/sandbox. */}
+      {source !== null && (
+        <Panel
+          title={t('results.source.panel')}
+          className="result-source"
+          actions={<a className="link" href="/api/sandbox" target="_blank" rel="noreferrer">{t('results.source.open')}</a>}
+        >
+          <div className="fact-grid">
+            <div><span className="field-label">{t('results.source.session')}</span><p className="objective">{source.sessionId}</p></div>
+            <div><span className="field-label">{t('results.source.brief')}</span><p className="objective">{source.briefId}</p></div>
+            <div><span className="field-label">{t('results.source.title')}</span><p className="objective">{source.title}</p></div>
+          </div>
+          <p className="muted">{t('results.source.hint')}</p>
+        </Panel>
+      )}
 
       {/* M2: the gate is decided where the delivery is read, not on another page. */}
       <ResultApprovalPanel control={control} workflow={workflow} />
@@ -546,17 +564,6 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
           <p className="objective deliverable-summary">{outcome}</p>
         </section>
       </Panel>
-
-      {/* A scenario project needs a place to run the scenario, not another report about the
-          workflow that produced it. The workbench is served by the API (same origin through the
-          console's `/api` proxy) and runs real agents, so the frame shows the real session and
-          never a static copy of one. */}
-      {sandbox && (
-        <Panel title={t('results.sandbox.panel')} actions={<a className="link" href="/api/sandbox" target="_blank" rel="noreferrer">{t('results.sandbox.open')}</a>}>
-          <p className="muted sandbox-hint">{t('results.sandbox.hint')}</p>
-          <iframe className="sandbox-frame" title={t('results.sandbox.title')} src="/api/sandbox" allow="fullscreen" />
-        </Panel>
-      )}
 
       {/* One hand-over: every step's artifact, the game/document/3D slots and a real ZIP. The live
           runtime stays below so a package never starts a second server. */}
