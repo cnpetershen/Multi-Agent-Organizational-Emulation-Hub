@@ -1,9 +1,16 @@
 import { useState } from 'react';
-import { parseRows, readString, type Row } from '../api';
+import { parseRows, readString } from '../api';
 import { taskDelete, type CommandContext } from '../commands';
 import { DeleteIcon, Empty, PageIntro, Panel, StatusPill } from '../components';
 import type { ConsoleControl } from '../control';
-import { deliverableState, isOpenApproval, positionTitle, stepProgress, workflowById } from '../derive';
+import {
+  deliveryProjects,
+  type DeliveryContributor,
+  type DeliveryProject,
+  type DeliveryProjectTask,
+  type DeliveryProjectState,
+} from '../delivery-package';
+import { deliverableState, employeeOf, positionTitle } from '../derive';
 import { useJson } from '../hooks';
 import { useI18n, type MessageKey } from '../i18n';
 import { statusLabel, taskStatus } from '../status';
@@ -11,21 +18,15 @@ import { statusLabel, taskStatus } from '../status';
 function ctxOf(control: ConsoleControl): CommandContext { return { companyId: control.companyId, simTime: control.simTime }; }
 
 /**
- * Deliverables — the CEO workspace.
+ * Deliverables — the CEO workspace, grouped as projects.
  *
- * Two questions, one screen: *what is my AI company working on right now, and what has it
- * delivered?* The workspace grid answers the first from the snapshot the shell already polls
- * (task title, responsible role, current stage, short progress, whether you are the blocker);
- * opening a task answers the second by routing to that task's delivery page
- * (`/results/:taskId`), where the organization hands its outcome over.
- *
- * What this page deliberately does not show: company runtime statistics, the agent roster,
- * agent ids, ticks, runtime state, events, workflow traces or debug payloads. Those belong to
- * Overview / Agents / Runtime / Workflows, and repeating them would turn the CEO view back into
- * a monitoring console.
+ * The old screen listed one card per task, which answered "what is being worked on?" but buried
+ * the answer to "what did this project deliver, and who did what?". This version keeps one block
+ * per workflow instance (or standalone task): the project's state and progress at the top, then
+ * one row per contributor with the steps and tasks they own. Opening a row still routes to the
+ * existing task delivery page (`/results/:taskId`), where the organization hands its outcome over.
  */
 
-/** The workspace filters: the three states an owner cares about, plus "everything". */
 type Filter = 'all' | 'running' | 'needAction' | 'completed';
 const FILTERS: readonly Filter[] = ['all', 'running', 'needAction', 'completed'];
 const FILTER_KEYS: Readonly<Record<Filter, MessageKey>> = {
@@ -35,106 +36,217 @@ const FILTER_KEYS: Readonly<Record<Filter, MessageKey>> = {
   completed: 'deliverables.workspace.filter.completed',
 };
 
-/**
- * One workspace row: the task facts the card shows, plus the workflow stage/step/gate the task
- * inherits from its instance. The task row itself stays the source of truth.
- */
-interface WorkspaceRow {
-  readonly taskId: string;
-  readonly title: string;
-  readonly status: string;
-  readonly positionId: string;
-  readonly workflowTitle: string;
-  readonly stageId: string;
-  readonly gateOpen: boolean;
-  readonly steps: { readonly done: number; readonly total: number };
-  readonly hasWorkflow: boolean;
+function initialsOf(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word.slice(0, 1).toUpperCase())
+    .join('');
 }
 
-function workspaceRows(snapshotTasks: readonly Row[], workflows: readonly Row[]): readonly WorkspaceRow[] {
-  return snapshotTasks.map((task) => {
-    const instanceId = readString(task['workflowInstanceId'], '');
-    const workflow = workflowById(workflows, instanceId);
-    return {
-      taskId: readString(task['taskId'], ''),
-      title: readString(task['title'], ''),
-      status: readString(task['status'], ''),
-      positionId: readString(task['positionId'], ''),
-      workflowTitle: workflow === null ? '' : readString(workflow['title'], ''),
-      stageId: workflow === null ? '' : readString(workflow['stageId'], ''),
-      gateOpen: workflow !== null && isOpenApproval(workflow),
-      steps: workflow === null ? { done: 0, total: 0 } : stepProgress(workflow),
-      hasWorkflow: instanceId !== '',
-    };
-  });
-}
-
-/** One workspace card: what it is, who owns it, where it stands, and whether it needs you. */
-function DeliverableCard({ control, row, onOpen }: { control: ConsoleControl; row: WorkspaceRow; onOpen: () => void }) {
+function ContributorRow({
+  control,
+  contributor,
+  tasks,
+  onDelete,
+}: {
+  readonly control: ConsoleControl;
+  readonly contributor: DeliveryContributor;
+  readonly tasks: readonly DeliveryProjectTask[];
+  readonly onDelete: (task: DeliveryProjectTask) => void;
+}) {
   const i18n = useI18n();
   const { t } = i18n;
-  const state = deliverableState(row.status, row.gateOpen);
-  const role = row.positionId === '' ? '' : positionTitle(control.snapshot.positions, row.positionId);
-  const progress = row.hasWorkflow
-    ? t('deliverables.card.progressSteps', { done: row.steps.done, total: row.steps.total })
-    : t('deliverables.card.progressStandalone');
-  /**
-   * `Task.Delete` removes the task; when it belongs to a workflow the Control Plane takes the
-   * instance with it, so the confirmation names both outcomes before anything is sent.
-   */
-  const remove = async (): Promise<void> => {
-    if (row.taskId === '') return;
-    const confirmKey: MessageKey = row.hasWorkflow ? 'common.deleteTaskWorkflowConfirm' : 'common.deleteTaskConfirm';
-    if (!window.confirm(t(confirmKey))) return;
-    await control.run(taskDelete(ctxOf(control), row.taskId), t('feedback.taskDeleted'));
-  };
-  return <article className="task-card deliverable-card">
-    <div className="task-card-top">
-      <div className="task-title"><h3>{row.title === '' ? t('common.untitledTask') : row.title}</h3><span>{row.hasWorkflow ? row.workflowTitle : t('deliverables.card.standalone')}</span></div>
-      <div className="card-top-right">
-        <StatusPill value={state.tone} label={t(state.labelKey)} />
-        <button type="button" className="card-delete" aria-label={t('common.delete')} title={t('common.delete')} disabled={row.taskId === ''} onClick={() => void remove()}><DeleteIcon /></button>
+  const employee = employeeOf(control.snapshot.employees, contributor.employeeId);
+  const name = employee === null ? t('common.unassigned') : readString(employee['name'], contributor.employeeId);
+  const role = employee === null
+    ? ''
+    : positionTitle(control.snapshot.positions, readString(employee['positionId'], ''));
+  return (
+    <div className="project-contributor">
+      <div className="project-person">
+        <span className="project-avatar">{employee === null ? '?' : initialsOf(name)}</span>
+        <div>
+          <b>{name}</b>
+          <small>{role === '' ? t('common.unassigned') : role}</small>
+        </div>
+        <span className="project-person-count">{tasks.length}</span>
       </div>
+      <ul className="project-task-list">
+        {tasks.map((task) => {
+          const display = taskStatus(task.status);
+          return (
+            <li key={task.taskId}>
+              <div className="project-task-copy">
+                <span className="project-step">{task.stepTitle === '' ? t('deliverables.project.noStep') : task.stepTitle}</span>
+                <b>{task.title === '' ? t('common.untitledTask') : task.title}</b>
+              </div>
+              <StatusPill value={display.tone} label={statusLabel(display, i18n)} />
+              {task.completed && (
+                <button type="button" className="link" onClick={() => control.openResults(task.taskId)}>
+                  {t('deliverables.project.openTask')}
+                </button>
+              )}
+              <button
+                type="button"
+                className="card-delete"
+                aria-label={t('common.delete')}
+                title={t('common.delete')}
+                disabled={task.taskId === ''}
+                onClick={() => onDelete(task)}
+              >
+                <DeleteIcon />
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </div>
-    <p className="task-goal">{progress}</p>
-    <div className="task-facts">
-      <span><small>{t('deliverables.card.role')}</small><b>{role === '' ? t('common.unassigned') : role}</b></span>
-      <span><small>{t('deliverables.card.stage')}</small><b>{row.stageId === '' ? t('deliverables.card.noStage') : row.stageId}</b></span>
-      <span><small>{t('deliverables.card.delivery')}</small><b>{statusLabel(taskStatus(row.status), i18n)}</b></span>
-    </div>
-    {state.kind === 'needAction' && <div className="deliverable-flag"><i aria-hidden="true" />{t('deliverables.card.needsYou')}</div>}
-    <div className="task-actions">
-      <button type="button" className="primary" disabled={row.taskId === ''} onClick={onOpen}>{t('deliverables.card.open')}</button>
-      {row.gateOpen && <button type="button" onClick={() => control.navigate('Approvals')}>{t('deliverables.card.decide')}</button>}
-    </div>
-  </article>;
+  );
+}
+
+function ProjectCard({
+  control,
+  project,
+  onDelete,
+}: {
+  readonly control: ConsoleControl;
+  readonly project: DeliveryProject;
+  readonly onDelete: (task: DeliveryProjectTask, hasWorkflow: boolean) => void;
+}) {
+  const { t } = useI18n();
+  const state = deliverableState(project.state === 'completed' ? 'completed' : project.state === 'needAction' ? 'blocked' : 'started', project.gateOpen);
+  const contributorTasks = (contributor: DeliveryContributor): readonly DeliveryProjectTask[] =>
+    project.tasks.filter((task) => contributor.taskIds.includes(task.taskId));
+  return (
+    <article className="project-card" data-state={project.state}>
+      <header className="project-card-head">
+        <div className="project-identity">
+          <span className="project-kicker">
+            {project.standalone ? t('deliverables.project.standalone') : t('deliverables.project.kicker')}
+          </span>
+          <h3>{project.title === '' ? t('common.untitledTask') : project.title}</h3>
+          <p>
+            {project.standalone
+              ? t('deliverables.project.standaloneDetail')
+              : t('deliverables.project.progress', { done: project.stepsDone, total: project.stepsTotal })}
+          </p>
+        </div>
+        <div className="project-card-right">
+          <StatusPill value={state.tone} label={t(state.labelKey)} />
+          {project.anchorTaskId !== null && (
+            <button type="button" className="primary" onClick={() => control.openResults(project.anchorTaskId as string)}>
+              {t('deliverables.project.open')}
+            </button>
+          )}
+        </div>
+      </header>
+
+      <div className="project-metrics">
+        <span><b>{project.completed}/{project.total}</b><small>{t('deliverables.project.delivered')}</small></span>
+        <span><b>{project.contributors.length}</b><small>{t('deliverables.project.contributors')}</small></span>
+        {!project.standalone && <span><b>{project.stepsDone}/{project.stepsTotal}</b><small>{t('deliverables.project.steps')}</small></span>}
+      </div>
+
+      {project.gateOpen && (
+        <div className="deliverable-flag"><i aria-hidden="true" />{t('deliverables.card.needsYou')}</div>
+      )}
+
+      <div className="project-what">
+        <span className="field-label">{t('deliverables.project.what')}</span>
+        {project.tasks.length === 0 ? (
+          <Empty title={t('deliverables.project.empty')} hint={t('deliverables.project.emptyHint')} />
+        ) : project.contributors.length === 0 ? (
+          <p className="project-unassigned">{t('deliverables.project.noContributor')}</p>
+        ) : (
+          <div className="project-contributors">
+            {project.contributors.map((contributor) => (
+              <ContributorRow
+                key={contributor.employeeId}
+                control={control}
+                contributor={contributor}
+                tasks={contributorTasks(contributor)}
+                onDelete={(task) => onDelete(task, !project.standalone)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {project.gateOpen && (
+        <div className="project-actions">
+          <button type="button" onClick={() => control.navigate('Approvals')}>{t('deliverables.card.decide')}</button>
+        </div>
+      )}
+    </article>
+  );
 }
 
 export function DeliverablesPage({ control }: { control: ConsoleControl }) {
-  const i18n = useI18n();
-  const { t } = i18n;
+  const { t } = useI18n();
   const [filter, setFilter] = useState<Filter>('all');
-  // The workflows endpoint carries the stage, the step progress and the gate state the cards
-  // show; the snapshot remains the fallback so the workspace renders before it answers.
+  // The workflows endpoint carries the stage, the step progress and the gate state the project
+  // blocks show; the snapshot remains the fallback so the workspace renders before it answers.
   const workflows = useJson('/api/workflows', parseRows, control.refreshToken);
-  const rows = workspaceRows(control.snapshot.tasks, workflows.data ?? control.snapshot.workflows);
+  const workflowRows = workflows.data ?? control.snapshot.workflows;
+  const projects = deliveryProjects(control.snapshot.tasks, workflowRows);
+  const countOf = (state: DeliveryProjectState): number =>
+    projects.filter((project) => project.state === state).length;
   const counts = {
-    running: rows.filter((row) => deliverableState(row.status, row.gateOpen).kind === 'running').length,
-    needAction: rows.filter((row) => deliverableState(row.status, row.gateOpen).kind === 'needAction').length,
-    completed: rows.filter((row) => deliverableState(row.status, row.gateOpen).kind === 'completed').length,
+    running: countOf('running'),
+    needAction: countOf('needAction'),
+    completed: countOf('completed'),
   };
-  const visible = filter === 'all' ? rows : rows.filter((row) => deliverableState(row.status, row.gateOpen).kind === filter);
+  const visible = filter === 'all' ? projects : projects.filter((project) => project.state === filter);
+
+  const remove = async (task: DeliveryProjectTask, hasWorkflow: boolean): Promise<void> => {
+    if (task.taskId === '') return;
+    const confirmKey: MessageKey = hasWorkflow ? 'common.deleteTaskWorkflowConfirm' : 'common.deleteTaskConfirm';
+    if (!window.confirm(t(confirmKey))) return;
+    await control.run(taskDelete(ctxOf(control), task.taskId), t('feedback.taskDeleted'));
+  };
+
   return <div className="stack">
-    <PageIntro eyebrow={t('deliverables.eyebrow')} title={t('page.deliverables.title')} description={t('deliverables.description')} actions={<span className="page-count">{t('deliverables.pageCount', { running: counts.running, needAction: counts.needAction, completed: counts.completed })}</span>} />
-    <Panel title={t('deliverables.workspace.panel')} actions={<span className="muted">{t('deliverables.workspace.hint', { count: rows.length })}</span>}>
-      <div className="deliverable-filters" role="tablist" aria-label={t('deliverables.workspace.panel')}>
-        {FILTERS.map((entry) => <button type="button" role="tab" aria-selected={filter === entry} className={filter === entry ? 'deliverable-filter active' : 'deliverable-filter'} key={entry} onClick={() => setFilter(entry)}>{t(FILTER_KEYS[entry])}<b>{entry === 'all' ? rows.length : counts[entry]}</b></button>)}
+    <PageIntro
+      eyebrow={t('deliverables.eyebrow')}
+      title={t('page.deliverables.title')}
+      description={t('deliverables.description')}
+      actions={<span className="page-count">{t('deliverables.pageCount', { running: counts.running, needAction: counts.needAction, completed: counts.completed })}</span>}
+    />
+
+    <Panel
+      title={t('deliverables.projects.panel')}
+      actions={<span className="muted">{t('deliverables.projects.hint', { count: projects.length })}</span>}
+    >
+      <div className="deliverable-filters" role="tablist" aria-label={t('deliverables.projects.panel')}>
+        {FILTERS.map((entry) => (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={filter === entry}
+            className={filter === entry ? 'deliverable-filter active' : 'deliverable-filter'}
+            key={entry}
+            onClick={() => setFilter(entry)}
+          >
+            {t(FILTER_KEYS[entry])}<b>{entry === 'all' ? projects.length : counts[entry]}</b>
+          </button>
+        ))}
       </div>
-      {rows.length === 0
+      {projects.length === 0
         ? <Empty title={t('deliverables.workspace.empty')} hint={t('deliverables.workspace.emptyHint')} />
         : visible.length === 0
           ? <Empty title={t('deliverables.workspace.noneInFilter')} hint={t('deliverables.workspace.noneInFilterHint')} />
-           : <div className="task-list deliverable-list">{visible.map((row) => <DeliverableCard control={control} row={row} key={row.taskId} onOpen={() => control.openResults(row.taskId)} />)}</div>}
+          : <div className="project-list">
+              {visible.map((project) => (
+                <ProjectCard
+                  key={project.instanceId}
+                  control={control}
+                  project={project}
+                  onDelete={(task, hasWorkflow) => void remove(task, hasWorkflow)}
+                />
+              ))}
+            </div>}
     </Panel>
   </div>;
 }

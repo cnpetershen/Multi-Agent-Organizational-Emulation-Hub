@@ -28,6 +28,9 @@
 | `M1.5-identity-company-ownership.md` | M1.5 身份与 AI 公司所有权：Founder 拥有 Organization、Organization 雇佣 Agents；建司流程、每公司独立事件日志、运行时切换与控制台 gate | M1.5 实现契约（从属 BASELINE / registry / dependency-graph / M1.0） | BASELINE、registry、dependency-graph、M1.0、03 §3.13 | CURRENT |
 | `M1.6-position-authoring-capability-workflows.md` | M1.6 岗位作者化与能力工作流生成：`Agent.Create` 内联新建岗位（部门+职位名+能力标签）、能力词表与「永不按名字」的岗位解析、生成式工作流与重启再生、认知提示约定 | M1.6 实现契约（从属 BASELINE / registry / dependency-graph / M1.0、04 §4.10、03 §3.2.1） | BASELINE、registry、dependency-graph、M1.0、04、03 | CURRENT |
 | `M1.7-llm-provider-config.md` | M1.7 LLM 真实模型接入与配置：环境变量契约、配置归属裁定、DeepSeek 三个必须显式处理的行为（thinking 吞 temperature / JSON 空返回归为 provider 失败 / 错误码映射）、重试的归属与预算·账本不变式、**能力上限不因换模型而变**的澄清 | M1.7 实现契约（从属 BASELINE §9 F6 / A4 / ADR-008、05 §5.5、02 §2.5） | BASELINE、registry、dependency-graph、05、08-ADR、M1.0 | CURRENT |
+| `M2.0-network-canvas-delivery-preview.md` | M2.0 协同网络画布：组织 / 工作流 / 交付物单页投影、CSS 3D + 深度投影粒子点缀、游戏与文档交付物预览补全（`deliveryFilesFromData`、安全 Markdown AST、sandbox 文档帧）、交付剧场与验收 | M2.0 实现契约（从属 BASELINE / registry / dependency-graph / M1.4 / M1.6） | BASELINE、registry、dependency-graph、M1.4、M1.6、M1.8 | CURRENT |
+| `M2.1-assignment-studio-delivery-package.md` | M2.1 暗色改派工作室（团队拖拽 / 节点检查 / 草稿确认）与交付包（工作流归组、游戏 / 文档 / 3D / 文件同屏、ZIP、OBJ/STL 线框） | M2.1 实现契约（从属 M1.8 / M1.9 / M2.0） | BASELINE、M1.4、M1.6、M1.8、M1.9、M2.0 | CURRENT |
+| `M2.2-project-workspace-navigation.md` | M2.2 空缺席位与部门化调色板、拖拽/点击打开检查器审批门（人员 / 空缺 / 工作流）、画布拖拽平移与滚轮缩放、公司结构条、交付物按项目分块并展示成员分工、可折叠导航 | M2.2 实现契约（从属 M1.8 / M1.9 / M2.0 / M2.1） | BASELINE、M1.4、M1.6、M1.8、M1.9、M2.0、M2.1 | CURRENT |
 | `../research/research-brief.md` | 同类项目对照、记忆架构、持久化执行、多 Agent 失败模式研究（带引用） | 研究参考，非约束 | — | CURRENT |
 | `../review/architecture-review.md` | 对抗性评审：4 阻断 / 14 重要 / 9 矛盾 / 12 遗漏 | 评审证据（其发现已并入基线） | 01–08 | CURRENT |
 | `../review/revision-log.md` | 评审逐条处置 + 已知遗留清单 | 遗留项权威 | review | CURRENT |

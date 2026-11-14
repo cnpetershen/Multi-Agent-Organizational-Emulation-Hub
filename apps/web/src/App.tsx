@@ -8,6 +8,7 @@ import { useJson } from './hooks';
 import { useI18n, type MessageKey } from './i18n';
 import { LanguageSwitch } from './i18n/LanguageSwitch';
 import { AgentsPage } from './pages/Agents';
+import { NetworkPage } from './pages/Network';
 import { ApprovalsPage } from './pages/Approvals';
 import { CommunicationsPage } from './pages/Communications';
 import { DeliverablesPage } from './pages/Deliverables';
@@ -17,10 +18,15 @@ import { Foundry } from './pages/Foundry';
 import { ResultsPage } from './pages/Results';
 import { RuntimePage } from './pages/Runtime';
 import { TasksPage } from './pages/Tasks';
+import { WorkflowCanvasPage } from './pages/WorkflowCanvas';
 import { WorkflowsPage } from './pages/Workflows';
 import { clearSession, readSession, signIn, writeSession, type CompanySession } from './ownership';
 import { resultsPath, useRoute } from './router';
 import './console.css';
+import './canvas.css';
+import './network.css';
+import './document.css';
+import './delivery-package.css';
 import './phase1.css';
 import './phase2.css';
 import './phase3.css';
@@ -37,8 +43,8 @@ const SUCCESS_FEEDBACK_MS = 8000;
 
 type NavGroup = { readonly labelKey: MessageKey; readonly items: readonly Page[] };
 const NAV_GROUPS: readonly NavGroup[] = [
-  { labelKey: 'nav.group.company', items: ['Overview', 'Agents'] },
-  { labelKey: 'nav.group.work', items: ['Deliverables', 'Tasks', 'Workflows'] },
+  { labelKey: 'nav.group.company', items: ['Overview', 'Network', 'Agents'] },
+  { labelKey: 'nav.group.work', items: ['Deliverables', 'Tasks', 'Workflows', 'Canvas'] },
   { labelKey: 'nav.group.decisions', items: ['Approvals'] },
   { labelKey: 'nav.group.activity', items: ['Communications', 'Events'] },
   { labelKey: 'nav.group.system', items: ['Runtime'] },
@@ -47,14 +53,56 @@ const NAV_GROUPS: readonly NavGroup[] = [
 /** Page identity is the `Page` union; every visible page string is a key into the locale. */
 const PAGE_KEYS: Readonly<Record<Page, { readonly title: MessageKey; readonly label: MessageKey }>> = {
   Overview: { title: 'page.overview.title', label: 'page.overview.label' },
+  Network: { title: 'page.network.title', label: 'page.network.label' },
   Agents: { title: 'page.agents.title', label: 'page.agents.label' },
   Deliverables: { title: 'page.deliverables.title', label: 'page.deliverables.label' },
   Tasks: { title: 'page.tasks.title', label: 'page.tasks.label' },
   Workflows: { title: 'page.workflows.title', label: 'page.workflows.label' },
+  Canvas: { title: 'page.canvas.title', label: 'page.canvas.label' },
   Approvals: { title: 'page.approvals.title', label: 'page.approvals.label' },
   Communications: { title: 'page.communications.title', label: 'page.communications.label' },
   Runtime: { title: 'page.runtime.title', label: 'page.runtime.label' },
   Events: { title: 'page.events.title', label: 'page.events.label' },
+};
+
+/**
+ * "Paused for gate review" is a real console state: the operator holds the runtime so approval
+ * decisions arrive before the company acts again. It used to live only in a `useRef`, which any
+ * reload silently dropped — leaving the kernel paused while every page believed the opposite,
+ * with approvals unable to unpause it. It is now persisted per company, next to the session.
+ */
+const SIDEBAR_COLLAPSED_KEY = 'maoeh.sidebar.collapsed';
+const readPersistedCollapsed = (): boolean => {
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+const persistCollapsed = (value: boolean): void => {
+  try {
+    if (value) window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, '1');
+    else window.localStorage.removeItem(SIDEBAR_COLLAPSED_KEY);
+  } catch {
+    /* private mode — the sidebar still collapses for this visit */
+  }
+};
+
+const heldStorageKey = (companyId: string): string => `maoeh.held.${companyId}`;
+const readPersistedHold = (companyId: string): boolean => {
+  try {
+    return window.localStorage.getItem(heldStorageKey(companyId)) === '1';
+  } catch {
+    return false;
+  }
+};
+const persistHold = (companyId: string, value: boolean): void => {
+  try {
+    if (value) window.localStorage.setItem(heldStorageKey(companyId), '1');
+    else window.localStorage.removeItem(heldStorageKey(companyId));
+  } catch {
+    /* private mode / storage full — the hold degrades to session-local, never to a stuck kernel */
+  }
 };
 
 export function App() {
@@ -63,10 +111,17 @@ export function App() {
   const [page, setPage] = useState<Page>('Overview');
   const { route, push } = useRoute();
   const [feedback, setFeedback] = useState<Feedback | null>(null);
-  const [held, setHeld] = useState(false);
+  const [held, setHeld] = useState<boolean>(() => readPersistedHold(readSession()?.organizationId ?? ''));
   const [refreshToken, setRefreshToken] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const heldRef = useRef(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => readPersistedCollapsed());
+  const heldRef = useRef(held);
+  const setHeldBoth = useCallback((value: boolean): void => {
+    heldRef.current = value;
+    setHeld(value);
+    const companyId = readSession()?.organizationId ?? '';
+    if (companyId !== '') persistHold(companyId, value);
+  }, []);
 
   // M1.5 · which company this tab has open. Without one the console never renders: the
   // founder meets the gate first, and only an entered company reaches the shell below.
@@ -96,6 +151,9 @@ export function App() {
           writeSession(refreshed);
           setSession(refreshed);
         }
+        // Reloading lost the gate-hold in memory: restore it from storage so approvals can
+        // actually resume the runtime instead of silently doing nothing.
+        setHeldBoth(readPersistedHold(activeOrganizationId));
         setSessionStatus('ready');
       } catch {
         if (cancelled) return;
@@ -107,7 +165,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [activeOrganizationId]);
+  }, [activeOrganizationId, setHeldBoth]);
 
   const enterCompany = useCallback((next: CompanySession): void => {
     writeSession(next);
@@ -134,6 +192,10 @@ export function App() {
   useEffect(() => {
     document.title = t('app.documentTitle');
   }, [t]);
+
+  useEffect(() => {
+    persistCollapsed(sidebarCollapsed);
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     if (feedback === null || feedback.kind !== 'success') return;
@@ -173,21 +235,21 @@ export function App() {
   const beginHold = useCallback(async (): Promise<CommandRun> => {
     if (heldRef.current) return { ok: true, failure: null };
     if (snapshot?.simulation.paused === true) {
-      heldRef.current = true; setHeld(true);
+      setHeldBoth(true);
       return { ok: true, failure: null };
     }
     if (context === null) return { ok: false, failure: t('app.dataUnavailableShort') };
     const paused = await runDetailed(simulationCommand(context, 'Simulation.Pause', 'operator holds the runtime for gate review'), t('feedback.runtimeHeld'));
-    if (paused.ok) { heldRef.current = true; setHeld(true); }
+    if (paused.ok) setHeldBoth(true);
     return paused;
-  }, [context, runDetailed, snapshot, t]);
+  }, [context, runDetailed, snapshot, setHeldBoth, t]);
 
   const releaseHold = useCallback(async (silent = false): Promise<boolean> => {
     if (!heldRef.current) return true;
-    heldRef.current = false; setHeld(false);
+    setHeldBoth(false);
     if (context === null) return false;
     return run(simulationCommand(context, 'Simulation.Resume', 'operator released the runtime'), silent ? null : t('feedback.runtimeResumed'));
-  }, [context, run, t]);
+  }, [context, run, setHeldBoth, t]);
 
   // Navigating anywhere in the shell leaves the delivery route: the pages all live on the
   // console's own path, and only a delivered result owns a deep link.
@@ -221,13 +283,26 @@ export function App() {
     );
   }
 
-  return <div className="shell">
+  return <div className={`shell${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
     <div className={`scrim ${sidebarOpen ? 'visible' : ''}`} onClick={() => setSidebarOpen(false)} aria-hidden="true" />
     <aside className={sidebarOpen ? 'open' : ''}>
-      <div className="brand-row"><div className="brand">{t('app.brand')} <span>{t('app.brandSuffix')}</span></div><button className="sidebar-close" type="button" onClick={() => setSidebarOpen(false)} aria-label={t('nav.closeMenu')}>×</button></div>
+      <div className="brand-row">
+        <div className="brand">{t('app.brand')} <span>{t('app.brandSuffix')}</span></div>
+        <button
+          className="sidebar-collapse"
+          type="button"
+          aria-label={sidebarCollapsed ? t('nav.expand') : t('nav.collapse')}
+          aria-expanded={!sidebarCollapsed}
+          title={sidebarCollapsed ? t('nav.expand') : t('nav.collapse')}
+          onClick={() => setSidebarCollapsed((value) => !value)}
+        >
+          {sidebarCollapsed ? '»' : '«'}
+        </button>
+        <button className="sidebar-close" type="button" onClick={() => setSidebarOpen(false)} aria-label={t('nav.closeMenu')}>×</button>
+      </div>
       <div className="company-block"><span className="company-mark">{snapshot?.company.name.slice(0, 1) ?? 'C'}</span><div><strong>{snapshot?.company.name ?? t('app.companyFallback')}</strong><span>{t('app.tagline')}</span>{founderName !== '' && <span className="founder-line">{founderName}</span>}</div></div>
-      <nav aria-label={t('nav.ariaLabel')}>{NAV_GROUPS.map((group) => <div className="nav-group" key={group.labelKey}><span className="nav-label">{t(group.labelKey)}</span>{group.items.map((item) => <button className={item === activeNav ? 'active' : ''} key={item} onClick={() => navigate(item)}><span className={`nav-icon nav-${item.toLowerCase()}`} aria-hidden="true" />{t(PAGE_KEYS[item].title)}{item === 'Approvals' && <span className="nav-count" data-count={snapshot?.workflows.filter(isOpenApproval).length || undefined} aria-hidden="true" />}</button>)}</div>)}</nav>
-      <div className="side-foot"><i className="connection-dot" data-connected={connected} />{connected ? t('shell.connected') : t('shell.disconnected')}<span className={`side-runtime ${simulation?.paused || held ? 'paused' : 'running'}`}>{runtimeLabel}</span><button type="button" className="founder-switch" onClick={leaveCompany}>{t('foundry.switchCompany')}</button></div>
+      <nav aria-label={t('nav.ariaLabel')}>{NAV_GROUPS.map((group) => <div className="nav-group" key={group.labelKey}><span className="nav-label">{t(group.labelKey)}</span>{group.items.map((item) => <button className={item === activeNav ? 'active' : ''} key={item} onClick={() => navigate(item)} title={t(PAGE_KEYS[item].title)} aria-label={t(PAGE_KEYS[item].title)}><span className={`nav-icon nav-${item.toLowerCase()}`} aria-hidden="true" /><span className="nav-text">{t(PAGE_KEYS[item].title)}</span>{item === 'Approvals' && <span className="nav-count" data-count={snapshot?.workflows.filter(isOpenApproval).length || undefined} aria-hidden="true" />}</button>)}</div>)}</nav>
+      <div className="side-foot"><i className="connection-dot" data-connected={connected} /><span className="side-connection-text">{connected ? t('shell.connected') : t('shell.disconnected')}</span><span className={`side-runtime ${simulation?.paused || held ? 'paused' : 'running'}`}>{runtimeLabel}</span><button type="button" className="founder-switch" onClick={leaveCompany} title={t('foundry.switchCompany')}><span className="founder-switch-text">{t('foundry.switchCompany')}</span></button></div>
     </aside>
     <main>
       <header className="topbar"><div className="topbar-left"><button className="menu-toggle" type="button" onClick={() => setSidebarOpen(true)} aria-label={t('nav.openMenu')}>☰</button><div><p className="eyebrow">{snapshot?.company.name ?? t('app.eyebrowFallback')}</p><h1>{t(heading)}</h1></div></div><div className="topbar-right"><span className={`connection-status ${connected ? 'connected' : 'offline'}`}><i />{connected ? t('shell.statusConnected') : t('shell.statusOffline')}</span>{simulation !== null && <span className="runtime-status"><b>{runtimeDescription}</b><span>{t('shell.tick', { tick: simulation.tick })}</span></span>}<LanguageSwitch /><button type="button" className="topbar-refresh" onClick={snapshotRefresh}>{t('common.refresh')}</button></div></header>
@@ -240,10 +315,12 @@ export function App() {
 function renderPage(page: Page, control: ConsoleControl): ReactNode {
   switch (page) {
     case 'Overview': return <OverviewPage control={control} />;
+    case 'Network': return <NetworkPage control={control} />;
     case 'Agents': return <AgentsPage control={control} />;
     case 'Deliverables': return <DeliverablesPage control={control} />;
     case 'Tasks': return <TasksPage control={control} />;
     case 'Workflows': return <WorkflowsPage control={control} />;
+    case 'Canvas': return <WorkflowCanvasPage control={control} />;
     case 'Approvals': return <ApprovalsPage control={control} />;
     case 'Communications': return <CommunicationsPage control={control} />;
     case 'Runtime': return <RuntimePage control={control} />;
