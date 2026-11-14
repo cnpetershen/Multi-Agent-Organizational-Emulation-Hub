@@ -304,6 +304,12 @@ export interface WorkBriefSpec {
   readonly context?: string | null;
   /** Q3: verification is mandatory — an unverifiable brief cannot be met. */
   readonly verificationKeys: readonly string[];
+  /**
+   * M2: where the brief came from, when it was produced from a 赛博沙盘 session. It is the
+   * duplicate guard (one session → one brief) and the audit link back to the discussion; a
+   * hand-written brief leaves it out.
+   */
+  readonly sourceSessionId?: string | null;
   /** Urgency 1 (highest) … 9 (lowest); absent = the org's default priority. */
   readonly priority?: number | null;
   /** Deadline in simulation time; absent = no deadline stated. */
@@ -652,12 +658,37 @@ export interface WorkflowView extends WorkflowSummary {
    */
   readonly steps?: readonly WorkflowCanvasStepView[];
   /**
+   * M2: the definition's transitions, so a canvas can draw what the engine will actually do
+   * (branches, failure paths, approval decisions) instead of inferring order from step spacing.
+   * Optional for the same reason `steps` is: a port that cannot resolve the definition omits it.
+   */
+  readonly transitions?: readonly WorkflowTransitionView[];
+  /**
    * M1.9: the instance is a draft — plan stored but nothing entered — until a human confirms
    * on the canvas. Always present so clients can sort/hide accordingly.
    */
   readonly draft?: boolean;
   /** M1.8: per-instance executor overrides folded from `Workflow.StepAssignmentOverridden`. */
   readonly assignmentOverrides?: Readonly<Record<string, string>>;
+}
+
+/** M2: one transition of a definition, projected for the canvas. */
+export interface WorkflowTransitionView {
+  readonly transitionId: string;
+  readonly fromStepId: string;
+  /** `always` / `task_status` (with `status`) / `approval_decision` (with `decision`). */
+  readonly when: {
+    readonly kind: string;
+    readonly status?: string;
+    readonly decision?: string;
+  };
+  /** `step` / `stage` / `complete` / `fail`; step/stage ids are filled for their own kinds. */
+  readonly to: {
+    readonly kind: string;
+    readonly stepId?: string | null;
+    readonly stageId?: string;
+    readonly reason?: string | null;
+  };
 }
 
 /** M1.8: one step of a definition as the canvas needs it. */
@@ -767,6 +798,8 @@ export interface WorkBriefView {
   readonly title: string;
   readonly goal: string;
   readonly context: string | null;
+  /** The sandbox session this brief was generated from, when it was. */
+  readonly sourceSessionId: string | null;
   readonly verificationKeys: readonly string[];
   readonly priority: number | null;
   readonly dueAtSim: number | null;

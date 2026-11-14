@@ -140,7 +140,18 @@ export function createControlService(options: ControlServiceOptions): ControlPla
     return Object.freeze({
       simulationPaused: projection.simulationPaused,
       pausedAgentIds: Object.freeze([...projection.pausedAgentIds]),
-      pausedWorkflowIds: Object.freeze([]),
+      // M2: a manual block is a paused workflow; an approval block is not (the gate is the
+      // reason it waits, and resume must not clear it). Derived from the same instance state
+      // the workflow read model uses, so the two cannot disagree.
+      pausedWorkflowIds: Object.freeze(
+        simulation
+          .workflows()
+          .filter(
+            (instance) =>
+              instance.status === 'blocked' && instance.blockedReason?.kind === 'manual',
+          )
+          .map((instance) => instance.instanceId),
+      ),
       issuedInstructionIds: projection.issuedInstructionIds,
       tick: snapshot.tick,
       simTime: snapshot.simTime,
@@ -789,6 +800,7 @@ export function createControlService(options: ControlServiceOptions): ControlPla
       goal: brief.goal,
       context: brief.context ?? null,
       verificationKeys: [...brief.verificationKeys],
+      sourceSessionId: brief.sourceSessionId ?? null,
       priority: brief.priority ?? null,
       dueAtSim: brief.dueAtSim ?? null,
     });

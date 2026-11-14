@@ -620,6 +620,7 @@ export function WorkflowCanvasPage({ control }: { control: ConsoleControl }) {
                 <div className="assignment-title-row">
                   <h2>{selected.title}</h2>
                   {selected.draft && <span className="assignment-chip draft">{t('canvas.draftTag')}</span>}
+                  {selected.paused === true && <span className="assignment-chip draft">{t('canvas.paused')}</span>}
                 </div>
                 <p>{selected.goal === '' ? t('common.noGoal') : selected.goal}</p>
               </div>
@@ -807,7 +808,8 @@ export function WorkflowCanvasPage({ control }: { control: ConsoleControl }) {
                         <path
                           key={edge.id}
                           d={edge.d}
-                          className={`assignment-edge tone-${edge.tone}${edge.active ? ' active' : ''}${edge.crossesStage ? ' cross' : ''}`}
+                          className={`assignment-edge tone-${edge.tone}${edge.active ? ' active' : ''}${edge.crossesStage ? ' cross' : ''}${edge.feedback ? ' feedback' : ''}`}
+                          data-condition={edge.condition ?? undefined}
                         />
                       ))}
                     </svg>

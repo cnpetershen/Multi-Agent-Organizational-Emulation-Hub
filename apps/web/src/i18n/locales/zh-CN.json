@@ -248,6 +248,8 @@
     "taskCancelled": "任务已取消",
     "taskDeleted": "任务已删除",
     "workflowDeleted": "工作流已删除",
+    "workflowPaused": "工作流已暂停：只停止推进，不打断已发出的任务",
+    "workflowResumed": "工作流已恢复：继续消费步骤转换",
     "approved": "已批准 — {title} 继续执行",
     "rejected": "已驳回 — {title} 已记录你的决定"
   },
@@ -684,6 +686,27 @@
     "eyebrow": "成果交付中心",
     "description": "你的 AI 公司为这个任务交付的内容：任务要求、交付结果、参与角色，以及它们走过的路径。",
     "back": "返回工作区",
+    "approval": {
+      "panel": "成果审批",
+      "hint": "这道门就是本次交付的人工验收",
+      "subject": "等待你决定",
+      "pending": "待审批",
+      "gate": "审批步骤",
+      "votes": "已批 / 需要",
+      "instance": "工作流实例",
+      "reasonLabel": "为什么在等",
+      "results": "这道门下已交付的工作",
+      "noTasks": "这道门还没有关联的已交付任务。",
+      "noResult": "该任务还没有提交结果。",
+      "artifacts": "产物：{count}",
+      "taskFallback": "交付步骤",
+      "loading": "正在读取任务结果……",
+      "taskFailed": "任务结果读取失败。",
+      "comment": "审批意见（写入审计）",
+      "commentPlaceholder": "可选：你检查了什么，或必须改什么",
+      "approve": "验收通过",
+      "reject": "驳回并说明"
+    },
     "header": {
       "creator": "创建者",
       "creatorFallback": "CEO（公司负责人）",
@@ -1097,6 +1120,7 @@
     "reasonPlaceholder": "例如：上次交付超范围了，换资深的",
     "confirm": "确认 {count} 项改动",
     "draftTag": "草稿",
+    "paused": "已暂停",
     "draftBanner": "这份计划还没有开始执行。审核席位（可把员工拖到待处理的 task 步骤上固定）后确认——公司只有在你确认后才会开工。",
     "nothingEditable": "此实例已完成——没有可改派的步骤。",
     "confirmDraft": "确认执行（{count} 项改动）",
@@ -1145,7 +1169,10 @@
       "approvalGate": "审批闸门",
       "gateMeta": "{step} · {status}",
       "approvalsRequired": "需要 {count} 个审批",
-      "reviewApproval": "查看审批"
+      "reviewApproval": "查看审批",
+      "pause": "暂停推进",
+      "resume": "恢复推进",
+      "pausedHint": "已暂停：工作流不再消费步骤转换。已发出的任务不会被中断；恢复时会结算暂停期间完成的任务。"
     },
     "tasks": {
       "panel": "任务分派",

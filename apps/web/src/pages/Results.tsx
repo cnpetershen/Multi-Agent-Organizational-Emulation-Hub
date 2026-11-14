@@ -3,6 +3,7 @@ import { parseRows, parseTaskRecord, readString } from '../api';
 import { instructAgent, taskReassign, type CommandContext } from '../commands';
 import { Avatar, Empty, LoadError, PageIntro, Panel, StatusPill } from '../components';
 import { DeliveryPackage } from '../components/DeliveryPackage';
+import { ResultApprovalPanel } from '../components/ResultApproval';
 import { DocumentPreview } from '../components/DocumentPreview';
 import type { ConsoleControl } from '../control';
 import { isOpenApproval, positionTitle, workflowById } from '../derive';
@@ -521,6 +522,9 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
           <span><small>{t('results.header.workflow')}</small><b>{workflowTitle}</b></span>
         </div>
       </section>
+
+      {/* M2: the gate is decided where the delivery is read, not on another page. */}
+      <ResultApprovalPanel control={control} workflow={workflow} />
 
       <Panel title={t('results.summary.panel')} className="result-summary">
         <section className="detail-section">

@@ -32,6 +32,7 @@ main{display:grid;grid-template-columns:340px 1fr;gap:14px;padding:14px 18px;max
 section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
 h2{font-size:12px;letter-spacing:.05em;color:var(--soft);margin:0 0 10px;font-weight:600}
 textarea{width:100%;min-height:110px;background:#0a1118;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px;font:inherit;font-size:13px;resize:vertical}
+input{width:100%;background:#0a1118;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 9px;font:inherit;font-size:13px}
 select{background:#0a1118;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit;font-size:13px}
 button{border:1px solid #2f6f52;background:#1e704b;color:#fff;border-radius:7px;padding:7px 12px;font:inherit;cursor:pointer}
 button.g{background:transparent;color:var(--soft);border-color:var(--line)}
@@ -66,6 +67,11 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .empty{color:var(--soft);font-size:13px;padding:18px;text-align:center;border:1px dashed var(--line);border-radius:8px}
 .pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);animation:p 1.2s infinite}
 @keyframes p{0%,100%{opacity:.25}50%{opacity:1}}
+.field{display:grid;gap:4px;margin:8px 0;font-size:11px;color:var(--soft)}
+.field textarea{min-height:64px;font-size:12px}
+.field input{font-size:12px}
+.preview{white-space:pre-wrap;max-height:220px;overflow:auto;background:#0a1118;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:11px;color:var(--soft);margin:8px 0}
+.warn-list{margin:6px 0 0;padding-left:16px;color:var(--warn);font-size:11px}
 </style>
 </head>
 <body>
@@ -104,6 +110,26 @@ button:disabled{opacity:.5;cursor:not-allowed}
     <section class="scores" id="scoreSection" hidden>
       <h2>5 · 评审结果（每条评分都指向具体发言）</h2>
       <div id="scores"></div>
+    </section>
+    <section id="briefSection" hidden>
+      <h2>6 · 转为任务书（草稿，确认后才提交）</h2>
+      <p class="hint" id="briefStatus">可以将会话转为任务书；草稿可修改，确认后才提交。</p>
+      <div id="briefForm" hidden>
+        <label class="field">标题<input id="briefTitle" maxlength="200"></label>
+        <label class="field">目标（会追加所需能力，供组织路由）<textarea id="briefGoal"></textarea></label>
+        <label class="field">任务拆分（每行一条）<textarea id="briefRequirements"></textarea></label>
+        <label class="field">所需能力（逗号分隔）<input id="briefCapabilities"></label>
+        <label class="field">约束（每行一条）<textarea id="briefConstraints"></textarea></label>
+        <label class="field">验收标准（每行一条）<textarea id="briefAcceptance"></textarea></label>
+        <label class="field">验收键（逗号分隔）<input id="briefKeys"></label>
+        <label class="field">补充说明（可选）<textarea id="briefNotes"></textarea></label>
+        <div class="field">提交时的上下文预览<pre class="preview" id="briefContext"></pre></div>
+      </div>
+      <div class="row">
+        <button id="briefDraft">生成任务书草稿</button>
+        <button id="briefConfirm" hidden>确认并提交任务书</button>
+      </div>
+      <p class="hint">提交后，CEO 会在下一拍把任务书分解为能力工作流；工作流仍需你在画布上确认，未确认不会执行。</p>
     </section>
   </div>
 </main>
@@ -206,6 +232,66 @@ button:disabled{opacity:.5;cursor:not-allowed}
     renderRoles(session);
     renderTurns(session);
     renderScores(session);
+    $('briefSection').hidden = false;
+    $('briefForm').hidden = true;
+    $('briefConfirm').hidden = true;
+    $('briefDraft').hidden = false;
+    $('briefStatus').className = 'hint';
+    $('briefStatus').textContent = '可以将会话转为任务书；草稿可修改，确认后才提交。';
+  }
+
+  function splitLines(id) {
+    return $(id).value.split('\n').map(function (line) { return line.trim(); }).filter(function (line) { return line !== ''; });
+  }
+  function splitList(id) {
+    return $(id).value.split(/[,，]/).map(function (item) { return item.trim(); }).filter(function (item) { return item !== ''; });
+  }
+
+  function fillBrief(draft) {
+    $('briefTitle').value = draft.title;
+    $('briefGoal').value = draft.goal;
+    $('briefRequirements').value = (draft.requirements || []).join('\n');
+    $('briefCapabilities').value = (draft.capabilities || []).join(', ');
+    $('briefConstraints').value = (draft.constraints || []).join('\n');
+    $('briefAcceptance').value = (draft.acceptanceCriteria || []).join('\n');
+    $('briefKeys').value = (draft.verificationKeys || []).join(', ');
+    $('briefNotes').value = draft.notes || '';
+    $('briefContext').textContent = draft.context || '';
+    $('briefForm').hidden = false;
+    $('briefConfirm').hidden = false;
+    $('briefDraft').hidden = true;
+    var warnings = draft.warnings || [];
+    $('briefStatus').className = warnings.length ? 'warn-list' : 'hint';
+    $('briefStatus').textContent = warnings.length
+      ? warnings.join(' ')
+      : '草稿已生成。确认前不会提交任何命令。';
+  }
+
+  function readJson(response) {
+    return response.text().then(function (text) {
+      var payload = {};
+      try { payload = JSON.parse(text); } catch (error) { payload = { error: text }; }
+      if (!response.ok) {
+        var failure = new Error(payload.message || payload.error || ('HTTP ' + response.status));
+        failure.payload = payload;
+        throw failure;
+      }
+      return payload;
+    });
+  }
+
+  function briefBody() {
+    return {
+      confirm: true,
+      title: $('briefTitle').value.trim(),
+      goal: $('briefGoal').value.trim(),
+      requirements: splitLines('briefRequirements'),
+      capabilities: splitList('briefCapabilities'),
+      constraints: splitLines('briefConstraints'),
+      acceptanceCriteria: splitLines('briefAcceptance'),
+      verificationKeys: splitList('briefKeys'),
+      notes: $('briefNotes').value.trim()
+    };
   }
 
   function loadSessions() {
@@ -272,6 +358,57 @@ button:disabled{opacity:.5;cursor:not-allowed}
       clearInterval(timer);
       button.disabled = false;
     });
+  });
+
+  $('briefDraft').addEventListener('click', function () {
+    if (!current) { $('briefStatus').textContent = '请先打开一个会话。'; return; }
+    var button = $('briefDraft');
+    button.disabled = true;
+    $('briefStatus').className = 'hint';
+    $('briefStatus').textContent = '正在从会话生成草稿……';
+    fetch('/api/sandbox/sessions/' + encodeURIComponent(current.sessionId) + '/brief')
+      .then(readJson)
+      .then(function (payload) {
+        fillBrief(payload.draft);
+        if (payload.submitted) {
+          $('briefConfirm').hidden = true;
+          $('briefStatus').textContent = '该会话已转为任务书 ' + payload.submitted.briefId + '，不会重复创建。';
+        }
+      })
+      .catch(function (error) {
+        $('briefStatus').className = 'warn-list';
+        $('briefStatus').textContent = '生成草稿失败：' + error.message;
+        if (error.payload && error.payload.briefId) {
+          $('briefStatus').textContent += '（已有任务书 ' + error.payload.briefId + '）';
+        }
+      })
+      .then(function () { button.disabled = false; });
+  });
+
+  $('briefConfirm').addEventListener('click', function () {
+    if (!current) { $('briefStatus').textContent = '请先打开一个会话。'; return; }
+    var button = $('briefConfirm');
+    button.disabled = true;
+    $('briefStatus').className = 'hint';
+    $('briefStatus').textContent = '正在提交任务书……';
+    fetch('/api/sandbox/sessions/' + encodeURIComponent(current.sessionId) + '/brief', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(briefBody())
+    }).then(readJson).then(function (payload) {
+      $('briefStatus').className = 'hint';
+      var briefId = payload.submitted && payload.submitted.briefId ? payload.submitted.briefId : '（已受理）';
+      $('briefStatus').textContent = '任务书已提交：' + briefId
+        + '。CEO 会在下一拍把它分解为能力工作流；工作流仍需你在画布上确认，未确认不会执行。';
+      $('briefConfirm').hidden = true;
+      $('briefForm').hidden = true;
+    }).catch(function (error) {
+      $('briefStatus').className = 'warn-list';
+      $('briefStatus').textContent = '提交失败：' + error.message;
+      if (error.payload && error.payload.briefId) {
+        $('briefStatus').textContent += '（已有任务书 ' + error.payload.briefId + '）';
+      }
+    }).then(function () { button.disabled = false; });
   });
 
   loadSessions();

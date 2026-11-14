@@ -355,6 +355,8 @@ export const controlWorkBriefedPayloadSchema = z.object({
   goal: z.string().min(1).max(8000),
   context: z.string().max(8000).nullable(),
   verificationKeys: z.array(z.string().min(1).max(64)).min(1),
+  /** M2: the sandbox session a generated brief came from; absent for hand-written briefs. */
+  sourceSessionId: z.string().min(1).max(120).nullable().optional(),
   priority: z.number().int().min(1).max(9).nullable(),
   dueAtSim: simSchema.nullable(),
 });

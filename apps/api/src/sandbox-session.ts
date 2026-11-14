@@ -64,6 +64,11 @@ export interface SandboxScores {
 
 export interface SandboxSession {
   readonly sessionId: string;
+  /**
+   * M2: the company the session was run for. Optional because sessions written before this
+   * field existed cannot prove ownership; the brief route refuses those instead of guessing.
+   */
+  readonly companyId?: string;
   readonly channelId: string;
   readonly topic: string;
   readonly rounds: number;
@@ -318,6 +323,7 @@ export interface SandboxEventLike {
 
 interface SessionIndexEntry {
   readonly sessionId: string;
+  readonly companyId?: string;
   readonly channelId: string;
   readonly topic: string;
   readonly rounds: number;
@@ -579,6 +585,7 @@ export function createSandboxService(deps: SandboxDeps): SandboxService {
     const finishedAt = new Date();
     const session: SandboxSession = {
       sessionId,
+      companyId: String(simulation.organization.company.id),
       channelId,
       topic,
       rounds,
@@ -606,6 +613,7 @@ export function createSandboxService(deps: SandboxDeps): SandboxService {
     }));
     writeIndex({
       sessionId,
+      companyId: String(simulation.organization.company.id),
       channelId,
       topic,
       rounds,
@@ -623,6 +631,7 @@ export function createSandboxService(deps: SandboxDeps): SandboxService {
     const verdictTurn = [...turns].reverse().find((turn) => turn.role === 'evaluator');
     return {
       sessionId: entry.sessionId,
+      ...(entry.companyId === undefined ? {} : { companyId: entry.companyId }),
       channelId: entry.channelId,
       topic: entry.topic,
       rounds: entry.rounds,

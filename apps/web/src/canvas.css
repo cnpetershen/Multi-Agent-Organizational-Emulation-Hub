@@ -475,6 +475,8 @@
 .assignment-edge.tone-info { stroke: rgba(103, 212, 232, 0.42); }
 .assignment-edge.tone-warn { stroke: rgba(233, 173, 97, 0.34); }
 .assignment-edge.tone-bad { stroke: rgba(224, 122, 122, 0.34); }
+/* A real feedback transition (e.g. approval denied → redesign) is a loop, not a forward step. */
+.assignment-edge.feedback { stroke-dasharray: 3 5; opacity: 0.8; }
 .assignment-edge.active {
   stroke: var(--a-mint);
   stroke-width: 2;

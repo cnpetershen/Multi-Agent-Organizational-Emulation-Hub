@@ -248,6 +248,8 @@
     "taskCancelled": "Task cancelled",
     "taskDeleted": "Task deleted",
     "workflowDeleted": "Workflow deleted",
+    "workflowPaused": "Workflow paused — it stops advancing; the active task is not interrupted",
+    "workflowResumed": "Workflow resumed — it continues advancing",
     "approved": "Approved — {title} continues",
     "rejected": "Rejected — {title} records your decision"
   },
@@ -684,6 +686,27 @@
     "eyebrow": "DELIVERY CENTER",
     "description": "What your AI company hands over for this task: the brief, the outcome, the roles behind it, and the path they took.",
     "back": "Back to the workspace",
+    "approval": {
+      "panel": "Result approval",
+      "hint": "This gate is the human acceptance for the delivery",
+      "subject": "Waiting for your decision",
+      "pending": "Pending",
+      "gate": "Approval step",
+      "votes": "Approvals",
+      "instance": "Workflow instance",
+      "reasonLabel": "Why it is waiting",
+      "results": "Work delivered under this gate",
+      "noTasks": "No delivered task is attached to this gate yet.",
+      "noResult": "This task has not submitted a result yet.",
+      "artifacts": "Artifacts: {count}",
+      "taskFallback": "Delivery step",
+      "loading": "Loading the task result…",
+      "taskFailed": "The task result could not be read.",
+      "comment": "Decision note (written to the audit trail)",
+      "commentPlaceholder": "Optional: what you checked, or what must change",
+      "approve": "Accept delivery",
+      "reject": "Reject with reason"
+    },
     "header": {
       "creator": "Created by",
       "creatorFallback": "The CEO",
@@ -1097,6 +1120,7 @@
     "reasonPlaceholder": "e.g. senior seat — last delivery went over scope",
     "confirm": "Confirm {count} change(s)",
     "draftTag": "DRAFT",
+    "paused": "PAUSED",
     "draftBanner": "This plan has not run yet. Review the seats (drag an employee onto a pending task step to pin them) and confirm — the company starts working only after you do.",
     "nothingEditable": "This instance is finished — there are no steps left to reassign.",
     "confirmDraft": "Confirm & execute ({count} change(s))",
@@ -1145,7 +1169,10 @@
       "approvalGate": "Approval gate",
       "gateMeta": "{step} · {status}",
       "approvalsRequired": "{count} approval required",
-      "reviewApproval": "Review approval"
+      "reviewApproval": "Review approval",
+      "pause": "Pause advancement",
+      "resume": "Resume advancement",
+      "pausedHint": "Paused: the workflow will not consume step transitions. The task already handed out is not interrupted; resuming settles it if it finished meanwhile."
     },
     "tasks": {
       "panel": "Task assignments",

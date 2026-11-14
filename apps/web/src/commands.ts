@@ -294,6 +294,36 @@ export function workflowDecision(
   };
 }
 
+/**
+ * M2: pause/resume advancement for one instance. This is `Workflow.InstanceBlocked` /
+ * `Workflow.InstanceResumed` — it stops the workflow from consuming step transitions, not the
+ * task the step already handed out (the UI says so, and resume reconciles a task that finished
+ * while paused).
+ */
+export function workflowPause(
+  ctx: CommandContext,
+  instanceId: string,
+  reason = 'workflow paused from console',
+): Command {
+  return {
+    ...envelope(ctx, reason),
+    commandType: 'Workflow.Pause',
+    target: { targetType: 'workflow', targetId: instanceId },
+  };
+}
+
+export function workflowResume(
+  ctx: CommandContext,
+  instanceId: string,
+  reason = 'workflow resumed from console',
+): Command {
+  return {
+    ...envelope(ctx, reason),
+    commandType: 'Workflow.Resume',
+    target: { targetType: 'workflow', targetId: instanceId },
+  };
+}
+
 export function taskCancel(ctx: CommandContext, taskId: string): Command {
   return {
     ...envelope(ctx, 'task cancelled from console'),

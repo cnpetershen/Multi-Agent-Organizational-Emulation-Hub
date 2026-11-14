@@ -366,6 +366,17 @@ export function validateCommand(command: ControlCommand): ControlFailure | null 
       );
     }
     if (
+      brief.sourceSessionId !== undefined &&
+      brief.sourceSessionId !== null &&
+      (!isNonEmptyString(brief.sourceSessionId) || brief.sourceSessionId.length > 120)
+    ) {
+      return controlFailure(
+        'INVALID_COMMAND',
+        'workBrief.sourceSessionId',
+        'sourceSessionId must be a non-empty string of at most 120 characters',
+      );
+    }
+    if (
       brief.priority !== undefined &&
       brief.priority !== null &&
       (!Number.isInteger(brief.priority) || brief.priority < 1 || brief.priority > 9)

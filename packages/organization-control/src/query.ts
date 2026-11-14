@@ -6,7 +6,7 @@ import { createOrgGraph, resolveCapabilityAssignments } from '@maoeh/organizatio
 import type { Task } from '@maoeh/task-system';
 import { TASK_CREATED, TASK_DELETED } from '@maoeh/task-system';
 import { DRAFT_CONTEXT_KEY, WORKFLOW_INSTANCE_DELETED, assignmentOverridesOf } from '@maoeh/workflow-engine';
-import type { WorkflowInstance } from '@maoeh/workflow-engine';
+import type { WorkflowDefinition, WorkflowInstance } from '@maoeh/workflow-engine';
 import type { WorkflowCanvasStepView } from './types.js';
 
 import { agentLifecycleOf } from './agent-lifecycle.js';
@@ -39,6 +39,7 @@ import type {
   WorkBriefItemView,
   WorkBriefView,
   WorkflowSummary,
+  WorkflowTransitionView,
   WorkflowView,
 } from './types.js';
 
@@ -474,10 +475,50 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
     return Object.freeze(steps);
   };
 
+  /**
+   * M2: the definition's transitions, projected for the canvas. The canvas draws what the
+   * engine will actually do — including rejected branches and approval decisions — instead of
+   * treating "next step in the array" as the dependency.
+   */
+  const workflowTransitionsView = (
+    definition: WorkflowDefinition,
+  ): readonly WorkflowTransitionView[] =>
+    Object.freeze(
+      definition.stages.flatMap((stage) =>
+        stage.transitions.map((transition) => {
+          const when = transition.when;
+          const to = transition.to;
+          return Object.freeze({
+            transitionId: transition.transitionId,
+            fromStepId: transition.fromStepId,
+            when: Object.freeze(
+              when.kind === 'task_status'
+                ? { kind: when.kind, status: when.status }
+                : when.kind === 'approval_decision'
+                  ? { kind: when.kind, decision: when.decision }
+                  : { kind: when.kind },
+            ),
+            to: Object.freeze(
+              to.kind === 'step'
+                ? {
+                    kind: to.kind,
+                    stepId: to.stepId,
+                    ...(to.stageId === null ? {} : { stageId: to.stageId }),
+                  }
+                : to.kind === 'stage'
+                  ? { kind: to.kind, stageId: to.stageId }
+                  : to.kind === 'fail'
+                    ? { kind: to.kind, reason: to.reason }
+                    : { kind: to.kind },
+            ),
+          } satisfies WorkflowTransitionView);
+        }),
+      ),
+    );
+
   const workflowSummary = (
     instance: WorkflowInstance,
     eventCount: number,
-    pausedWorkflows: readonly string[],
   ): WorkflowSummary =>
     Object.freeze({
       instanceId: instance.instanceId,
@@ -493,7 +534,8 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
               kind: instance.blockedReason.kind,
               detail: instance.blockedReason.detail,
             }),
-      paused: pausedWorkflows.includes(instance.instanceId),
+      paused:
+        instance.status === 'blocked' && instance.blockedReason?.kind === 'manual',
       startedAtSim: Number(instance.startedAtSim),
       completedAtSim:
         instance.completedAtSim === null ? null : Number(instance.completedAtSim),
@@ -735,22 +777,18 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
     },
 
     getWorkflows() {
-      const state = options.controlState();
       return Object.freeze(
         simulation
           .workflows()
-          .map((instance) => workflowSummary(instance, instance.processedEventIds.length, state.pausedWorkflowIds)),
+          .map((instance) => workflowSummary(instance, instance.processedEventIds.length)),
       );
     },
 
     getWorkflow(instanceId) {
       const instance = simulation.workflow(instanceId);
       if (instance === null) return null;
-      const summary = workflowSummary(
-        instance,
-        instance.processedEventIds.length,
-        options.controlState().pausedWorkflowIds,
-      );
+      const summary = workflowSummary(instance, instance.processedEventIds.length);
+      const definition = simulation.workflowDefinition?.(instance.workflowId) ?? null;
       const steps = workflowStepsView(instance);
       return Object.freeze({
         ...summary,
@@ -768,6 +806,8 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
         ),
         // M1.8: canvas projection; absent when the port cannot resolve the definition.
         ...(steps === undefined ? {} : { steps }),
+        // M2: the real transitions, so the canvas draws branches instead of inferring order.
+        ...(definition === null ? {} : { transitions: workflowTransitionsView(definition) }),
         assignmentOverrides: Object.freeze({ ...assignmentOverridesOf(instance) }),
         // M1.9: the console renders drafts (plan not yet executing) with a confirm action.
         draft: instance.context[DRAFT_CONTEXT_KEY] === true,
@@ -859,18 +899,13 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
 
     async getOrganizationSnapshot() {
       const taskCounts = await taskEventCounts();
-      const state = options.controlState();
       const tasks = simulation
         .tasks()
         .map((task) => taskSummary(task, taskCounts.get(task.taskId) ?? 0));
       const workflows = simulation
         .workflows()
         .map((instance) =>
-          workflowSummary(
-            instance,
-            instance.processedEventIds.length,
-            state.pausedWorkflowIds,
-          ),
+          workflowSummary(instance, instance.processedEventIds.length),
         );
       const agents = simulation
         .organization()
@@ -955,6 +990,7 @@ function workBriefView(
     title: payloadString(event, 'title') ?? '',
     goal: payloadString(event, 'goal') ?? '',
     context: typeof context === 'string' ? context : null,
+    sourceSessionId: payloadString(event, 'sourceSessionId'),
     verificationKeys: payloadStringArray(event, 'verificationKeys'),
     priority: payloadNumberOrNull(event, 'priority'),
     dueAtSim: payloadNumberOrNull(event, 'dueAtSim'),

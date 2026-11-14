@@ -2015,6 +2015,64 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
     return finalize(instance, ctx.buffer, [], 'paused');
   };
 
+  /**
+   * M2: a task that reached a terminal state while the instance was paused has no later
+   * trigger. The reactor refuses the transition (`instance_blocked`) and has no retry, so
+   * resuming must settle the active step from the task's own state; otherwise the instance
+   * wakes up `running` with an `active` step whose task is already done.
+   *
+   * The task is the source of truth here: for a paused instance the only thing missing is the
+   * call that would have consumed its terminal event. The engine reuses the same settle paths
+   * (`settleSubmitted` / `settleFailed` / `settleCancelled`), so verification, retry and
+   * transition selection behave exactly as they do on the live path.
+   */
+  const reconcilePausedStep = (
+    ctx: EnterContext,
+    instance: WorkflowInstance,
+  ): Result<WorkflowOperation, WorkflowFailure> | null => {
+    for (const stepId of instance.activeStepIds) {
+      const state = instance.stepStates[stepId];
+      if (state === undefined || state.taskId === null) continue;
+      const task = tasks.get(state.taskId);
+      if (task === null) continue;
+      const located = findStep(ctx.definition, stepId);
+      if (located === null) {
+        return {
+          ok: false,
+          error: workflowError(
+            'invalid_definition',
+            'stepId',
+            `step "${stepId}" does not exist in workflow "${ctx.definition.workflowId}"`,
+          ),
+        };
+      }
+      if (task.status === 'completed' || task.status === 'submitted') {
+        return settleSubmitted(ctx, instance, located, task, []);
+      }
+      if (task.status === 'cancelled') {
+        return settleCancelled(
+          ctx,
+          instance,
+          located,
+          task,
+          task.rejectReason ?? 'task cancelled while the workflow was paused',
+          [],
+        );
+      }
+      if (task.status === 'rejected') {
+        // A failed task folds to `rejected`; the rejection branch is the closest match the
+        // task state machine can still prove from the record alone.
+        return settleFailed(ctx, instance, located, task, {
+          cause: 'rejected',
+          reason: task.rejectReason ?? 'task rejected while the workflow was paused',
+          alreadyRejected: true,
+          processedIds: [],
+        });
+      }
+    }
+    return null;
+  };
+
   const resume = (
     input: WorkflowInstanceCommandInput,
   ): Result<WorkflowOperation, WorkflowFailure> => {
@@ -2099,6 +2157,8 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
     );
     if (!resumed.ok) return resumed;
     ctx.buffer.push(resumed.value);
+    const reconciled = reconcilePausedStep(ctx, instance);
+    if (reconciled !== null) return reconciled;
     return finalize(instance, ctx.buffer, [], 'resumed');
   };
 

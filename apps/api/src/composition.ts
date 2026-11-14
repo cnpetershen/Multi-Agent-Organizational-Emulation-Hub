@@ -311,6 +311,12 @@ export interface ComposedRuntimeOptions {
    * reads a developer's real ownership file. The server passes its own store.
    */
   readonly ownership?: OwnershipStore;
+  /**
+   * M2: where the 赛博沙盘 session index and its event log live. Defaults to the state dir, so
+   * the product keeps one place; an isolated e2e run passes a temp directory so it cannot read
+   * or write the operator's real sessions.
+   */
+  readonly sandboxStateDir?: string;
 }
 
 export async function createComposedRuntime(options: ComposedRuntimeOptions = {}): Promise<ComposedRuntime> {
@@ -420,6 +426,7 @@ export async function createComposedRuntime(options: ComposedRuntimeOptions = {}
     simulation,
     organizationId: company.id,
     api: {
+      companyId: String(company.id),
       control: plane.control,
       query: plane.control.query,
       tick: () => simulation.tick(),
@@ -447,6 +454,8 @@ export interface StartApiServerOptions {
   readonly eventLogPath?: string | null;
   /** M1.9: forwarded to `createComposedRuntime`. Defaults to `true`. */
   readonly requirePlanConfirmation?: boolean;
+  /** M2: forwarded to `createComposedRuntime`; isolated e2e runs pass a temp directory. */
+  readonly sandboxStateDir?: string;
 }
 
 export async function startApiServer(
@@ -466,6 +475,7 @@ export async function startApiServer(
   const runtimeOptions = {
     ...(options.eventLogPath === undefined ? {} : { eventLogPath: options.eventLogPath }),
     ...(requirePlanConfirmation === undefined ? {} : { requirePlanConfirmation }),
+    ...(options.sandboxStateDir === undefined ? {} : { sandboxStateDir: options.sandboxStateDir }),
     ownership,
   };
   let runtime = await createComposedRuntime(runtimeOptions);
@@ -551,7 +561,7 @@ export async function startApiServer(
    * facts, and injecting them into the live company would wake its agents and start a second,
    * unscripted conversation on top of the session. The demo company's log is never written.
    */
-  const sandboxStateDir = join(defaultStateDir(), 'sandbox');
+  const sandboxStateDir = options.sandboxStateDir ?? join(defaultStateDir(), 'sandbox');
   let sandboxRuntime: Promise<ComposedRuntime> | null = null;
   const ensureSandboxRuntime = (): Promise<ComposedRuntime> => {
     if (sandboxRuntime === null) {
@@ -582,6 +592,9 @@ export async function startApiServer(
     get: (sessionId) => sandboxService.get(sessionId),
   };
   const api: ApiRuntime = {
+    // Follows the active runtime, like every other read: a company switch changes the company
+    // the sandbox-brief route accepts a session for.
+    get companyId() { return runtime.api.companyId ?? String(runtime.organizationId); },
     get control() { return controlPlaneFor(runtime); },
     get query() { return runtime.api.query; },
     content: forwardedContent,

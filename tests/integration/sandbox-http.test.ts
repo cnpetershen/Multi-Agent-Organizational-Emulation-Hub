@@ -66,6 +66,10 @@ describe('赛博沙盘 over HTTP', () => {
     const page = await response.text();
     expect(page).toContain('/api/sandbox/session');
     expect(page).toContain('/api/sandbox/sessions');
+    // M2: the session can be converted into a brief, but only behind an explicit confirm.
+    expect(page).toContain('/brief');
+    expect(page).toContain('briefConfirm');
+    expect(page).toContain('confirm');
     // No hardcoded transcript: the old manual shell had fixed role copy, this page has none.
     expect(page).not.toContain('人工逐条');
   });

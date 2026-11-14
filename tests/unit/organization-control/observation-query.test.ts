@@ -242,6 +242,36 @@ describe('M1.0 control plane: observation queries', () => {
     expect(h.plane.control.query.getWorkflow('instance-unknown')).toBeNull();
   });
 
+  it('projects the definition transitions and derives paused from the real block', async () => {
+    const h = await createControlHarness();
+    const instanceId = await h.harness.startProductAnalysis();
+
+    const view = h.plane.control.query.getWorkflow(instanceId);
+    expect(view).not.toBeNull();
+    const transitions = view?.transitions ?? [];
+    expect(transitions.map((transition) => transition.transitionId)).toContain('intake-brief__completed');
+    expect(transitions.map((transition) => transition.transitionId)).toContain('design-gate__denied');
+    const rejected = transitions.find((transition) => transition.transitionId === 'intake-brief__rejected');
+    expect(rejected?.when).toEqual({ kind: 'task_status', status: 'rejected' });
+    expect(rejected?.to).toEqual({ kind: 'fail', reason: 'intake_failed' });
+    const completed = transitions.find((transition) => transition.transitionId === 'intake-brief__completed');
+    expect(completed?.to).toEqual({ kind: 'stage', stageId: 'design' });
+
+    expect(view?.paused).toBe(false);
+    const pause = await h.plane.control.execute(h.command('Workflow.Pause', { targetId: instanceId }));
+    expect(pause.status, JSON.stringify(pause.failure)).toBe('accepted');
+    const paused = h.plane.control.query.getWorkflow(instanceId);
+    expect(paused?.status).toBe('blocked');
+    expect(paused?.blockedReason?.kind).toBe('manual');
+    expect(paused?.paused).toBe(true);
+    expect(h.plane.control.query.getControlState().pausedWorkflowIds).toContain(instanceId);
+
+    const resume = await h.plane.control.execute(h.command('Workflow.Resume', { targetId: instanceId }));
+    expect(resume.status, JSON.stringify(resume.failure)).toBe('accepted');
+    expect(h.plane.control.query.getWorkflow(instanceId)?.paused).toBe(false);
+    expect(h.plane.control.query.getControlState().pausedWorkflowIds).not.toContain(instanceId);
+  });
+
   it('streams recent events newest-first and paginates the stream by exclusive seq cursor', async () => {
     const h = await createControlHarness();
 

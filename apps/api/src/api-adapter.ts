@@ -1,7 +1,13 @@
-import type { EmployeeId } from '@maoeh/shared-types';
+import type { EmployeeId, PositionId } from '@maoeh/shared-types';
 import type { OwnershipState } from '@maoeh/organization-model';
 import type { ControlCommand, ControlPlane, ControlQuery, EventStreamFilter } from '@maoeh/organization-control';
 import { ContentStudioError, type ContentStudioInput, type ContentStudioResult } from './content-studio.js';
+import {
+  SandboxBriefError,
+  buildSandboxBriefCommand,
+  buildSandboxBriefDraft,
+  normalizeSandboxBriefInput,
+} from './sandbox-brief.js';
 import {
   SandboxError,
   type SandboxSession,
@@ -70,6 +76,11 @@ export interface SandboxApi {
 export interface ApiRuntime {
   readonly control: ControlPlane;
   readonly query: ControlQuery;
+  /**
+   * M2: the company this runtime serves. The sandbox-brief route uses it to prove the session
+   * belongs to the company the brief will be filed in; absent only in minimal test doubles.
+   */
+  readonly companyId?: string;
   readonly tick?: () => Promise<unknown>;
   /** LLM call counters for observation; absent when no provider is wired. */
   readonly llm?: () => LlmObservation;
@@ -99,6 +110,11 @@ export async function handleApiRequest(request: Request, apiRuntime: ApiRuntime 
     // step, and no API key anywhere near the browser.
     if (request.method === 'GET' && path === '/studio') return await contentPageRoute(apiRuntime);
     if (request.method === 'POST' && path === '/content/generate') return await contentGenerateRoute(request, apiRuntime);
+    // M2: the sandbox → brief bridge. It lives before the generic sandbox route because that
+    // route owns every `/sandbox/*` path and has no access to the main company's control plane.
+    if (path.startsWith('/sandbox/sessions/') && path.endsWith('/brief')) {
+      return await sandboxBriefRoute(path, request, apiRuntime);
+    }
     if (path === '/sandbox' || path.startsWith('/sandbox/')) return await sandboxRoute(path, request, apiRuntime);
     if (request.method === 'POST' && path === '/translate') return await translateRoute(request, apiRuntime);
     if (request.method === 'GET') return await queryRoute(path, url.searchParams, apiRuntime);
@@ -214,6 +230,197 @@ async function contentGenerateRoute(request: Request, api: ApiRuntime): Promise<
  * company has too few seats (`409`) or because the model failed (`502`), and two reads that return
  * `null` when the session is unknown.
  */
+/**
+ * `GET /api/sandbox/sessions/:id/brief` — the editable draft; `POST` with `confirm: true`
+ * submits it as a `Work.SubmitBrief` command.
+ *
+ * The bridge is deliberately one-way and explicit:
+ *
+ * - the draft is derived from the session's own messages and score, never from a second model
+ *   call, so the operator can diff what they watched against what will be submitted;
+ * - GET writes nothing, so previewing cannot start work;
+ * - POST requires `confirm: true` (an accidental request cannot submit), refuses a second brief
+ *   for the same session, and only then executes the existing command — the workflow still has
+ *   to be confirmed on the canvas, because the console runs with plan confirmation on.
+ *
+ * It also refuses sessions that cannot prove ownership (written before sessions carried a
+ * `companyId`) rather than guessing which company a brief should belong to.
+ */
+async function sandboxBriefRoute(
+  path: string,
+  request: Request,
+  api: ApiRuntime,
+): Promise<Response> {
+  const sandbox = api.sandbox;
+  if (sandbox === undefined) {
+    return json({ error: 'sandbox_unavailable', message: 'this runtime has no sandbox service' }, 501);
+  }
+  const rawId = path.slice('/sandbox/sessions/'.length, path.length - '/brief'.length);
+  const sessionId = decodeURIComponent(rawId).replace(/\/+$/u, '');
+  if (sessionId === '') {
+    return json({ error: 'invalid_session', message: 'session id is required' }, 400);
+  }
+  let session: SandboxSession | null;
+  try {
+    session = await sandbox.get(sessionId);
+  } catch (error) {
+    return json({ error: 'sandbox_failed', message: error instanceof Error ? error.message : 'sandbox read failed' }, 500);
+  }
+  if (session === null) {
+    return json({ error: 'unknown_session', message: `unknown sandbox session "${sessionId}"` }, 404);
+  }
+
+  const companyId = api.companyId;
+  if (companyId === undefined || session.companyId === undefined) {
+    return json(
+      {
+        error: 'sandbox_session_legacy',
+        message: 'this session has no recorded company; run a new session before converting it to a brief',
+      },
+      409,
+    );
+  }
+  if (session.companyId !== companyId) {
+    return json(
+      {
+        error: 'sandbox_session_other_company',
+        message: `session "${sessionId}" belongs to company "${session.companyId}", not "${companyId}"`,
+      },
+      409,
+    );
+  }
+  if (session.turns.length < 2) {
+    return json(
+      {
+        error: 'sandbox_session_not_ready',
+        message: `session "${sessionId}" has ${String(session.turns.length)} turn(s); at least two are needed`,
+      },
+      422,
+    );
+  }
+
+  let draft: ReturnType<typeof buildSandboxBriefDraft>;
+  try {
+    draft = buildSandboxBriefDraft(session);
+  } catch (error) {
+    if (error instanceof SandboxBriefError) {
+      return json({ error: error.code, message: error.message }, 422);
+    }
+    throw error;
+  }
+
+  const briefs = await api.query.listWorkBriefs();
+  const existing = briefs.find((brief) => brief.sourceSessionId === sessionId) ?? null;
+  const submitted =
+    existing === null
+      ? null
+      : { briefId: existing.briefId, commandId: existing.commandId };
+
+  if (request.method === 'GET') {
+    return json({ draft, submitted });
+  }
+  if (request.method !== 'POST') {
+    return json({ error: 'method_not_allowed', message: 'use GET for the draft or POST to confirm' }, 405);
+  }
+  if (existing !== null) {
+    return json(
+      {
+        error: 'already_converted',
+        message: `session "${sessionId}" already produced brief "${existing.briefId}"`,
+        briefId: existing.briefId,
+        commandId: existing.commandId,
+      },
+      409,
+    );
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'invalid_brief', message: 'body must be JSON' }, 400);
+  }
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    return json({ error: 'invalid_brief', message: 'body must be an object' }, 400);
+  }
+  if ((body as Readonly<Record<string, unknown>>)['confirm'] !== true) {
+    return json(
+      {
+        error: 'confirmation_required',
+        message: 'the brief is only submitted with "confirm": true after the operator reviewed it',
+      },
+      400,
+    );
+  }
+  let input: ReturnType<typeof normalizeSandboxBriefInput>;
+  try {
+    input = normalizeSandboxBriefInput(body, draft);
+  } catch (error) {
+    if (error instanceof SandboxBriefError) {
+      return json({ error: error.code, message: error.message }, 400);
+    }
+    throw error;
+  }
+
+  const agents = api.query.getAgents().filter((agent) => agent.lifecycle === 'active');
+  const chief = agents.find((agent) => agent.positionId === 'ceo') ?? agents[0];
+  if (chief === undefined) {
+    return json({ error: 'no_target_agent', message: 'the company has no active employee to brief' }, 409);
+  }
+  const command = buildSandboxBriefCommand({
+    commandId: `sandbox-brief-${sessionId}`,
+    actor: {
+      operatorId: 'ceo-alex' as EmployeeId,
+      displayName: 'Alex',
+      positionId: 'ceo' as PositionId,
+      kind: 'human',
+    },
+    targetAgentId: String(chief.employeeId),
+    simTime: api.query.getSimulationState().simTime,
+    draft,
+    input,
+    turns: session.turns,
+    reason: `Convert 赛博沙盘 session ${sessionId} into a work brief from the console`,
+  });
+
+  let outcome;
+  try {
+    outcome = await api.control.execute(command);
+  } catch (error) {
+    return json({ error: 'command_failed', message: error instanceof Error ? error.message : 'command failed' }, 500);
+  }
+  if (outcome.status !== 'accepted') {
+    const code = outcome.failure?.code ?? 'command_refused';
+    const denied = code === 'UNAUTHORIZED' || code === 'FORBIDDEN' || code === 'OUT_OF_SCOPE';
+    return json(
+      {
+        error: 'command_refused',
+        message: `the work brief was refused (${code})`,
+        code,
+        failure: outcome.failure,
+      },
+      denied ? 403 : 409,
+    );
+  }
+
+  const after = await api.query.listWorkBriefs();
+  const created =
+    after.find((brief) => brief.sourceSessionId === sessionId) ??
+    after.find((brief) => brief.commandId === command.commandId) ??
+    null;
+  return json(
+    {
+      draft,
+      submitted:
+        created === null
+          ? { briefId: null, commandId: command.commandId }
+          : { briefId: created.briefId, commandId: created.commandId },
+      replayed: outcome.replayed,
+    },
+    201,
+  );
+}
+
 async function sandboxRoute(path: string, request: Request, api: ApiRuntime): Promise<Response> {
   const sandbox = api.sandbox;
   if (sandbox === undefined) {
