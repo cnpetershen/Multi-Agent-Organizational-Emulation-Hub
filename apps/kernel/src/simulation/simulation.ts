@@ -54,7 +54,8 @@ import {
   createTaskService,
   registerTaskEvents,
 } from '@maoeh/task-system';
-import type { WorkflowDefinition, WorkflowInstanceStore } from '@maoeh/workflow-engine';
+import { createAuthorityService } from '@maoeh/authority-engine';
+import type { WorkflowDefinition, WorkflowDefinitionStore, WorkflowInstanceStore } from '@maoeh/workflow-engine';
 import {
   createInMemoryWorkflowDefinitionStore,
   createInMemoryWorkflowInstanceStore,
@@ -116,6 +117,12 @@ export interface SimulationOptions {
   readonly cognition: CognitionExecutor;
   readonly config: SimulationConfigOptions;
   readonly policy?: PermissionPolicy;
+  /**
+   * M1.9: capability-generated workflows start parked as drafts on the canvas — the human
+   * confirms before the entry step is entered. The console sets this; headless kernels default
+   * to immediate execution as before.
+   */
+  readonly requirePlanConfirmation?: boolean;
   readonly eventStore?: EventStore;
   readonly schedules?: readonly ScheduleDefinition[];
 }
@@ -133,6 +140,8 @@ export interface Simulation {
   readonly workflow: ReturnType<typeof createWorkflowEngine>;
   readonly taskStore: TaskStore;
   readonly instanceStore: WorkflowInstanceStore;
+  /** M1.8: the workflow definition store; the canvas projection reads definitions through it. */
+  readonly definitions: WorkflowDefinitionStore;
   readonly communication: CommunicationService;
   readonly collaboration: CollaborationService;
   readonly agents: ReadonlyMap<EmployeeId, AgentBundle>;
@@ -294,6 +303,8 @@ export async function createSimulation(
     instances: instanceStore,
     eventIdGenerator: nextEventId,
     instanceIdGenerator: nextInstanceId,
+    // M1.8: assignee-side authority checks for per-instance overrides.
+    authority: createAuthorityService(organization),
   });
 
   const communicationIdentity: CommunicationIdentity = {
@@ -822,6 +833,9 @@ export async function createSimulation(
         authz,
         organization,
         instances: instanceStore,
+        ...(options.requirePlanConfirmation === undefined
+          ? {}
+          : { requirePlanConfirmation: options.requirePlanConfirmation }),
       }),
     turnContext,
     agents,
@@ -902,6 +916,12 @@ export async function createSimulation(
    * `Communication.ChannelOpened`, so agents can `SendMessage` without an out-of-band setup step
    * (M1.0.1 K1). Idempotent: it opens nothing when the log already records the channel, which
    * keeps a restarted kernel (and recovery parity) byte-identical to a continuous run.
+   *
+   * Runs **after** `recover()`, and that order is load bearing: a starter company is founded with
+   * one employee (the CEO), and every colleague is a `Control.AgentCreated` fact replayed during
+   * recovery. Opening the channel before the replay found a one-member roster — below the
+   * channel contract's minimum of two — and silently returned, so the live company ran with no
+   * channel at all and every agent `SendMessage` would have failed with `unknown_channel`.
    */
   const bootstrapCompanyChannel = async (): Promise<void> => {
     const channelId = companyChannelId(String(config.companyId));
@@ -1138,6 +1158,8 @@ export async function createSimulation(
     workflow,
     taskStore,
     instanceStore,
+    // M1.8: the canvas projection reads the definitions of running instances through this.
+    definitions: definitionStore,
     communication,
     collaboration,
     agents,
@@ -1190,10 +1212,11 @@ export async function createSimulation(
     },
   };
 
-  // Company formation precedes recovery so that the recovered report and the log agree: a fresh
-  // kernel records its company channel, a restarted one rebuilds it from that same record.
-  await bootstrapCompanyChannel();
+  // Recovery precedes company formation: replaying the log is what restores a starter company's
+  // roster, and the channel's member list is read from that roster. A restarted kernel rebuilds
+  // the channel from its own record instead, so the sequence stays idempotent.
   await recover();
+  await bootstrapCompanyChannel();
   await restoreControlOverlay(await allStoredEvents());
   return simulation;
 }

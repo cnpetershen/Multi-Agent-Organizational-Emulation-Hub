@@ -57,6 +57,9 @@ export type {
   WorkBriefSpec,
   WorkBriefView,
   WorkSubmitBriefCommand,
+  WorkflowConfirmStartCommand,
+  WorkflowInstanceAssignmentOverrideCommand,
+  WorkflowCanvasStepView,
   WorkflowSummary,
   WorkflowView,
 } from './types.js';
@@ -98,6 +101,8 @@ export {
   CONTROL_WORKFLOW_APPROVAL_DECIDED,
   CONTROL_WORKFLOW_CANCELLED,
   CONTROL_WORKFLOW_DELETED,
+  CONTROL_WORKFLOW_INSTANCE_ASSIGNMENT_OVERRIDDEN,
+  CONTROL_WORKFLOW_INSTANCE_CONFIRMED,
   controlAgentArchivedPayloadSchema,
   controlAgentCreatedPayloadSchema,
   controlAgentInstructedPayloadSchema,
@@ -123,6 +128,8 @@ export {
   controlWorkflowApprovalDecidedPayloadSchema,
   controlWorkflowCancelledPayloadSchema,
   controlWorkflowDeletedPayloadSchema,
+  controlWorkflowInstanceAssignmentOverriddenPayloadSchema,
+  controlWorkflowInstanceConfirmedPayloadSchema,
   isControlEvent,
   registerControlEvents,
 } from './events.js';
@@ -136,6 +143,8 @@ export type {
   ControlTaskAssignedPayload,
   ControlTaskInjectedPayload,
   ControlWorkBriefedPayload,
+  ControlWorkflowInstanceAssignmentOverriddenPayload,
+  ControlWorkflowInstanceConfirmedPayload,
 } from './events.js';
 
 export {

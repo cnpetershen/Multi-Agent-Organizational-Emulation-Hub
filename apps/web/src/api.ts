@@ -363,6 +363,26 @@ export function parseTaskRecord(value: unknown, path: string): TaskRecord {
     verification: parseTaskVerification(root['verification'], `${where}.verification`),
   };
 }
+/** The LLM substrate the runtime reports (`GET /api/llm`): who is thinking, and how much. */
+export interface LlmView {
+  readonly callCount: number;
+  readonly provider: string | null;
+  readonly mode: 'mock' | 'live' | null;
+  readonly model: string | null;
+}
+
+/** Parse `/api/llm` defensively: callCount is the only field the Network metrics require. */
+export function parseLlm(value: unknown): LlmView {
+  const root = recordOf(value, 'GET /api/llm response');
+  const mode = root['mode'];
+  return {
+    callCount: typeof root['callCount'] === 'number' && Number.isFinite(root['callCount']) ? root['callCount'] : 0,
+    provider: optionalString(root['provider']),
+    mode: mode === 'mock' || mode === 'live' ? mode : null,
+    model: optionalString(root['model']),
+  };
+}
+
 export function parseCommandOutcome(value: unknown): CommandOutcome {
   const root = recordOf(value, 'POST /api/command response');
   const status = requiredString(root['status'], 'command.status');

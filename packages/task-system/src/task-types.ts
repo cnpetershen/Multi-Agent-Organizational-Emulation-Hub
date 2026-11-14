@@ -40,6 +40,33 @@ export type TaskCommand =
   | 'cancel'
   | 'review';
 
+/**
+ * The task state machine, as data: which command each status accepts.
+ *
+ * It lives beside the statuses because it *is* the status contract, and it is exported because
+ * more than the service needs to describe it: the runtime renders each open task's legal next
+ * commands into the cognition prompt. A live planner that could not see that `submit` requires
+ * `started` planned `AcceptTask` + `SubmitReport`, then burned four retries on
+ * `invalid_transition` while the task sat at `accepted` — the state machine is not something a
+ * prompt should have to guess.
+ */
+export const ALLOWED_TASK_COMMANDS: Readonly<Record<TaskStatus, readonly TaskCommand[]>> = {
+  created: ['assign', 'cancel'],
+  assigned: ['assign', 'accept', 'reject', 'cancel'],
+  accepted: ['start', 'reject', 'cancel'],
+  started: ['block', 'submit', 'report', 'reject', 'fail', 'cancel'],
+  blocked: ['unblock', 'cancel'],
+  submitted: ['complete', 'reject', 'fail', 'cancel', 'review'],
+  completed: [],
+  rejected: ['assign', 'cancel'],
+  cancelled: [],
+};
+
+/** The commands a task in `status` accepts right now — empty for a terminal status. */
+export function allowedTaskCommands(status: TaskStatus): readonly TaskCommand[] {
+  return ALLOWED_TASK_COMMANDS[status];
+}
+
 export type TaskAssignmentKind = 'employee' | 'position' | 'unassigned';
 
 export type TaskAssignmentInput =

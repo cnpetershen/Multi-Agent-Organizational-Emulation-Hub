@@ -15,9 +15,11 @@ export type {
   TaskVerificationKind,
 } from './task-types.js';
 export {
+  ALLOWED_TASK_COMMANDS,
   TASK_STATUSES,
   TASK_TERMINAL_STATUSES,
   TASK_VERIFICATION_KINDS,
+  allowedTaskCommands,
   executorIdOf,
   isTerminalStatus,
 } from './task-types.js';

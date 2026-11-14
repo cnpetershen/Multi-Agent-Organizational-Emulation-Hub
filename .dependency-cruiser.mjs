@@ -112,6 +112,9 @@ export default {
   ],
   options: {
     tsPreCompilationDeps: true,
+    // Generated preview workspaces are data, not source; the reaper/API can remove them while a
+    // scan is running, and a missing file must not fail the architecture gate.
+    exclude: { path: '(^|/)(\\.maoeh|\\.turbo|\\.screenshots)(/|$)' },
     doNotFollow: { path: '(^|/)(dist|node_modules)(/|$)' },
   },
 };

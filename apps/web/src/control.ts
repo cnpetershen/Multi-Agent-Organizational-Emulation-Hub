@@ -3,10 +3,12 @@ import type { Command } from './commands';
 
 export type Page =
   | 'Overview'
+  | 'Network'
   | 'Agents'
   | 'Deliverables'
   | 'Tasks'
   | 'Workflows'
+  | 'Canvas'
   | 'Approvals'
   | 'Communications'
   | 'Runtime'
@@ -14,10 +16,12 @@ export type Page =
 
 export const PAGES: readonly Page[] = [
   'Overview',
+  'Network',
   'Agents',
   'Deliverables',
   'Tasks',
   'Workflows',
+  'Canvas',
   'Approvals',
   'Communications',
   'Runtime',

@@ -274,7 +274,19 @@ describe('starter company · a work brief never creates work nobody can execute'
     // The resumed proposal runs to completion, and the newly hired employee delivers the *game*:
     // the company that started with only a CEO ends this brief with a playable Tetris page.
     await runToIdle(harness, 80);
-    const finished = harness.simulation.instanceStore.get(String(resumed?.instanceId));
+    let finished = harness.simulation.instanceStore.get(String(resumed?.instanceId));
+    if (finished?.status === 'blocked') {
+      const approved = await harness.plane.control.execute(
+        harness.command('Workflow.Approve', {
+          targetType: 'workflow',
+          targetId: String(finished.instanceId),
+          reason: 'human acceptance of the delivered game',
+        }),
+      );
+      expect(approved.status, JSON.stringify(approved.failure)).toBe('accepted');
+      await runToIdle(harness, 80);
+      finished = harness.simulation.instanceStore.get(String(resumed?.instanceId));
+    }
     expect(finished?.status).toBe('completed');
     const delivered = harness.simulation.taskStore
       .all()

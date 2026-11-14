@@ -345,6 +345,47 @@ export function taskRequestReview(ctx: CommandContext, taskId: string): Command 
 }
 
 /**
+ * `Workflow.InstanceAssignmentOverride` (M1.8): per-instance executor pin for task steps
+ * that have not entered yet — the canvas "assign before activation" command. The command is
+ * whole-batch and fail-closed: either every entry is accepted or none is written.
+ */
+export interface AssignmentOverrideEntry {
+  readonly stepId: string;
+  readonly employeeId: string;
+  /** Per-entry reason; falls back to `reason`. Audited either way. */
+  readonly reason?: string;
+}
+
+export function workflowAssignmentOverride(
+  ctx: CommandContext,
+  instanceId: string,
+  overrides: readonly AssignmentOverrideEntry[],
+  reason: string,
+  expectedVersion?: number,
+): Command {
+  return {
+    ...envelope(ctx, reason),
+    commandType: 'Workflow.InstanceAssignmentOverride',
+    target: { targetType: 'workflow', targetId: instanceId },
+    ...(expectedVersion === undefined ? {} : { expectedVersion }),
+    overrides: overrides.map((entry) => ({
+      stepId: entry.stepId,
+      employeeId: entry.employeeId,
+      ...(entry.reason === undefined || entry.reason === '' ? {} : { reason: entry.reason }),
+    })),
+  };
+}
+
+/** `Workflow.ConfirmStart` (M1.9): promote a draft instance to running; the entry stage is entered with any staged overrides. */
+export function workflowConfirmStart(ctx: CommandContext, instanceId: string, reason: string): Command {
+  return {
+    ...envelope(ctx, reason),
+    commandType: 'Workflow.ConfirmStart',
+    target: { targetType: 'workflow', targetId: instanceId },
+  };
+}
+
+/**
  * `Task.AssignToAgent` (M1.6): put the task on a named agent, or — when no agent is named —
  * let the capability matcher re-run against the task's own `requiredSkills`. The command
  * carries `agentId` only in the first case; the second is deliberately empty, because the

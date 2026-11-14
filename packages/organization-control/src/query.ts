@@ -1,12 +1,13 @@
-import type { EmployeeId, OrgEvent } from '@maoeh/shared-types';
+import type { EmployeeId, OrgEvent, PositionId } from '@maoeh/shared-types';
 import type { EventStore, Seq } from '@maoeh/event-store';
 import type { EventAggregate } from '@maoeh/event-system';
 import type { Organization } from '@maoeh/organization-model';
-import { createOrgGraph } from '@maoeh/organization-model';
+import { createOrgGraph, resolveCapabilityAssignments } from '@maoeh/organization-model';
 import type { Task } from '@maoeh/task-system';
 import { TASK_CREATED, TASK_DELETED } from '@maoeh/task-system';
+import { DRAFT_CONTEXT_KEY, WORKFLOW_INSTANCE_DELETED, assignmentOverridesOf } from '@maoeh/workflow-engine';
 import type { WorkflowInstance } from '@maoeh/workflow-engine';
-import { WORKFLOW_INSTANCE_DELETED } from '@maoeh/workflow-engine';
+import type { WorkflowCanvasStepView } from './types.js';
 
 import { agentLifecycleOf } from './agent-lifecycle.js';
 import {
@@ -384,6 +385,95 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
     return counts;
   };
 
+  /**
+   * M1.8: project the definition's steps for the canvas. An absent definition service makes
+   * the whole projection absent (clients tolerate it); an instance step already entered shows
+   * the task's real executor; a not-yet-entered step shows the folded override, the definition
+   * pin, or the live capability/position resolution — whichever the engine would use at entry.
+   */
+  const workflowStepsView = (
+    instance: WorkflowInstance,
+  ): readonly WorkflowCanvasStepView[] | undefined => {
+    const definition = simulation.workflowDefinition?.(instance.workflowId);
+    if (definition === undefined || definition === null) return undefined;
+    const overrides = assignmentOverridesOf(instance);
+    const graph = createOrgGraph(organization);
+    const steps: WorkflowCanvasStepView[] = [];
+    for (const stage of definition.stages) {
+      for (const step of stage.steps) {
+        const state = instance.stepStates[step.stepId];
+        const taskId = state?.taskId ?? null;
+        const task = taskId === null ? null : simulation.task(taskId);
+        const overrideEmployeeId = overrides[step.stepId] ?? null;
+        let assigneeEmployeeId: string | null = task?.assignment.assigneeEmployeeId ?? null;
+        let assigneePositionId: string | null = task?.assignment.positionId ?? null;
+        let overridden = false;
+        if (assigneeEmployeeId === null) {
+          if (overrideEmployeeId !== null) {
+            assigneeEmployeeId = overrideEmployeeId;
+            assigneePositionId = graph.getEmployee(overrideEmployeeId as EmployeeId)?.positionId ?? null;
+            overridden = true;
+          } else if (step.assignment?.kind === 'employee' && step.assignment.employeeId !== undefined) {
+            assigneeEmployeeId = step.assignment.employeeId;
+            assigneePositionId = graph.getEmployee(step.assignment.employeeId)?.positionId ?? null;
+          } else if (step.assignment?.kind === 'position' && step.assignment.positionId !== undefined) {
+            assigneePositionId = step.assignment.positionId;
+            assigneeEmployeeId = graph.resolveByPosition(step.assignment.positionId)?.id ?? null;
+          } else if (step.assignment?.kind === 'capability' && step.assignment.capability !== undefined) {
+            const resolved = resolveCapabilityAssignments(organization, [step.assignment.capability]);
+            const seat = resolved[0];
+            if (seat !== undefined) {
+              assigneePositionId = String(seat.positionId);
+              assigneeEmployeeId =
+                graph.resolveByPosition(seat.positionId as PositionId)?.id ?? null;
+            }
+          }
+          // Role-based steps (approvals): show who holds the seat, not "unresolved".
+          if (assigneeEmployeeId === null && taskId === null && step.requiredRoles.length > 0) {
+            for (const role of step.requiredRoles) {
+              const position = organization.positions.find(
+                (entry) => entry.id === role || entry.key === role || entry.roleCode === role,
+              );
+              if (position === undefined) continue;
+              const holder = graph.resolveByPosition(position.id);
+              if (holder !== null) {
+                assigneePositionId = String(position.id);
+                assigneeEmployeeId = holder.id;
+                break;
+              }
+            }
+          }
+        }
+        steps.push(
+          Object.freeze({
+            stepId: step.stepId,
+            stageId: stage.stageId,
+            stageName: stage.name,
+            name: step.name,
+            description: step.description ?? null,
+            kind: step.kind,
+            status: state?.status ?? 'pending',
+            taskId,
+            assigneeEmployeeId,
+            assigneePositionId,
+            capability: step.capability ?? null,
+            assignment: step.assignment ?? null,
+            requiredRoles: Object.freeze([...step.requiredRoles]),
+            requiredAuthority:
+              step.requiredAuthority === null || step.requiredAuthority === undefined
+                ? null
+                : Object.freeze({
+                    domain: String(step.requiredAuthority.domain),
+                    level: step.requiredAuthority.level,
+                  }),
+            overridden,
+          }),
+        );
+      }
+    }
+    return Object.freeze(steps);
+  };
+
   const workflowSummary = (
     instance: WorkflowInstance,
     eventCount: number,
@@ -661,6 +751,7 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
         instance.processedEventIds.length,
         options.controlState().pausedWorkflowIds,
       );
+      const steps = workflowStepsView(instance);
       return Object.freeze({
         ...summary,
         goal: instance.goal,
@@ -675,6 +766,11 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
             }),
           ),
         ),
+        // M1.8: canvas projection; absent when the port cannot resolve the definition.
+        ...(steps === undefined ? {} : { steps }),
+        assignmentOverrides: Object.freeze({ ...assignmentOverridesOf(instance) }),
+        // M1.9: the console renders drafts (plan not yet executing) with a confirm action.
+        draft: instance.context[DRAFT_CONTEXT_KEY] === true,
       });
     },
 

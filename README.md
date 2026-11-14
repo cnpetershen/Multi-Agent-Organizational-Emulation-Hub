@@ -361,10 +361,61 @@ Multi-Agent-Organizational-Emulation-Hub/
 | **Ownership Store** | ✅ 可用 | Founder → Company → 激活切换，持久化到仓库外状态目录 |
 | **Kernel（仿真）** | ✅ 可用 | Run-Tick / Plan-Executor / Snapshot / Work-Catalog |
 | **API 服务** | ✅ 可用 | HTTP 入口（组织查询 / Agent 管理 / 流程 / 运行时控制） |
-| **Web 控制台** | ✅ 可用 | Overview / Agents / Events / Tasks / Workflows / Runtime / Deliverables / Foundry / Communications / Approvals + 中英双语 |
+| **Web 控制台** | ✅ 可用 | Overview / **Network（协同网络画布）** / Agents / Events / Tasks / Workflows / **Canvas（暗色改派工作室）** / Runtime / Deliverables / Foundry / Communications / Approvals + 中英双语 |
+| **交付物预览** | ✅ 可用 | **交付包**按工作流归组，游戏 / 文档 / 3D / 文件同屏；游戏在控制台内真实启动（含单文件 `index.html` 交付）；文档按 Markdown / HTML 纸面呈现；OBJ/STL 线框 3D 预览；一键下载 `.zip` |
 | **Decision / Meeting / Escalation** | 📋 占位 | 有 index.ts 导出，领域逻辑待实现 |
 | **Agent Memory / Tools / Knowledge** | 📋 占位 | MVP 规划的 Postgres + pgvector 方案暂未引入 |
 | **数据库** | 📋 占位 | migrations 001–005 已写，当前实现用文件事件存储 |
+
+---
+
+## 协同网络画布（M2.0）
+
+控制台的 **协同网络** 页把三个读模型放进同一张实时画布：
+
+```
+左侧：Agent（按部门）  ——  中央：3D 全息公司核心  ——  右侧：工作流分支
+                              │
+                        底部：最近交付物
+```
+
+- **不是新领域**：图上每个节点、每条边都来自 `snapshot` / `/api/workflows` / `/api/tasks`，
+  不新增事件或持久化状态；被折叠的分支会明确显示数量。
+- **3D 是视觉锚点，也是 Agent 的指针快捷方式**：CSS 3D 线框球（经线 + 纬线）、三条轨道环、
+  投影底座与光锥，canvas 里是深度投影粒子和 6 个 Agent 信标；Agent / 工作流 / 交付节点分处
+  不同 `translateZ` 深度，指针移动时是真实视差。鼠标移入全息体即暂停（球体、轨道、粒子一起
+  冻结），点击环绕的信标，右侧检查器显示该员工的实时状态，与点左侧 Agent 卡片走同一条选择
+  路径；信标只提供指针快捷方式，键盘/读屏用户仍走卡片。零依赖；关闭动效或
+  `prefers-reduced-motion` 时全部静止，页面文字仍然完整可读。
+- **交付剧场**：游戏卡在这里真的启动运行时分配的预览端口（支持单文件 `index.html` 交付）；
+  文档卡按 Markdown / HTML 纸面渲染，HTML 运行在禁用脚本的 sandbox 帧。
+- **全链路**：控制台 → 任务书 → 工作流 → 任务 → 交付物 → 预览，均走既有事件/权限/审计
+  路径。设计细节见 [`docs/architecture/M2.0-network-canvas-delivery-preview.md`](docs/architecture/M2.0-network-canvas-delivery-preview.md)。
+
+## 改派工作室与交付包（M2.1）
+
+**改派画布**升级为暗色编排工作室，功能仍是 M1.8/M1.9 的那一条命令路径：
+
+```
+左侧团队（可拖 / 可点）  ——  中央纵向节点图 + 阶段轨道  ——  右侧节点检查
+                              │
+                    底部：改派理由 + 确认 / 放弃
+```
+
+- CEO 排好的流程直接以节点图呈现；草稿带“等待确认”横幅，确认后才开始执行。
+- 把团队成员拖到待处理的 task 节点，或先点人再点节点；节点检查里也能直接选人。
+- 节点显示能力、角色、权限、当前执行席位、已钉住 / 草稿 / SoD 标记；已进入的步骤锁定并说明原因。
+- 内核仍在写入前复核雇佣状态、角色和权限；LLM 不参与这次改派。
+
+**交付成果**现在是“一个交付包”，不再按任务各看各的：
+
+- Deliverables 顶部按工作流归组，点开进入该包的交付页。
+- 交付页的包视图把**游戏槽、文档纸面、3D 资产、全部文件**放在同一块暗色剧场里：
+  - 游戏槽跳到唯一的实时预览（不重复启动服务器）；
+  - 文档沿用安全 Markdown AST / sandbox HTML；
+  - `.obj` / `.stl` 用零依赖线框 3D 预览，`.glb` / `.gltf` 如实标为“3D 资产可下载”；
+  - 文件按步骤归组，支持逐个下载和**下载全部 `.zip`**（浏览器内 store-only ZIP）。
+- 设计细节见 [`docs/architecture/M2.1-assignment-studio-delivery-package.md`](docs/architecture/M2.1-assignment-studio-delivery-package.md)。
 
 ---
 
@@ -391,7 +442,7 @@ pnpm --filter @maoeh/web dev   # Web 控制台
 
 # 默认地址
 # Web: http://localhost:5173
-# API: http://localhost:3000
+# API: http://localhost:3001
 ```
 
 ### 运行测试
@@ -546,6 +597,8 @@ v1.x · 有市场的生态
 | [06-mvp-scope](docs/architecture/06-mvp-scope.md) | 范围/不做清单、技术选型、8 周里程碑、12 条验收标准 |
 | [07-roadmap](docs/architecture/07-roadmap.md) | 组织演化、文化、多公司市场、工具生态、项目红线 |
 | [08-adr](docs/architecture/08-adr.md) | 关键架构决策 + 理由 + 备选方案 + 复审触发条件 |
+| [M2.0-network-canvas-delivery-preview](docs/architecture/M2.0-network-canvas-delivery-preview.md) | 协同网络画布、3D 点缀、游戏/文档交付物预览的实现契约与验收 |
+| [M2.1-assignment-studio-delivery-package](docs/architecture/M2.1-assignment-studio-delivery-package.md) | 暗色改派工作室、交付包（游戏 / 文档 / 3D / 文件 / ZIP）的实现契约与验收 |
 
 ---
 

@@ -35,12 +35,11 @@ import type {
   TaskCommand,
   TaskDeleteOperation,
   TaskOperation,
-  TaskStatus,
   TaskSubmissionInput,
   TaskReviewInput,
   TaskVerification,
 } from './task-types.js';
-import { executorIdOf } from './task-types.js';import {
+import { ALLOWED_TASK_COMMANDS as ALLOWED_COMMANDS, executorIdOf } from './task-types.js';import {
   TASK_ACCEPTED,
   TASK_ASSIGNED,
   TASK_BLOCKED,
@@ -54,18 +53,6 @@ import { executorIdOf } from './task-types.js';import {
   TASK_STARTED,
 } from './task-events.js';
 import { taskSubmissionSchema } from './task-validation.js';
-
-const ALLOWED_COMMANDS: Readonly<Record<TaskStatus, readonly TaskCommand[]>> = {
-  created: ['assign', 'cancel'],
-  assigned: ['assign', 'accept', 'reject', 'cancel'],
-  accepted: ['start', 'reject', 'cancel'],
-  started: ['block', 'submit', 'report', 'reject', 'fail', 'cancel'],
-  blocked: ['unblock', 'cancel'],
-  submitted: ['complete', 'reject', 'fail', 'cancel', 'review'],
-  completed: [],
-  rejected: ['assign', 'cancel'],
-  cancelled: [],
-};
 
 /**
  * Employment states that cannot take work (04-agent-lifecycle §4.1). M1.3 makes this list load

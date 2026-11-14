@@ -74,7 +74,16 @@ describe('acceptance · a two-part requirement becomes a two-part delivery', () 
     const instances = harness.control.simulation.instanceStore.all();
     expect(instances).toHaveLength(1);
     const instance = instances[0];
-    expect(instance?.status).toBe('completed');
+    expect(instance?.status).toBe('blocked');
+    expect(instance?.approval?.status).toBe('open');
+    const accepted = await harness.execute('Workflow.Approve', {
+      targetType: 'workflow',
+      targetId: instance?.instanceId ?? '',
+      reason: 'human acceptance of the two-part product',
+    });
+    expect(accepted.status, JSON.stringify(accepted.failure)).toBe('accepted');
+    await runToIdle(harness);
+    expect(harness.control.simulation.instanceStore.all()[0]?.status).toBe('completed');
 
     const tasks = harness.control.simulation.taskStore.all();
     expect(tasks.length).toBe(3);

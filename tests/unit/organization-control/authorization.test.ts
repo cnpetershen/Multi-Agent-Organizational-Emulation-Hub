@@ -44,6 +44,12 @@ const VALID_PAYLOAD: Readonly<Record<string, Readonly<Record<string, unknown>>>>
     goal: 'injected goal',
     positionId: 'ceo',
   }),
+  // M1.8: whole-batch per-instance override — structurally valid means a non-empty override list.
+  'Workflow.InstanceAssignmentOverride': Object.freeze({
+    overrides: Object.freeze([
+      Object.freeze({ stepId: 'requirements', employeeId: 'cpo-maria' }),
+    ]),
+  }),
   'Organization.InjectEvent': Object.freeze({
     eventType: 'Operation.Note',
     subjectId: 'future-ai-lab',
@@ -84,9 +90,10 @@ describe('M1.0 control plane: authorization', () => {
     const denied = await createControlHarness({ policy: NO_CONTROL_POLICY });
     // 20 M1.0/M1.2 commands + `Agent.Create` / `Agent.Archive` (M1.3 lifecycle) +
     // `Task.AssignToAgent` (M1.6 capability delegation) +
-    // `Workflow.Delete` / `Task.Delete` (removal) + `Work.SubmitBrief` (M1.4 briefs):
-    // the surface grows, the fail-closed rule does not.
-    expect(CONTROL_COMMAND_TYPES).toHaveLength(26);
+    // `Workflow.Delete` / `Task.Delete` (removal) + `Work.SubmitBrief` (M1.4 briefs) +
+    // `Workflow.InstanceAssignmentOverride` (M1.8 per-instance override) + `Workflow.ConfirmStart`
+    // (M1.9 draft confirmation): the surface grows, the fail-closed rule does not.
+    expect(CONTROL_COMMAND_TYPES).toHaveLength(28);
 
     for (const commandType of CONTROL_COMMAND_TYPES) {
       const outcome = await denied.plane.control.execute(commandFor(denied, commandType));

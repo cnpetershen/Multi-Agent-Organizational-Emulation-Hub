@@ -77,6 +77,117 @@ export interface PlannedFile {
   readonly content: string;
 }
 
+/* --- Recovering files from a delivery's `result.data` ----------------------------- */
+
+/**
+ * The file extensions a delivery may expose as a *data key* rather than inside `files[]`.
+ *
+ * Some executors hand back `{ "index.html": "<!doctype html>…", playable: true }` instead of the
+ * richer `{ files: [{ path, content }] }` shape — both are valid deliveries, but only the second
+ * one is visible to a planner that reads `files` alone. A standalone game delivered as a single
+ * `index.html` key is exactly the case this list exists for.
+ */
+const DELIVERY_EXTENSIONS = new Set([
+  '.html', '.htm', '.md', '.markdown', '.txt', '.rst', '.css', '.js', '.mjs', '.cjs',
+  '.ts', '.tsx', '.jsx', '.json', '.py', '.sh', '.svg', '.yml', '.yaml', '.sql',
+]);
+
+/** A data key shaped like an artifact-relative file path (`index.html`, `client/app.js`). */
+const FILE_SHAPED_KEY = /^(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.[A-Za-z0-9]+$/;
+
+/** The coarse language tag the console and the planner use for a delivered path. */
+export function languageOfPath(path: string): string {
+  switch (extensionOf(path)) {
+    case '.html':
+    case '.htm':
+      return 'html';
+    case '.md':
+    case '.markdown':
+      return 'markdown';
+    case '.py':
+      return 'python';
+    case '.js':
+    case '.mjs':
+    case '.cjs':
+      return 'javascript';
+    case '.ts':
+    case '.tsx':
+      return 'typescript';
+    case '.css':
+      return 'css';
+    case '.json':
+      return 'json';
+    case '.sql':
+      return 'sql';
+    case '.yml':
+    case '.yaml':
+      return 'yaml';
+    case '.svg':
+      return 'svg';
+    default:
+      return 'text';
+  }
+}
+
+function textOf(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function looksLikeHtml(content: string): boolean {
+  return /^\s*(?:<!doctype\s+html|<html[\s>])/i.test(content);
+}
+
+/**
+ * Every file a delivery carries, including the ones a delivery exposed as data keys.
+ *
+ * Three shapes are read, in this order, so the richest record wins and a duplicate path is never
+ * counted twice:
+ *
+ * 1. `data.files[]` — the canonical `{ path, language, content }` list.
+ * 2. A data key that *is* a path (`"index.html": "<!doctype html>…"`). This is how a live model
+ *    that was asked for a single-file page often answers, and without it a real, playable game
+ *    reports "the delivery carries no files".
+ * 3. `data.entrypoint` + `data.content` — the older single-file contract; a bare HTML `content`
+ *    with no entrypoint is named `index.html` so it can still be served.
+ *
+ * Paths are normalized and an escaping path (`../x`, an absolute path) is dropped here, before it
+ * can ever reach the preview runtime's working directory.
+ */
+export function deliveryFilesFromData(data: unknown): readonly ArtifactFile[] {
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) return [];
+  const row = data as Readonly<Record<string, unknown>>;
+  const files = new Map<string, ArtifactFile>();
+  const add = (rawPath: string, content: string, language?: string): void => {
+    if (content === '') return;
+    const path = normalizePath(rawPath);
+    if (path === null || files.has(path)) return;
+    files.set(path, Object.freeze({ path, language: language === undefined || language === '' ? languageOfPath(path) : language, content }));
+  };
+
+  const listed = row['files'];
+  if (Array.isArray(listed)) {
+    for (const entry of listed) {
+      if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) continue;
+      const file = entry as Readonly<Record<string, unknown>>;
+      add(textOf(file['path']), textOf(file['content']), textOf(file['language']));
+    }
+  }
+
+  for (const [key, value] of Object.entries(row)) {
+    if (key === 'files' || typeof value !== 'string' || value === '') continue;
+    if (!FILE_SHAPED_KEY.test(key)) continue;
+    if (!DELIVERY_EXTENSIONS.has(extensionOf(key))) continue;
+    add(key, value);
+  }
+
+  const entrypoint = textOf(row['entrypoint']).trim();
+  const content = textOf(row['content']);
+  if (entrypoint !== '' && content !== '') add(entrypoint, content);
+  if (entrypoint === '' && content !== '' && looksLikeHtml(content)) add('index.html', content);
+
+  return Object.freeze([...files.values()]);
+}
+
 /* --- Path handling --------------------------------------------------------------- */
 
 /**

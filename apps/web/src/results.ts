@@ -1,6 +1,8 @@
 import { readString, type Row, type TaskRecord, type TaskResultView } from './api';
 import { employeeOf, findPosition } from './derive';
 import type { MessageKey } from './i18n';
+import { isPlayableGame } from './playable';
+import { isSpatialDelivery } from './spatial';
 
 /**
  * The presentation model behind `/results/:taskId` — the "AI company delivered to me" view.
@@ -49,7 +51,7 @@ export function resultsState(taskStatus: string): ResultsState {
 
 /* --- 2. The delivered artifact ------------------------------------------- */
 
-export type DeliverableKind = 'code' | 'document' | 'report';
+export type DeliverableKind = 'game' | '3d' | 'code' | 'document' | 'report';
 
 /**
  * Which delivery shape the page should speak in.
@@ -58,8 +60,20 @@ export type DeliverableKind = 'code' | 'document' | 'report';
  * itself: the keys the executor submitted and the file references it attached. An unknown
  * shape is a report — the honest default for "the team handed over findings".
  */
-export function deliverableKind(result: Pick<TaskResultView, 'data' | 'artifacts'> | null): DeliverableKind {
+export function deliverableKind(
+  result: Pick<TaskResultView, 'data' | 'artifacts'> | null,
+  task?: TaskRecord,
+): DeliverableKind {
   if (result === null) return 'report';
+  // A playable game can be delivered as `index.html` — which the document extension list would
+  // otherwise claim. Ask the game detector first, using the task's actual file text.
+  if (task !== undefined && isPlayableGame(task, deliveredFiles(task))) return 'game';
+  if (task !== undefined && isSpatialDelivery(deliveredFiles(task))) return '3d';
+  const delivered = task === undefined ? [] : deliveredFiles(task);
+  const runnableHtml = delivered.some((file) =>
+    /\.(?:html?|xhtml)$/i.test(file.path) && /<(?:script|canvas|svg)[\s>]/i.test(file.content));
+  if (runnableHtml || delivered.some((file) => CODE_FILE.test(file.path))) return 'code';
+  if (delivered.some((file) => DOCUMENT_FILE.test(file.path))) return 'document';
   const keys = Object.keys(result.data).map((key) => key.toLowerCase().replace(/[\s-]/g, ''));
   const files = result.artifacts.map((file) => file.toLowerCase());
   if (keys.some((key) => CODE_KEYS.has(key)) || files.some((file) => CODE_FILE.test(file))) return 'code';
@@ -125,7 +139,7 @@ export function deliverableView(task: TaskRecord, kind: DeliverableKind): Delive
   const shown = new Set<string>([
     ...NAME_KEYS,
     ...conclusions.map((fact) => fact.label),
-    ...(kind === 'code' ? [...STACK_KEYS, ...CODE_URL_KEYS, ...DEMO_URL_KEYS] : []),
+    ...(kind === 'code' || kind === 'game' || kind === '3d' ? [...STACK_KEYS, ...CODE_URL_KEYS, ...DEMO_URL_KEYS] : []),
     ...(kind === 'document' ? [...PREVIEW_KEYS, 'sections'] : []),
   ]);
   const details = Object.entries(data).flatMap(([key, value]): DeliverableFact[] => {
@@ -220,6 +234,50 @@ export interface DeliveredFile {
 }
 
 /**
+ * File-shaped keys and the coarse language tag each one implies.
+ *
+ * Mirrors the server's `deliveryFilesFromData`: the console and the preview runtime must agree
+ * about what files a delivery carries, or the page would offer a download the preview cannot run.
+ */
+const FILE_SHAPED_KEY = /^(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.[A-Za-z0-9]+$/;
+
+const LANGUAGE_BY_EXTENSION: Readonly<Record<string, string>> = Object.freeze({
+  '.html': 'html',
+  '.htm': 'html',
+  '.md': 'markdown',
+  '.markdown': 'markdown',
+  '.txt': 'text',
+  '.css': 'css',
+  '.js': 'javascript',
+  '.mjs': 'javascript',
+  '.cjs': 'javascript',
+  '.ts': 'typescript',
+  '.tsx': 'typescript',
+  '.jsx': 'javascript',
+  '.json': 'json',
+  '.py': 'python',
+  '.sh': 'shell',
+  '.svg': 'svg',
+  '.yml': 'yaml',
+  '.yaml': 'yaml',
+  '.sql': 'sql',
+  '.obj': 'model',
+  '.stl': 'model',
+  '.glb': 'model',
+  '.gltf': 'model',
+  '.fbx': 'model',
+  '.ply': 'model',
+});
+
+const DELIVERY_EXTENSIONS = new Set(Object.keys(LANGUAGE_BY_EXTENSION));
+
+function extensionOf(path: string): string {
+  const name = fileName(path);
+  const dot = name.lastIndexOf('.');
+  return dot <= 0 ? '' : name.slice(dot).toLowerCase();
+}
+
+/**
  * Every file *this* task handed over, in submission order: the `files` the executor enumerated
  * first, then any `artifacts` path it did not enumerate. The two lists answer different
  * questions — `files` carries the text, `artifacts` only names paths — so a file that appears in
@@ -253,6 +311,16 @@ export function deliveredFiles(task: TaskRecord): readonly DeliveredFile[] {
         readString(row['content'], ''),
       );
     }
+  }
+  // A live model sometimes answers a single-file mandate with `{ "index.html": "<!doctype…" }`
+  // instead of a `files[]` list. Without this read the delivery page shows no file at all for a
+  // real, playable game — the exact shape task 14/16 of the demo company carries.
+  for (const [key, value] of Object.entries(result.data)) {
+    if (key === 'files' || typeof value !== 'string' || value === '') continue;
+    if (!FILE_SHAPED_KEY.test(key)) continue;
+    const extension = extensionOf(key);
+    if (!DELIVERY_EXTENSIONS.has(extension)) continue;
+    add(key, LANGUAGE_BY_EXTENSION[extension] ?? '', value);
   }
   for (const artifact of result.artifacts) {
     const path = artifact.trim();

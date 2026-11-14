@@ -330,6 +330,7 @@ async function main() {
       PORT: String(API_PORT),
       MAOEH_EVENT_LOG: path.join(profile, 'events.jsonl'),
       MAOEH_OWNERSHIP: 'memory',
+      MAOEH_REQUIRE_PLAN_CONFIRMATION: '0',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -454,7 +455,7 @@ async function main() {
     log('[2] entering the console and opening the finished delivery');
     await cdp.waitFor(`document.querySelector('[data-testid="foundry-signin"]') !== null`, 'the company gate');
     await enterConsole(cdp);
-    await cdp.waitFor(`document.querySelectorAll('nav button').length === 9`, 'the console shell');
+    await cdp.waitFor(`document.querySelectorAll('nav button').length === 11`, 'the console shell');
 
     // Deep-link the delivery page: this is the address a shared result opens.
     await cdp.send('Page.navigate', { url: `${CONSOLE_URL}results/${deliveredTaskId}` });

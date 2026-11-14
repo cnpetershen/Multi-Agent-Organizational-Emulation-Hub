@@ -6,7 +6,7 @@ import type {
   SimTime,
 } from '@maoeh/shared-types';
 import type { AgentDefinition } from '@maoeh/agent-definition';
-import type { CognitionExecutor, CognitionProfile } from '@maoeh/agent-cognition';
+import type { CognitionExecutor, CognitionProfile, AssignedTaskView } from '@maoeh/agent-cognition';
 import type { AgentInstance, PlanExecutor, RuntimeTurnContext } from '@maoeh/agent-runtime';
 import { runAgentCycle } from '@maoeh/agent-runtime';
 import type { CollaborationService, CommunicationService } from '@maoeh/agent-communication';
@@ -28,7 +28,7 @@ import type {
 import { createBudgetTracker } from '@maoeh/runtime-scheduler';
 import type { StateStore } from '@maoeh/runtime-state';
 import type { Task, TaskService } from '@maoeh/task-system';
-import { isTerminalStatus } from '@maoeh/task-system';
+import { allowedTaskCommands, executorIdOf, isTerminalStatus } from '@maoeh/task-system';
 import type {
   WorkflowDefinitionStore,
   WorkflowEngine,
@@ -37,6 +37,7 @@ import type {
 import { HIRING_WORKFLOW_ID, evaluateVerification } from '@maoeh/workflow-engine';
 
 import { SYSTEM_SIM_CLOCK_TICKED } from './events.js';
+import { communicationViewOf } from './communication-view.js';
 import type { EligibilityDeps } from './eligibility.js';
 import { eligibleAgentsFor, refersToDeletedWork } from './eligibility.js';
 import { organizationSnapshotView } from './snapshot.js';
@@ -122,6 +123,32 @@ const REACTOR_TASK_EVENTS: ReadonlySet<string> = new Set([
 const REACTOR_MESSAGE_EVENT = 'Communication.MessageSent';
 
 const SUBMIT_PHASES: ReadonlySet<string> = new Set(['submitted', 'reviewed']);
+
+function assignedTasksOf(
+  core: SimulationCore,
+  employeeId: EmployeeId,
+): readonly AssignedTaskView[] {
+  return core
+    .tasks.all()
+    .filter((task) => executorIdOf(task) === employeeId && !isTerminalStatus(task.status))
+    .map((task) => {
+      const verificationKeys = task.verification?.requiredOutputKeys;
+      const keys =
+        verificationKeys === undefined || verificationKeys === null
+          ? []
+          : [...verificationKeys];
+      const base: AssignedTaskView = {
+        taskId: task.taskId,
+        title: task.title,
+        goal: task.goal,
+        status: task.status,
+        // The task state machine's own answer to "what may I do next" — see the view's comment.
+        allowedCommands: [...allowedTaskCommands(task.status)],
+        ...(keys.length === 0 ? {} : { verificationKeys: keys }),
+      };
+      return base;
+    });
+}
 
 function payloadOf(event: OrgEvent): Readonly<Record<string, unknown>> {
   return typeof event.payload === 'object' && event.payload !== null
@@ -836,6 +863,9 @@ export async function runSimulationTick(
       }
 
       const stateBefore = core.stateStore.load(employeeId);
+      // Read once per cycle: the prompt must describe the conversation the agent can act on, and
+      // an agent in no channel gets no `communication` at all (the prompt then renders nothing).
+      const communicationView = communicationViewOf(core.communication, employeeId);
       const outcome = await runAgentCycle({
         agent: { ...bundle.instance, state: stateBefore },
         state: stateBefore,
@@ -851,6 +881,8 @@ export async function runSimulationTick(
         definition: bundle.definition,
         profile: bundle.profile,
         organization: organizationSnapshotView(core.organization, employeeId),
+        assignedTasks: assignedTasksOf(core, employeeId),
+        ...(communicationView === undefined ? {} : { communication: communicationView }),
         workCatalog: workCatalogView(
           {
             organization: core.organization,

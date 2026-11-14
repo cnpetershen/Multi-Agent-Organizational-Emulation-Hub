@@ -99,6 +99,17 @@ describe('deliveredFiles', () => {
     expect(deliveredFiles(task).map((file) => file.path)).toEqual(['client/index.html', 'client/app.js', 'README.md']);
   });
 
+  it('sees a single-file delivery exposed as an index.html data key', () => {
+    const task = record({
+      ...baseResult,
+      data: { 'index.html': '<!doctype html><canvas id="board"></canvas>', playable: true },
+      artifacts: [],
+    });
+    expect(deliveredFiles(task)).toEqual([
+      { path: 'index.html', language: 'html', content: '<!doctype html><canvas id="board"></canvas>' },
+    ]);
+  });
+
   it('reads a task with no delivery as no files', () => {
     expect(deliveredFiles(record(null))).toEqual([]);
   });

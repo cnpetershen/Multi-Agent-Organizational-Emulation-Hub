@@ -29,7 +29,7 @@
  */
 
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { join, resolve } from 'node:path';
 import { planArtifact, type ArtifactFile, type LaunchPlan } from './preview-plan.js';
@@ -799,16 +799,32 @@ export class PreviewRuntime {
       return { command: process.execPath, args: [this.writeStaticServer(root), plan.entryPath] };
     })();
 
+    // Capture the child's output to a private file instead of this process's pipes: the preview
+    // stays independent of the API's stdio, but a crash can now explain itself in `logs` rather
+    // than only saying "exited with code 1".
+    const logPath = join(root, 'preview.log');
+    let logFd: number | undefined;
+    try {
+      logFd = openSync(logPath, 'a');
+    } catch {
+      logFd = undefined;
+    }
     const child = spawn(started.command, [...started.args], {
       cwd: root,
       env,
-      // Detached stdio on purpose: it keeps the preview fully independent of this process's
-      // pipes (and this host's sandbox), and a preview's console output is not what the owner
-      // reads — the page itself is.
-      stdio: 'ignore',
+      // File descriptors are detached from this process's pipes (and this host's sandbox), so a
+      // preview never blocks the API's own stdout.
+      stdio: ['ignore', logFd ?? 'ignore', logFd ?? 'ignore'],
       windowsHide: true,
       detached: false,
     });
+    if (logFd !== undefined) {
+      try {
+        closeSync(logFd);
+      } catch {
+        // The child owns its duplicate now; closing the parent's copy is best effort.
+      }
+    }
     instance.child = child;
     // The marker names *this* preview, so a later runtime (a restart, or the next company switch)
     // can kill a server whose owner is gone. It must be the child's pid — the API's own pid here
@@ -825,6 +841,14 @@ export class PreviewRuntime {
       instance.exitReason = `the preview process could not be started: ${error.message}`;
     });
     child.on('exit', (code, signal) => {
+      try {
+        instance.logs = readFileSync(logPath, 'utf8')
+          .split(/\r?\n/)
+          .filter((line) => line.trim() !== '')
+          .slice(-20);
+      } catch {
+        // No log is allowed to turn a failed preview into a thrown error.
+      }
       if (instance.exitReason === null && instance.state !== 'stopped') {
         instance.exitReason = signal === null
           ? `the delivered project exited on its own with code ${String(code ?? 'unknown')}`

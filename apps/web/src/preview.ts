@@ -343,6 +343,24 @@ export function previewActions(status: PreviewStatus): readonly PreviewAction[] 
 }
 
 /**
+ * Rewrite the preview origin to the hostname the console itself was opened with.
+ *
+ * The runtime binds 127.0.0.1, so it reports `http://127.0.0.1:<port>/`. A console opened at
+ * `http://localhost:<port>/` then embeds a cross-host iframe; Chromium's local-network rules can
+ * leave that frame blank even though the URL answers. Both hostnames resolve to the same server,
+ * so keep the port and path and swap only the host when the console is on `localhost`.
+ */
+export function previewFrameUrl(url: string, consoleHostname: string): string {
+  try {
+    const target = new URL(url);
+    if (target.hostname === '127.0.0.1' && consoleHostname === 'localhost') target.hostname = 'localhost';
+    return target.toString();
+  } catch {
+    return url;
+  }
+}
+
+/**
  * What the preview is *actually* running, as the panel must say it out loud.
  *
  * Two honesty rules live here: a preview of several delivered steps is the workflow's whole

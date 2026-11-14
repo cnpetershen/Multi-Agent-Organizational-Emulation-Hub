@@ -67,6 +67,8 @@ describe('M1.6：打字新建岗位与生成式工作流走 HTTP 全链路', () 
     const server = await startApiServer(0, {
       eventLogPath: null,
       tick: { activeIntervalMs: 5, idleIntervalMs: 50 },
+      // This suite verifies newPosition authoring, not the draft-confirm flow (its own tests do).
+      requirePlanConfirmation: false,
     });
     const base = `http://127.0.0.1:${String(server.port)}/api`;
     try {
@@ -153,9 +155,30 @@ describe('M1.6：打字新建岗位与生成式工作流走 HTTP 全链路', () 
       await waitFor(async () => {
         const workflows = await get<readonly WorkflowRow[]>('/workflows');
         return workflows.some(
+          (workflow) => workflow.workflowId.startsWith('generated-')
+            && (workflow.status === 'blocked' || workflow.status === 'completed'),
+        );
+      }, 'the capability-generated workflow to reach its gate over HTTP');
+      const gatedWorkflows = await get<readonly WorkflowRow[]>('/workflows');
+      for (const gated of gatedWorkflows.filter(
+        (workflow) => workflow.workflowId.startsWith('generated-') && workflow.status === 'blocked',
+      )) {
+        const approved = await post(
+          '/command',
+          command(
+            'Workflow.Approve',
+            { targetType: 'workflow', targetId: String(gated.instanceId) },
+            { reason: 'human acceptance of the generated delivery' },
+          ),
+        );
+        expect(approved.status).toBe(200);
+      }
+      await waitFor(async () => {
+        const workflows = await get<readonly WorkflowRow[]>('/workflows');
+        return workflows.some(
           (workflow) => workflow.workflowId.startsWith('generated-') && workflow.status === 'completed',
         );
-      }, 'the capability-generated workflow to complete over HTTP');
+      }, 'the human-accepted workflow to complete over HTTP');
 
       const workflows = await get<readonly WorkflowRow[]>('/workflows');
       const generated = workflows.filter((workflow) => workflow.workflowId.startsWith('generated-'));

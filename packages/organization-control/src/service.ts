@@ -38,6 +38,8 @@ import {
   CONTROL_WORKFLOW_APPROVAL_DECIDED,
   CONTROL_WORKFLOW_CANCELLED,
   CONTROL_WORKFLOW_DELETED,
+  CONTROL_WORKFLOW_INSTANCE_ASSIGNMENT_OVERRIDDEN,
+  CONTROL_WORKFLOW_INSTANCE_CONFIRMED,
   CONTROL_DELEGATION_DECIDED,
 } from './events.js';
 import { createControlQuery, type ControlQuery } from './query.js';
@@ -894,6 +896,7 @@ export function createControlService(options: ControlServiceOptions): ControlPla
           decision,
           simTime: command.createdAtSim,
           reason: command.reason,
+          humanApproval: command.actor.kind === 'human',
         });
         if (!result.ok) return bad(fromWorkflowFailure(result.error));
         const created = emit(CONTROL_WORKFLOW_APPROVAL_DECIDED, command, 'workflow_instance', {
@@ -906,6 +909,60 @@ export function createControlService(options: ControlServiceOptions): ControlPla
         });
         if (!created.ok) return bad(created.failure, result.value.events);
         return ok([...result.value.events, created.event], { instanceId, decision });
+      }
+      case 'Workflow.InstanceAssignmentOverride': {
+        const result = workflow.overrideAssignments({
+          instanceId,
+          actor,
+          simTime: command.createdAtSim,
+          reason: command.reason,
+          overrides: command.overrides.map((entry) => ({
+            stepId: entry.stepId,
+            employeeId: entry.employeeId,
+            ...(entry.reason === undefined ? {} : { reason: entry.reason }),
+          })),
+        });
+        if (!result.ok) return bad(fromWorkflowFailure(result.error));
+        const created = emit(
+          CONTROL_WORKFLOW_INSTANCE_ASSIGNMENT_OVERRIDDEN,
+          command,
+          'workflow_instance',
+          {
+            commandId: command.commandId,
+            operatorId: String(command.actor.operatorId),
+            reason: command.reason,
+            instanceId,
+            overrides: command.overrides.map((entry) => ({
+              stepId: entry.stepId,
+              employeeId: entry.employeeId,
+              reason: entry.reason ?? command.reason ?? null,
+            })),
+          },
+        );
+        if (!created.ok) return bad(created.failure, result.value.events);
+        return ok([...result.value.events, created.event], { instanceId });
+      }
+      case 'Workflow.ConfirmStart': {
+        const result = workflow.confirm({
+          instanceId,
+          actor,
+          simTime: command.createdAtSim,
+          reason: command.reason,
+        });
+        if (!result.ok) return bad(fromWorkflowFailure(result.error));
+        const created = emit(
+          CONTROL_WORKFLOW_INSTANCE_CONFIRMED,
+          command,
+          'workflow_instance',
+          {
+            commandId: command.commandId,
+            operatorId: String(command.actor.operatorId),
+            reason: command.reason,
+            instanceId,
+          },
+        );
+        if (!created.ok) return bad(created.failure, result.value.events);
+        return ok([...result.value.events, created.event], { instanceId });
       }
       default:
         return bad(failure('INVALID_COMMAND', 'commandType', 'not a workflow command'));
@@ -1484,6 +1541,7 @@ export function fromWorkflowFailure(error: {
           ? 'WORKFLOW_BLOCKED'
           : error.code === 'instance_terminal' ||
               error.code === 'instance_not_running' ||
+              error.code === 'instance_not_draft' ||
               error.code === 'approval_not_open' ||
               error.code === 'approval_already_decided'
             ? 'INVALID_STATE'

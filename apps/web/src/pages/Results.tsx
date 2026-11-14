@@ -2,11 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { parseRows, parseTaskRecord, readString } from '../api';
 import { instructAgent, taskReassign, type CommandContext } from '../commands';
 import { Avatar, Empty, LoadError, PageIntro, Panel, StatusPill } from '../components';
+import { DeliveryPackage } from '../components/DeliveryPackage';
+import { DocumentPreview } from '../components/DocumentPreview';
 import type { ConsoleControl } from '../control';
 import { isOpenApproval, positionTitle, workflowById } from '../derive';
+import { isPlayableGame } from '../document-preview';
+import { isSandboxScenario } from '../sandbox';
 import { useJson } from '../hooks';
 import { useI18n, type MessageKey } from '../i18n';
-import { previewActions, previewLabelKey, previewNotices, previewTone, type PreviewActionKind } from '../preview';
+import { previewActions, previewFrameUrl, previewLabelKey, previewNotices, previewTone, type PreviewActionKind } from '../preview';
 import { usePreview } from '../preview-hook';
 import {
   contributions,
@@ -46,6 +50,8 @@ import {
  */
 
 const KIND_LABELS: Readonly<Record<DeliverableKind, MessageKey>> = {
+  game: 'results.deliverable.kind.game',
+  '3d': 'results.deliverable.kind.3d',
   code: 'results.deliverable.kind.code',
   document: 'results.deliverable.kind.document',
   report: 'results.deliverable.kind.report',
@@ -302,8 +308,22 @@ function PreviewPanel({ taskId, control }: { taskId: string; control: ConsoleCon
 
         {running && (
           <div className="preview-frame" ref={frameRef}>
-            <iframe title={t('results.preview.iframeTitle')} src={previewUrl} allow="fullscreen" />
+            <iframe
+              title={t('results.preview.iframeTitle')}
+              src={previewFrameUrl(previewUrl, window.location.hostname)}
+              allow="fullscreen"
+            />
           </div>
+        )}
+        {running && (
+          <a
+            className="preview-open-tab"
+            href={previewFrameUrl(previewUrl, window.location.hostname)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {t('results.preview.openTab')}
+          </a>
         )}
 
         {status.state === 'failed' && (
@@ -377,8 +397,14 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
   }
 
   const state = resultsState(task.status);
+  // A blocked task is not "failed, retry it": reassign/retry are rejected by the task domain on
+  // purpose — the block is an explicit wait. The page says why and routes to the approver
+  // instead of offering a command the kernel will refuse.
+  const blockedReason = (task.blockedReason ?? '').trim();
+  const isBlocked = task.status.trim().toLowerCase() === 'blocked';
+  const blockedOnApproval = isBlocked && /^waiting_for_approval/i.test(blockedReason);
   const workflow = workflowById(workflows.data ?? snapshot.workflows, task.workflowInstanceId);
-  const kind = deliverableKind(task.result);
+  const kind = deliverableKind(task.result, task);
   const view: DeliverableView = deliverableView(task, kind);
   const journey = workflow === null ? taskJourney(task.status) : workflowJourney(workflow);
   // The rest of the product the organization produced: the workflow's other delivered steps, in
@@ -472,12 +498,14 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
     control.setFeedback({ kind: 'success', title: t('results.deliverable.downloadReady'), detail: file.filename });
   };
 
+  const sandbox = isSandboxScenario(task, { title: workflowTitle, goal: readString(workflow?.['goal'], '') });
+
   return (
     <div className="stack result-page">
       <PageIntro
         eyebrow={t('results.eyebrow')}
-        title={task.title}
-        description={t('results.description')}
+        title={sandbox ? t('results.sandbox.title') : task.title}
+        description={sandbox ? t('results.sandbox.hint') : t('results.description')}
         actions={<button type="button" className="link" onClick={back}>← {t('results.back')}</button>}
       />
 
@@ -485,7 +513,7 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
       <section className="result-hero">
         <div className="result-hero-top">
           <StatusPill value={state.tone} label={t(state.labelKey)} />
-          <span className="result-hero-kind">{t(KIND_LABELS[kind])}</span>
+          <span className="result-hero-kind">{sandbox ? t('results.sandbox.kind') : t(KIND_LABELS[kind])}</span>
         </div>
         <div className="result-meta">
           <span><small>{t('results.header.creator')}</small><b>{creator === '' ? t('results.header.creatorFallback') : creator}</b></span>
@@ -515,9 +543,26 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
         </section>
       </Panel>
 
+      {/* A scenario project needs a place to run the scenario, not another report about the
+          workflow that produced it. The workbench is served by the API (same origin through the
+          console's `/api` proxy) and runs real agents, so the frame shows the real session and
+          never a static copy of one. */}
+      {sandbox && (
+        <Panel title={t('results.sandbox.panel')} actions={<a className="link" href="/api/sandbox" target="_blank" rel="noreferrer">{t('results.sandbox.open')}</a>}>
+          <p className="muted sandbox-hint">{t('results.sandbox.hint')}</p>
+          <iframe className="sandbox-frame" title={t('results.sandbox.title')} src="/api/sandbox" allow="fullscreen" />
+        </Panel>
+      )}
+
+      {/* One hand-over: every step's artifact, the game/document/3D slots and a real ZIP. The live
+          runtime stays below so a package never starts a second server. */}
+      <DeliveryPackage task={task} workflow={workflow} control={control} />
+
       {/* The delivered project, running, above the artifact it delivered. A delivery that is not
           a runnable web app renders nothing here, so every other shape of page is unchanged. */}
-      <PreviewPanel taskId={taskId} control={control} />
+      <div id="result-preview">
+        <PreviewPanel taskId={taskId} control={control} />
+      </div>
 
       <div id="final-deliverable" className="result-anchor">
         <Panel title={t('results.deliverable.panel')} className="result-deliverable">
@@ -527,11 +572,34 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
             <section className="detail-section">
               <div className="deliverable-head">
                 <span className={`deliverable-kind kind-${kind}`}>{t(KIND_LABELS[kind])}</span>
+                {isPlayableGame(task) && (
+                  <span className="deliverable-kind kind-game">{t('results.deliverable.playableGame')}</span>
+                )}
                 <div>
                   <h4>{view.name}</h4>
                   <p>{view.description}</p>
                 </div>
               </div>
+
+              {kind === 'game' && (
+                <div className="deliverable-block deliverable-game">
+                  <span className="field-label">{t('results.deliverable.playableGame')}</span>
+                  <p className="deliverable-text">{t('results.deliverable.gameHint')}</p>
+                  <button type="button" className="primary" onClick={() => scrollTo('result-preview')}>
+                    {t('results.deliverable.runGame')}
+                  </button>
+                </div>
+              )}
+
+              {kind === '3d' && (
+                <div className="deliverable-block deliverable-3d">
+                  <span className="field-label">{t('results.deliverable.threeD')}</span>
+                  <p className="deliverable-text">{t('results.deliverable.threeDHint')}</p>
+                  <button type="button" className="primary" onClick={() => scrollTo('result-preview')}>
+                    {t('results.deliverable.open3d')}
+                  </button>
+                </div>
+              )}
 
               {kind === 'code' && (
                 <div className="deliverable-block">
@@ -549,11 +617,7 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
               {kind === 'document' && (
                 <div className="deliverable-block">
                   <span className="field-label">{t('results.deliverable.preview')}</span>
-                  {view.preview === '' ? (
-                    <p className="deliverable-text muted">{t('results.deliverable.previewMissing')}</p>
-                  ) : (
-                    <p className="result-preview-text">{view.preview}</p>
-                  )}
+                  <DocumentPreview task={task} fallback={view.preview} />
                 </div>
               )}
 
@@ -564,7 +628,9 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
                 </div>
               )}
 
-              {view.details.length > 0 && (
+              {/* A playable game / 3D scene is shown by the live preview and its file chips. Dumping
+                  the HTML source here makes the delivery read like a document again. */}
+              {kind !== 'game' && kind !== '3d' && view.details.length > 0 && (
                 <div className="deliverable-block">
                   <span className="field-label">{t('results.deliverable.details')}</span>
                   <Facts facts={view.details} />
@@ -674,11 +740,13 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
       <Panel title={t('results.actions.panel')} className="result-actions">
         <div className="result-actions-body">
           <p className="muted">
-            {state.kind === 'running'
-              ? t('results.actions.hintRunning')
-              : state.kind === 'failed'
-                ? t('results.actions.hintFailed')
-                : t('results.actions.hintCompleted')}
+            {isBlocked
+              ? t('results.actions.hintBlocked')
+              : state.kind === 'running'
+                ? t('results.actions.hintRunning')
+                : state.kind === 'failed'
+                  ? t('results.actions.hintFailed')
+                  : t('results.actions.hintCompleted')}
           </p>
           <div className="button-row">
             {state.kind === 'completed' && (
@@ -695,7 +763,21 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
             {state.kind === 'running' && (
               <button type="button" className="primary" onClick={() => scrollTo('work-journey')}>{t('results.actions.progress')}</button>
             )}
-            {state.kind === 'failed' && (
+            {isBlocked && (
+              <>
+                <p className="muted">
+                  {t('results.actions.blockedReasonLabel')}: {blockedReason === '' ? t('common.noReason') : blockedReason}
+                </p>
+                {blockedOnApproval ? (
+                  <button type="button" className="primary" onClick={() => control.navigate('Approvals')}>
+                    {t('results.actions.goToApprovals')}
+                  </button>
+                ) : null}
+                <button type="button" onClick={() => control.navigate('Runtime')}>{t('results.actions.goToRuntime')}</button>
+                <button type="button" onClick={() => control.navigate('Tasks')}>{t('results.actions.newTask')}</button>
+              </>
+            )}
+            {!isBlocked && state.kind === 'failed' && (
               <>
                 <button type="button" className="primary" disabled={busy !== null || task.positionId === null} onClick={() => void retry()}>
                   {busy === 'retry' ? t('common.submitting') : t('results.actions.retry')}

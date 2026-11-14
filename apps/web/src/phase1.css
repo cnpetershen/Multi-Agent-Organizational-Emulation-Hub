@@ -12,6 +12,8 @@ aside,main{transition:width .16s ease,margin-left .16s ease}
 @media(min-width:701px){
   .shell.sidebar-collapsed aside{width:78px;padding-left:9px;padding-right:9px}
   .shell.sidebar-collapsed main{margin-left:78px}
+  /* Collapsing the nav frees 166px: let the workspace use it instead of leaving a fixed gutter. */
+  .shell.sidebar-collapsed .content{max-width:1560px}
   .shell.sidebar-collapsed .brand{display:none}
   .shell.sidebar-collapsed .brand-row{justify-content:center}
   .shell.sidebar-collapsed .company-block{justify-content:center;margin:20px 0 18px;padding-bottom:18px}

@@ -89,6 +89,7 @@ export type AgendaItem = Readonly<Record<string, unknown>>;
 
 export const ACTIONS = [
   'SendMessage',
+  'RequestCollaboration',
   'Reply',
   'Mention',
   'Announce',

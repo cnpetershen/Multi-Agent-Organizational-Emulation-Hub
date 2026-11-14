@@ -68,6 +68,7 @@ const ACTION_FOR_BINDING: Readonly<Record<string, string>> = Object.freeze({
   DispatchWork: 'DispatchWork',
   AcceptTask: 'AcceptTask',
   StartTask: 'StartTask',
+  ProduceArtifact: 'SubmitReport',
   ProgressReport: 'ProgressReport',
   SubmitReport: 'SubmitReport',
   CompleteTask: 'CompleteTask',

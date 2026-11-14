@@ -127,6 +127,7 @@ export function createCognitionExecutor(options: CognitionExecutorOptions): Cogn
       if (!llmResult.ok) return { ok: false, error: mapLlmError(llmResult.error) };
 
       const response = llmResult.value;
+      if (response.text !== undefined) console.error(`[llm-raw] agent=${request.cognitionContext.definition.id}\n${response.text}`);
       const objectResult = parseOutput(response.text);
       if (!objectResult.ok) return { ok: false, error: objectResult.error };
 

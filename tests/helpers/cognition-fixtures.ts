@@ -17,6 +17,7 @@ import type {
   CognitionContext,
   CognitionProfile,
   CognitionStateView,
+  CommunicationView,
   OrganizationSnapshotView,
 } from '@maoeh/agent-cognition';
 import type { LlmGatewayOptions, LlmGateway } from '@maoeh/llm-gateway';
@@ -141,6 +142,7 @@ export interface CognitionContextOverrides {
   readonly profile?: CognitionProfile;
   readonly definition?: AgentDefinition;
   readonly simTime?: SimTime;
+  readonly communication?: CommunicationView;
   readonly memoryContext?: Readonly<Record<string, unknown>>;
   readonly knowledgeContext?: Readonly<Record<string, unknown>>;
 }
@@ -159,6 +161,7 @@ export function testContext(overrides: CognitionContextOverrides = {}): Cognitio
     inputEvent: overrides.inputEvent ?? testEvent(),
     organization: overrides.organization ?? testOrganizationView(),
     simTime: overrides.simTime ?? sim(60),
+    ...(overrides.communication === undefined ? {} : { communication: overrides.communication }),
     ...(overrides.memoryContext === undefined
       ? {}
       : { memoryContext: overrides.memoryContext }),

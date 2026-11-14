@@ -102,6 +102,18 @@ export function generatedWorkflowId(instanceId: string): string {
   return `generated-${hash.toString(16).padStart(8, '0')}`;
 }
 
+/**
+ * Whether an id names a per-instance generated graph rather than an authored template.
+ *
+ * A generated definition exists to drive the one instance that produced it: its title and goal
+ * are that instance's mandate, and its steps are the seats that instance routed to. Starting it
+ * again as a "template" would silently replace a new brief's title, goal and routing with the
+ * old instance's, so planners must not see it in the template catalogue.
+ */
+export function isGeneratedWorkflowId(workflowId: string): boolean {
+  return workflowId.startsWith('generated-');
+}
+
 export interface GenerateWorkflowInput {
   readonly instanceId: string;
   readonly title: string;
@@ -114,7 +126,55 @@ export interface GenerateWorkflowInput {
 const APPROVE_STAGE_ID = 'stage-approve';
 const APPROVE_STEP_ID = 'step-approve';
 
-function taskStep(stepId: string, name: string, positionId: string, capability: string): WorkflowStep {
+/**
+ * What a capability stage must actually hand over.
+ *
+ * The old generated step had `description: null`, so every executor received the whole brief
+ * again and answered with prose ("implementation_report"). The task page then showed a workflow
+ * with five green reports and no product. Naming the artifact and the proof at the step level is
+ * the smallest contract that stops that failure: an implementation is a runnable artifact, a
+ * test is evidence against that artifact, not another narrative.
+ */
+const CAPABILITY_CONTRACT: Readonly<Record<string, {
+  readonly instruction: string;
+  readonly requiredArtifacts: readonly string[];
+  readonly acceptanceCriteria: readonly string[];
+}>> = Object.freeze({
+  product_requirement: {
+    instruction: 'Define the users, scope, roles, workflows and testable acceptance criteria. Deliver a requirement document whose criteria can be checked against the implementation.',
+    requiredArtifacts: ['requirements-document'],
+    acceptanceCriteria: ['requirements trace to a user-visible behavior', 'each criterion is testable'],
+  },
+  technical_design: {
+    instruction: 'Design the architecture, data model, interfaces and execution flow that satisfy the requirement. Deliver a technical design that an implementer can build from.',
+    requiredArtifacts: ['technical-design'],
+    acceptanceCriteria: ['the design names the runtime interfaces', 'the design is buildable by the implementation seat'],
+  },
+  implementation: {
+    instruction: 'Build the actual deliverable — code, page or service — that satisfies the requirement. Submission must contain runnable files or code, not a prose implementation report.',
+    requiredArtifacts: ['runnable-code-or-page'],
+    acceptanceCriteria: ['the artifact loads or runs', 'the required user behavior is present in the artifact'],
+  },
+  testing: {
+    instruction: 'Run the actual delivered artifact and verify the acceptance criteria. Report pass/fail with evidence from the artifact; refuse to verify a document in place of the product.',
+    requiredArtifacts: ['test-evidence'],
+    acceptanceCriteria: ['the report cites the executed artifact', 'failures are reported, not narrated as success'],
+  },
+  marketing: {
+    instruction: 'Produce the positioning, audience, channels, launch sequence and success metrics for the delivered product.',
+    requiredArtifacts: ['marketing-plan'],
+    acceptanceCriteria: ['the plan names audience, channels and metrics'],
+  },
+});
+
+function taskStep(
+  stepId: string,
+  name: string,
+  positionId: string,
+  capability: string,
+  goal: string,
+): WorkflowStep {
+  const contract = CAPABILITY_CONTRACT[capability];
   return {
     stepId,
     name,
@@ -123,7 +183,15 @@ function taskStep(stepId: string, name: string, positionId: string, capability: 
     // carries it to the wake-up event, and that is what lets a `backend` step hand back a service
     // while a `frontend` step hands back a page — even when one seat covers both.
     capability,
-    description: null,
+    description: contract === undefined
+      ? null
+      : `${contract.instruction}\n\nMandate: ${goal.slice(0, 500)}`.slice(0, 800),
+    ...(contract === undefined
+      ? {}
+      : {
+          requiredArtifacts: [...contract.requiredArtifacts],
+          acceptanceCriteria: [...contract.acceptanceCriteria],
+        }),
     assignment: { kind: 'position', positionId: positionId as PositionId },
     verification: null,
     maxAttempts: 1,
@@ -147,6 +215,7 @@ function approvalStep(name: string, roles: readonly string[]): WorkflowStep {
     requiredRoles: [...roles],
     approvalPolicy: 'single',
     requiredCount: 1,
+    humanOnly: true,
   };
 }
 
@@ -178,7 +247,7 @@ export function generateWorkflowDefinition(
     stages.push({
       stageId,
       name: label,
-      steps: [taskStep(stepId, label, assignment.positionId, assignment.capability)],
+      steps: [taskStep(stepId, label, assignment.positionId, assignment.capability, input.goal)],
       transitions: [
         {
           transitionId: `${stageId}__completed`,

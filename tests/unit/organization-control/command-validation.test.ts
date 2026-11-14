@@ -37,6 +37,12 @@ const VALID_PAYLOAD: Readonly<Record<string, Readonly<Record<string, unknown>>>>
     goal: 'injected goal',
     positionId: 'ceo',
   }),
+  // M1.8: whole-batch per-instance override — structurally valid means a non-empty override list.
+  'Workflow.InstanceAssignmentOverride': Object.freeze({
+    overrides: Object.freeze([
+      Object.freeze({ stepId: 'requirements', employeeId: 'cpo-maria' }),
+    ]),
+  }),
   'Organization.InjectEvent': Object.freeze({
     eventType: 'Operation.Note',
     subjectId: 'future-ai-lab',

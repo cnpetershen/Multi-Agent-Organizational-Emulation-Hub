@@ -271,6 +271,10 @@ export function createKernelControlPlane(options: KernelControlPlaneOptions): Ke
     workflow(instanceId) {
       return simulation.instanceStore.get(instanceId);
     },
+    /** M1.8: the definition behind an instance, for the canvas projection. */
+    workflowDefinition(workflowId) {
+      return simulation.definitions.get(workflowId);
+    },
     tickDuration: simulation.config.tickDuration,
   };
 
@@ -348,6 +352,8 @@ const COMMAND_BY_ACCEPTED_EVENT: Readonly<Record<string, string>> = Object.freez
   'Control.WorkflowCancelled': 'Workflow.Cancel',
   'Control.WorkflowDeleted': 'Workflow.Delete',
   'Control.WorkflowApprovalDecided': 'Workflow.Approve',
+  'Control.WorkflowInstanceAssignmentOverridden': 'Workflow.InstanceAssignmentOverride',
+  'Control.WorkflowInstanceConfirmed': 'Workflow.ConfirmStart',
   'Control.TaskCancelled': 'Task.Cancel',
   'Control.TaskDeleted': 'Task.Delete',
   'Control.TaskReassigned': 'Task.Reassign',

@@ -103,7 +103,7 @@ const stop = (child) => {
 // founder/company record in memory for the same reason: a smoke run never writes the real
 // `companies.json`.
 const apiLog = path.join(tmpdir(), `maoeh-reject-api-${String(Date.now())}`, 'events.jsonl');
-const api = spawn(process.execPath, ['apps/api/dist/index.js'], { cwd: root, env: { ...process.env, PORT: String(apiPort), MAOEH_EVENT_LOG: apiLog, MAOEH_OWNERSHIP: 'memory' }, stdio: 'ignore' });
+const api = spawn(process.execPath, ['apps/api/dist/index.js'], { cwd: root, env: { ...process.env, PORT: String(apiPort), MAOEH_EVENT_LOG: apiLog, MAOEH_OWNERSHIP: 'memory', MAOEH_REQUIRE_PLAN_CONFIRMATION: '0' }, stdio: 'ignore' });
 const web = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', String(webPort), '--strictPort'], { cwd: path.join(root, 'apps', 'web'), env: { ...process.env, PORT: String(apiPort) }, stdio: 'ignore' });
 const edge = spawn(edgePath, ['--headless=new', `--remote-debugging-port=${String(cdpPort)}`, `--user-data-dir=${path.join(tmpdir(), `maoeh-reject-${String(Date.now())}`)}`, '--remote-allow-origins=*', '--no-first-run', '--no-default-browser-check', '--disable-gpu', '--disable-extensions', '--window-size=1440,960', 'about:blank'], { stdio: 'ignore' });
 let cdp;

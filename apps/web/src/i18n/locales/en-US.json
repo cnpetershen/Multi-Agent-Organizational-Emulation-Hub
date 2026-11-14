@@ -537,15 +537,36 @@
       "attention": "Needs attention",
       "attentionDetail": "Blocked or failed"
     },
+    "startBrief": "Start a company brief",
+    "intake": {
+      "kicker": "Recent company brief",
+      "none": "No brief has been submitted yet",
+      "noneHint": "Start one in Overview → Start work. The CEO's decomposition appears below automatically; this page never asks you to re-enter it.",
+      "waiting": "The brief is in. The CEO has not decomposed it yet; no need to re-enter anything here.",
+      "items": "The CEO split it into {count} task(s): {done} completed, {cancelled} cancelled. This queue is the same work — no second entry.",
+      "open": "Open the brief"
+    },
     "create": {
-      "panel": "Create a task",
-      "hint": "Creates a real task in the TaskService",
+      "panel": "Direct dispatch (advanced)",
+      "hint": "Use only for an audited ad-hoc correction",
       "title": "Title",
       "titlePlaceholder": "Quantify Q3 churn",
       "goal": "Goal",
       "goalHint": "What the assignee must deliver",
       "goalPlaceholder": "Publish the churn driver table with sources",
-      "detail": "Detail (optional)",
+      "detail": "Detail / brief context (optional)",
+      "modeAria": "How the task enters the company",
+      "modeBrief": "Send through the CEO (recommended)",
+      "modeDirect": "Direct dispatch",
+      "briefNotice": "The brief goes to the CEO, who decomposes it into capability-routed work. A workflow draft waits on the assignment canvas for your confirmation.",
+      "verification": "Verification keys",
+      "verificationHint": "Written into the brief; comma or newline separated",
+      "verificationPlaceholder": "delivery, test-report",
+      "submitBrief": "Send the brief to the CEO",
+      "noCeo": "This company has no Chief Officer seat",
+      "noCeoDetail": "A brief needs a CEO to decompose it; create the seat or use direct dispatch.",
+      "keysRequired": "At least one verification key is required",
+      "keysRequiredDetail": "The brief is judged against these keys when the work is handed over.",
       "mode": "Routing",
       "modePosition": "Assign to a position",
       "modeCapability": "Match by capability",
@@ -554,7 +575,7 @@
       "unstaffed": "{name} (unstaffed)",
       "capabilities": "Required capabilities",
       "capabilitiesHint": "The matcher picks the best available holder — no seat needed",
-      "directNotice": "Direct dispatch: this bypasses the brief and the CEO's decomposition — state why.",
+      "directNotice": "Direct dispatch: this bypasses the brief and the CEO's decomposition. The task stays standalone and does not enter the assignment canvas — state why.",
       "reason": "Reason (audited)",
       "reasonHint": "Why this direct dispatch exists — written to the audit trail",
       "reasonPlaceholder": "the board asked for it before the next brief"
@@ -698,6 +719,8 @@
       "empty": "Nothing has been delivered yet",
       "emptyHint": "The delivery appears here the moment the agent submits its result.",
       "kind": {
+        "game": "Game",
+        "3d": "3D",
         "code": "Code",
         "document": "Document",
         "report": "Report"
@@ -705,6 +728,11 @@
       "stack": "Built with",
       "stackMissing": "The delivery did not name its technology stack.",
       "playableGame": "Playable game",
+      "gameHint": "This delivery is a game, not a document. Run it in the live preview above — the page is served by the preview runtime, not printed as text.",
+      "runGame": "Run the playable build",
+      "threeD": "3D delivery",
+      "threeDHint": "This delivery renders a 3D scene or model. Open the live preview above; a model file is also downloadable from the package.",
+      "open3d": "Open the 3D scene",
       "preview": "Preview",
       "previewMissing": "This document was delivered without previewable text.",
       "conclusions": "Key conclusions",
@@ -716,6 +744,13 @@
       "download": "Download",
       "downloadReady": "Download ready"
     },
+    "sandbox": {
+      "panel": "Scenario runtime",
+      "title": "Cyber Sandbox · Multi-role adversarial review",
+      "kind": "Runnable environment",
+      "open": "Open full screen",
+      "hint": "Run a real adversarial review here: set a topic and rounds; the proposer, challenger and defender speak as real agents in turn, and the evaluator scores each dimension with cited evidence. The transcript and scores come from the event log and can be reopened."
+    },
     "document": {
       "previewTab": "Preview",
       "sourceTab": "Source",
@@ -725,6 +760,12 @@
         "text": "Text"
       },
       "inline": "delivered content",
+      "language": "Document language",
+      "chinese": "中文",
+      "english": "English",
+      "translating": "Translating…",
+      "machineTranslated": "Machine translation; Markdown structure preserved",
+      "translationEmpty": "The translation came back empty",
       "rendered": "Rendered from the delivered body",
       "scriptsDisabled": "Scripts are disabled in this frame",
       "empty": "This document has no previewable body."
@@ -744,6 +785,7 @@
       "headingFallback": "Delivered project",
       "runCommand": "Start command",
       "iframeTitle": "Live project preview",
+      "openTab": "Open the running preview in a new tab",
       "unavailable": "Preview unavailable",
       "unknownState": "{where} is not a preview state this console knows: {state}",
       "state": {
@@ -815,7 +857,7 @@
   "network": {
     "eyebrow": "COMPANY / NETWORK",
     "title": "Network",
-    "description": "The company as one canvas: people on the left, the workflow branches they run on the right, and the outcomes that shipped at the bottom. The 3D core is decoration; every fact beside it comes from the runtime.",
+    "description": "The company as one canvas: people on the left, the workflow branches they run on the right, and the outcomes that shipped at the bottom. Hover the hologram to pause it, then click an orbiting beacon to read that agent's live state on the right — every fact comes from the runtime.",
     "pageCount": "{agents} agents · {workflows} branches",
     "deckHint": "{active} branches in motion · {agents} agents on duty",
     "startWork": "Start a brief",
@@ -897,6 +939,7 @@
       "game": "Playable game",
       "document": "Document",
       "code": "Runnable code",
+      "threeD": "3D scene",
       "report": "Report",
       "live": "LIVE / PLAYABLE",
       "gameHint": "The delivered page runs in this console, on the code that was actually submitted.",

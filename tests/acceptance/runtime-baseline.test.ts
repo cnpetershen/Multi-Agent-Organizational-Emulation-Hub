@@ -79,7 +79,9 @@ describe('M1.0 runtime acceptance: start state', () => {
     // Tick 0's own marker is still virtual: it exists in memory as `lastTickMarker` but is not
     // appended until the first tick writes its batch, so the recovered cursor stays at 0.
     expect(baseline.recovery.tickNumber).toBe(0);
-    expect(baseline.recovery.eventCount).toBe(1);
+    // Nothing was replayed on a first boot: recover() now runs before company formation, and the
+    // channel is recorded by that formation (asserted above as the first event of the log).
+    expect(baseline.recovery.eventCount).toBe(0);
     expect(baseline.recovery.cursor).toBe(0);
   });
 });

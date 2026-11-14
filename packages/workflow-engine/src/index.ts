@@ -55,6 +55,8 @@ export type {
   StepCompletedPayload,
   StepEnteredPayload,
   StepRejectedPayload,
+  StepAssignmentOverriddenPayload,
+  DraftConfirmedPayload,
 } from './workflow-events.js';
 export {
   WORKFLOW_APPROVAL_DENIED,
@@ -67,6 +69,8 @@ export {
   WORKFLOW_INSTANCE_DELETED,
   WORKFLOW_INSTANCE_RESUMED,
   WORKFLOW_INSTANCE_STARTED,
+  WORKFLOW_DRAFT_CONFIRMED,
+  WORKFLOW_STEP_ASSIGNMENT_OVERRIDDEN,
   WORKFLOW_STEP_COMPLETED,
   WORKFLOW_STEP_ENTERED,
   WORKFLOW_STEP_REJECTED,
@@ -79,13 +83,17 @@ export {
   instanceDeletedPayloadSchema,
   instanceResumedPayloadSchema,
   instanceStartedPayloadSchema,
+  draftConfirmedPayloadSchema,
   isWorkflowEvent,
   registerWorkflowEvents,
+  stepAssignmentOverriddenPayloadSchema,
   stepCompletedPayloadSchema,
   stepEnteredPayloadSchema,
   stepRejectedPayloadSchema,
+  ASSIGNMENT_OVERRIDES_CONTEXT_KEY,
+  DRAFT_CONTEXT_KEY,
 } from './workflow-events.js';
-export { applyWorkflowEvent, applyWorkflowEvents, replayWorkflowInstance } from './workflow-fold.js';
+export { assignmentOverridesOf, applyWorkflowEvent, applyWorkflowEvents, replayWorkflowInstance } from './workflow-fold.js';
 export type { WorkflowDefinitionStore, WorkflowInstanceStore } from './workflow-stores.js';
 export {
   createInMemoryWorkflowDefinitionStore,
@@ -118,17 +126,21 @@ export {
   capabilityPlanContext,
   generateWorkflowDefinition,
   generatedWorkflowId,
+  isGeneratedWorkflowId,
   regenerateWorkflowDefinition,
 } from './workflow-generation.js';
 export type {
   WorkflowAdvanceInput,
   WorkflowApproveInput,
+  WorkflowConfirmInput,
   WorkflowEngine,
   WorkflowEngineOptions,
   WorkflowGateCheck,
   WorkflowGateInput,
   WorkflowGateVerdict,
   WorkflowInstanceCommandInput,
+  WorkflowOverrideAssignmentEntry,
+  WorkflowOverrideAssignmentsInput,
   WorkflowStartInput,
 } from './workflow-engine.js';
 export { createWorkflowEngine } from './workflow-engine.js';

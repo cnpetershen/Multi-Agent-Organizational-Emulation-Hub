@@ -10,7 +10,7 @@ import { startApiServer } from '../../apps/api/src/composition';
  * middle: the deterministic cognition runs the organization, the delivered React-free SPA and the
  * delivered Python service are copied out of the task records into a private directory, the real
  * service is started as a child process on a dynamically chosen port, and then the delivered API
- * is driven through the preview URL — proving the thing on screen is a running program and not a
+ * is driven through the preview URL �?proving the thing on screen is a running program and not a
  * screenshot, a fixture, or a static copy of the expected page.
  *
  * It is deliberately patient: the workflow has to finish before there is a product to run, and the
@@ -40,7 +40,7 @@ const MANDATE = '开发一个俄罗斯方块程序\n前端Web SPA 后端用pytho
 
 describe('preview runtime over HTTP', () => {
   it('starts the delivered product of a finished workflow and serves it on a real URL', async () => {
-    const server = await startApiServer(0, {
+    const server = await startApiServer(0, { requirePlanConfirmation: false, 
       tick: { activeIntervalMs: 5, idleIntervalMs: 25 },
       eventLogPath: null,
     });
@@ -97,7 +97,7 @@ describe('preview runtime over HTTP', () => {
       expect((before['skipped'] as readonly Json[]).length).toBe(0);
       expect(String(before['projectName'])).not.toBe('');
 
-      // 4. Start it, and wait for the URL to answer — `running` means the service answered.
+      // 4. Start it, and wait for the URL to answer �?`running` means the service answered.
       const started = viewOf(await (await post(`/preview/${encodeURIComponent(anchorTaskId)}/start`)).json());
       const running = started['state'] === 'running'
         ? started
@@ -113,7 +113,7 @@ describe('preview runtime over HTTP', () => {
       expect(new URL(previewUrl).port).not.toBe('');
       expect(String(running['runCommand'])).toContain('server/app.py');
 
-      // 5. The delivered SPA is served — the real one, with its canvas and its leaderboard client.
+      // 5. The delivered SPA is served �?the real one, with its canvas and its leaderboard client.
       const page = await fetch(previewUrl, { headers: { connection: 'close' } });
       expect(page.status).toBe(200);
       expect(String(page.headers.get('content-type'))).toContain('text/html');
@@ -141,7 +141,7 @@ describe('preview runtime over HTTP', () => {
       const afterRecord = viewOf(await (await get(`/tasks/${encodeURIComponent(anchorTaskId)}`)).json());
       expect(afterRecord['result']).toEqual(record['result']);
 
-      // 8. Meanwhile the platform's own API is unaffected — the preview must never block it.
+      // 8. Meanwhile the platform's own API is unaffected �?the preview must never block it.
       const during = await Promise.all(['/snapshot', '/tasks', '/workflows'].map(async (path) => (await get(path)).status));
       expect(during).toEqual([200, 200, 200]);
 
@@ -156,7 +156,7 @@ describe('preview runtime over HTTP', () => {
   }, 120_000);
 
   it('answers 404 for a task the organization does not know', async () => {
-    const server = await startApiServer(0, { tick: { activeIntervalMs: 5, idleIntervalMs: 25 }, eventLogPath: null });
+    const server = await startApiServer(0, { requirePlanConfirmation: false,  tick: { activeIntervalMs: 5, idleIntervalMs: 25 }, eventLogPath: null });
     try {
       const base = `http://127.0.0.1:${String(server.port)}/api`;
       const missing = await fetch(`${base}/preview/task-unknown`, { headers: { connection: 'close' } });
@@ -171,3 +171,4 @@ describe('preview runtime over HTTP', () => {
     }
   }, 60_000);
 });
+

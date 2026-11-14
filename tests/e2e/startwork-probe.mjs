@@ -318,7 +318,7 @@ async function main() {
   log(`[setup] ownership: ${apiOwnership}`);
   const api = spawnToLog(process.execPath, ['apps/api/dist/index.js'], {
     cwd: ROOT,
-    env: { ...process.env, PORT: String(API_PORT), MAOEH_EVENT_LOG: apiEventLog, MAOEH_OWNERSHIP: apiOwnership },
+    env: { ...process.env, PORT: String(API_PORT), MAOEH_EVENT_LOG: apiEventLog, MAOEH_OWNERSHIP: apiOwnership, MAOEH_REQUIRE_PLAN_CONFIRMATION: '0' },
   }, apiLog);
   const preview = spawnToLog(
     process.execPath,

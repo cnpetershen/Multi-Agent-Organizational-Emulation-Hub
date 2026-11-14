@@ -1,7 +1,14 @@
 import type { EmployeeId } from '@maoeh/shared-types';
 import type { OwnershipState } from '@maoeh/organization-model';
 import type { ControlCommand, ControlPlane, ControlQuery, EventStreamFilter } from '@maoeh/organization-control';
+import { ContentStudioError, type ContentStudioInput, type ContentStudioResult } from './content-studio.js';
+import {
+  SandboxError,
+  type SandboxSession,
+  type SandboxSessionInput,
+} from './sandbox-session.js';
 import { PreviewUnavailableError, UnknownPreviewTaskError, type PreviewStatus } from './preview-runtime.js';
+import { TranslationError, type TranslationInput } from './translation.js';
 import type { CreateCompanyInput, OwnershipResult } from './ownership-store.js';
 
 export interface LlmObservation {
@@ -36,6 +43,30 @@ export interface PreviewApi {
   start(taskId: string): Promise<PreviewStatus>;
   stop(taskId: string): Promise<PreviewStatus>;
 }
+/**
+ * 一鱼多吃 as the HTTP layer sees it.
+ *
+ * Deliberately a tool surface (`page` + `generate`) rather than a control command: it generates
+ * copy from material the operator supplies, writes no event, and has no workflow semantics. The
+ * two together keep the workbench reachable without pretending the organization did the work.
+ */
+export interface ContentStudioApi {
+  page(): string;
+  generate(input: ContentStudioInput): Promise<ContentStudioResult>;
+}
+/**
+ * 赛博沙盘 as the HTTP layer sees it: a page, a start verb and two read verbs.
+ *
+ * A session is a few minutes of real model calls, so it is started and observed rather than being
+ * a control command hidden in `/api/command`; the two read verbs are what let the page reopen a
+ * finished session after a reload.
+ */
+export interface SandboxApi {
+  page(): string;
+  start(input: SandboxSessionInput): Promise<SandboxSession>;
+  list(limit?: number): Promise<readonly SandboxSession[]>;
+  get(sessionId: string): Promise<SandboxSession | null>;
+}
 export interface ApiRuntime {
   readonly control: ControlPlane;
   readonly query: ControlQuery;
@@ -46,6 +77,12 @@ export interface ApiRuntime {
   readonly ownership?: OwnershipApi;
   /** Delivered-artifact previews; absent when this runtime runs without a preview runner. */
   readonly preview?: PreviewApi;
+  /** Document translation for bilingual delivery pages; absent when no provider is wired. */
+  readonly translate?: (input: TranslationInput) => Promise<string>;
+  /** 一鱼多吃 workbench: the page plus its generation endpoint. Absent when no provider is wired. */
+  readonly content?: ContentStudioApi;
+  /** 赛博沙盘: real multi-role adversarial sessions in an isolated runtime. */
+  readonly sandbox?: SandboxApi;
 }
 let runtime: ApiRuntime | null = null;
 export function configureApiRuntime(next: ApiRuntime): void { runtime = next; }
@@ -58,6 +95,12 @@ export async function handleApiRequest(request: Request, apiRuntime: ApiRuntime 
     // child process, and keeping it in its own branch means no control command can ever be
     // shadowed by it.
     if (path === '/preview' || path.startsWith('/preview/')) return await previewRoute(path, request, apiRuntime);
+    // The 一鱼多吃 workbench is served by the API itself: same origin as its endpoint, no build
+    // step, and no API key anywhere near the browser.
+    if (request.method === 'GET' && path === '/studio') return await contentPageRoute(apiRuntime);
+    if (request.method === 'POST' && path === '/content/generate') return await contentGenerateRoute(request, apiRuntime);
+    if (path === '/sandbox' || path.startsWith('/sandbox/')) return await sandboxRoute(path, request, apiRuntime);
+    if (request.method === 'POST' && path === '/translate') return await translateRoute(request, apiRuntime);
     if (request.method === 'GET') return await queryRoute(path, url.searchParams, apiRuntime);
     if (request.method === 'POST' && path === '/command') return json(await apiRuntime.control.execute((await request.json()) as ControlCommand));
     if (request.method === 'POST' && path === '/tick') { if (apiRuntime.tick === undefined) return json({ error: 'tick is unavailable' }, 409); return json(await apiRuntime.tick()); }
@@ -104,6 +147,187 @@ async function previewRoute(path: string, request: Request, api: ApiRuntime): Pr
     return json({ error: error instanceof Error ? error.message : 'preview failed' }, 500);
   }
 }
+/**
+ * `GET /api/studio` — the 一鱼多吃 workbench.
+ *
+ * A missing content service is a `503` page rather than a JSON error: this route is opened in a
+ * browser tab, and a person should read a sentence, not a payload.
+ */
+async function contentPageRoute(api: ApiRuntime): Promise<Response> {
+  const content = api.content;
+  if (content === undefined) {
+    return html(
+      '<!doctype html><meta charset="utf-8"><title>内容工坊不可用</title>'
+      + '<p style="font:14px system-ui;padding:24px">这个运行时没有接入内容生成服务（没有可用的 LLM provider）。</p>',
+      503,
+    );
+  }
+  return html(content.page());
+}
+
+/**
+ * `POST /api/content/generate` — one source, one brief per platform, the model's own copy back.
+ *
+ * A refused input is `400`; a provider failure is `502` — the page shows which, so an operator can
+ * tell "my request was wrong" from "the model failed" without guessing.
+ */
+async function contentGenerateRoute(request: Request, api: ApiRuntime): Promise<Response> {
+  const content = api.content;
+  if (content === undefined) {
+    return json({ error: 'content_unavailable', message: 'this runtime has no content studio' }, 501);
+  }
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'invalid_content', message: 'body must be JSON' }, 400);
+  }
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    return json({ error: 'invalid_content', message: 'body must be an object' }, 400);
+  }
+  const record = body as Readonly<Record<string, unknown>>;
+  const source = typeof record['source'] === 'string' ? record['source'] : '';
+  const requested = record['platforms'];
+  const platforms = Array.isArray(requested)
+    ? requested.filter((entry): entry is string => typeof entry === 'string')
+    : undefined;
+  try {
+    return json(await content.generate({ source, ...(platforms === undefined ? {} : { platforms }) }));
+  } catch (error) {
+    if (error instanceof ContentStudioError && error.code === 'invalid') {
+      return json({ error: 'invalid_content', message: error.message }, 400);
+    }
+    if (error instanceof ContentStudioError) {
+      return json({ error: 'content_generation_failed', message: error.message }, 502);
+    }
+    return json(
+      { error: 'content_generation_failed', message: error instanceof Error ? error.message : 'generation failed' },
+      502,
+    );
+  }
+}
+
+/**
+ * `GET /api/sandbox`, `POST /api/sandbox/session`, `GET /api/sandbox/sessions[/:id]`.
+ *
+ * Four verbs, each with one honest failure mode: a page, a start that can be refused because the
+ * company has too few seats (`409`) or because the model failed (`502`), and two reads that return
+ * `null` when the session is unknown.
+ */
+async function sandboxRoute(path: string, request: Request, api: ApiRuntime): Promise<Response> {
+  const sandbox = api.sandbox;
+  if (sandbox === undefined) {
+    if (path === '/sandbox' && request.method === 'GET') {
+      return html(
+        '<!doctype html><meta charset="utf-8"><title>赛博沙盘不可用</title>'
+        + '<p style="font:14px system-ui;padding:24px">这个运行时没有接入沙盘会话服务。</p>',
+        503,
+      );
+    }
+    return json({ error: 'sandbox_unavailable', message: 'this runtime has no sandbox service' }, 501);
+  }
+  const method = (request.method ?? 'GET').toUpperCase();
+  if (path === '/sandbox' && method === 'GET') return html(sandbox.page());
+  if (path === '/sandbox/session' && method === 'POST') {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return json({ error: 'invalid_sandbox', message: 'body must be JSON' }, 400);
+    }
+    if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+      return json({ error: 'invalid_sandbox', message: 'body must be an object' }, 400);
+    }
+    const record = body as Readonly<Record<string, unknown>>;
+    const topic = typeof record['topic'] === 'string' ? record['topic'] : '';
+    const rounds = typeof record['rounds'] === 'number' ? record['rounds'] : undefined;
+    try {
+      return json(await sandbox.start({ topic, ...(rounds === undefined ? {} : { rounds }) }), 201);
+    } catch (error) {
+      return sandboxFailure(error);
+    }
+  }
+  if (path === '/sandbox/sessions' && method === 'GET') {
+    try {
+      return json({ sessions: await sandbox.list(10) });
+    } catch (error) {
+      return sandboxFailure(error);
+    }
+  }
+  if (path.startsWith('/sandbox/sessions/') && method === 'GET') {
+    const sessionId = decodeURIComponent(path.slice('/sandbox/sessions/'.length));
+    if (sessionId.trim() === '') return json({ error: 'invalid_sandbox', message: 'session id is required' }, 400);
+    try {
+      const session = await sandbox.get(sessionId);
+      return session === null ? json({ error: 'unknown_session' }, 404) : json(session);
+    } catch (error) {
+      return sandboxFailure(error);
+    }
+  }
+  return json({ error: 'Not found' }, 404);
+}
+
+function sandboxFailure(error: unknown): Response {
+  if (error instanceof SandboxError) {
+    switch (error.code) {
+      case 'invalid':
+        return json({ error: 'invalid_sandbox', message: error.message }, 400);
+      case 'no_roles':
+        return json({ error: 'sandbox_no_roles', message: error.message }, 409);
+      case 'provider':
+        return json({ error: 'sandbox_generation_failed', message: error.message }, 502);
+      case 'unavailable':
+        return json({ error: 'sandbox_unavailable', message: error.message }, 503);
+      default:
+        return json({ error: 'sandbox_failed', message: error.message }, 500);
+    }
+  }
+  return json(
+    { error: 'sandbox_failed', message: error instanceof Error ? error.message : 'sandbox failed' },
+    500,
+  );
+}
+
+/**
+ * `POST /api/translate` — translate one delivered document for the bilingual sheet.
+ *
+ * This is a read-only convenience over bytes the delivery already carries: it writes no event and
+ * has no actor semantics. A missing provider is `501`, malformed input `400`, a provider failure
+ * `502`, so the document page can say which of those happened without guessing.
+ */
+async function translateRoute(request: Request, api: ApiRuntime): Promise<Response> {
+  if (api.translate === undefined) {
+    return json({ error: 'translation_unavailable', message: 'this runtime has no translation provider' }, 501);
+  }
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'invalid_translation', message: 'body must be JSON' }, 400);
+  }
+  if (typeof body !== 'object' || body === null) {
+    return json({ error: 'invalid_translation', message: 'body must be an object' }, 400);
+  }
+  const record = body as Record<string, unknown>;
+  const text = typeof record['text'] === 'string' ? record['text'] : '';
+  const target = record['target'];
+  if (target !== 'en' && target !== 'zh') {
+    return json({ error: 'invalid_translation', message: 'target must be en or zh' }, 400);
+  }
+  try {
+    const translated = await api.translate({ text, target });
+    return json({ text: translated });
+  } catch (error) {
+    if (error instanceof TranslationError && error.code === 'invalid') {
+      return json({ error: 'invalid_translation', message: error.message }, 400);
+    }
+    if (error instanceof TranslationError && error.code === 'unavailable') {
+      return json({ error: 'translation_unavailable', message: error.message }, 501);
+    }
+    return json({ error: 'translation_failed', message: error instanceof Error ? error.message : 'translation failed' }, 502);
+  }
+}
+
 /**
  * Create a company (`/ownership/companies`) or sign in to one (`/ownership/session`).
  *
@@ -209,3 +433,4 @@ function snapshotResponse(snapshot: unknown): Response {
 }
 
 function json(value: unknown, status = 200): Response { return new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json; charset=utf-8' } }); }
+function html(body: string, status = 200): Response { return new Response(body, { status, headers: { 'content-type': 'text/html; charset=utf-8' } }); }

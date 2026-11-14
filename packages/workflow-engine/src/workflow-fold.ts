@@ -9,11 +9,15 @@ import type {
   InstanceCompletedPayload,
   InstanceResumedPayload,
   InstanceStartedPayload,
+  DraftConfirmedPayload,
   StepCompletedPayload,
+  StepAssignmentOverriddenPayload,
   StepEnteredPayload,
   StepRejectedPayload,
 } from './workflow-events.js';
 import {
+  ASSIGNMENT_OVERRIDES_CONTEXT_KEY,
+  DRAFT_CONTEXT_KEY,
   WORKFLOW_APPROVAL_DENIED,
   WORKFLOW_APPROVAL_GRANTED,
   WORKFLOW_APPROVAL_REQUESTED,
@@ -21,8 +25,10 @@ import {
   WORKFLOW_INSTANCE_BLOCKED,
   WORKFLOW_INSTANCE_COMPLETED,
   WORKFLOW_INSTANCE_DELETED,
+  WORKFLOW_DRAFT_CONFIRMED,
   WORKFLOW_INSTANCE_RESUMED,
   WORKFLOW_INSTANCE_STARTED,
+  WORKFLOW_STEP_ASSIGNMENT_OVERRIDDEN,
   WORKFLOW_STEP_COMPLETED,
   WORKFLOW_STEP_ENTERED,
   WORKFLOW_STEP_REJECTED,
@@ -177,6 +183,19 @@ function settleStep(
   });
 }
 
+/** The per-instance executor overrides, folded into `context` since M1.8. */
+export function assignmentOverridesOf(
+  instance: Pick<WorkflowInstance, 'context'>,
+): Readonly<Record<string, string>> {
+  const raw = instance.context[ASSIGNMENT_OVERRIDES_CONTEXT_KEY];
+  if (typeof raw !== 'object' || raw === null) return Object.freeze({});
+  const result: Record<string, string> = {};
+  for (const [stepId, employeeId] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof employeeId === 'string' && employeeId !== '') result[stepId] = employeeId;
+  }
+  return Object.freeze(result);
+}
+
 function mergeOutputs(
   current: WorkflowInstance,
   payload: StepCompletedPayload,
@@ -184,6 +203,38 @@ function mergeOutputs(
   if (payload.outputs === null || payload.outputs === undefined) return current.outputs;
   const previous = current.outputs as Record<string, unknown>;
   return Object.freeze({ ...previous, [payload.stepId]: payload.outputs });
+}
+
+function applyDraftConfirmed(
+  current: WorkflowInstance,
+  event: OrgEvent,
+): WorkflowInstance {
+  const payload = event.payload as DraftConfirmedPayload;
+  void payload;
+  const next = { ...current.context } as Record<string, unknown>;
+  delete next[DRAFT_CONTEXT_KEY];
+  return freezeInstance({
+    ...current,
+    context: Object.freeze(next),
+  });
+}
+
+function applyStepAssignmentOverridden(
+  current: WorkflowInstance,
+  event: OrgEvent,
+): WorkflowInstance {
+  const payload = event.payload as StepAssignmentOverriddenPayload;
+  const merged = Object.freeze({
+    ...assignmentOverridesOf(current),
+    [payload.stepId]: payload.employeeId,
+  });
+  return freezeInstance({
+    ...current,
+    context: Object.freeze({
+      ...current.context,
+      [ASSIGNMENT_OVERRIDES_CONTEXT_KEY]: merged,
+    }),
+  });
 }
 
 function applyApprovalRequested(
@@ -277,6 +328,10 @@ export function applyWorkflowEvent(
   switch (event.type) {
     case WORKFLOW_STEP_ENTERED:
       return applyStepEntered(current, event);
+    case WORKFLOW_DRAFT_CONFIRMED:
+      return applyDraftConfirmed(current, event);
+    case WORKFLOW_STEP_ASSIGNMENT_OVERRIDDEN:
+      return applyStepAssignmentOverridden(current, event);
     case WORKFLOW_STEP_COMPLETED:
       return settleStep(current, event, 'done');
     case WORKFLOW_STEP_REJECTED:

@@ -12,8 +12,8 @@ import { parsePreviewStatus, previewPath, type PreviewStatus } from './preview';
  *
  * - **Read once on mount**, then re-read whenever the console's own refresh tick or task changes.
  * - **Auto-start once per task.** A delivery that *can* run should already be running when the
- *   owner opens the page — that is the whole point of the panel. The `autoStarted` ref makes that
- *   a one-shot per task, so the "stopped → start → starting" cycle can never loop.
+ *   owner opens the page — that is the whole point of the panel. The `autoStarted` counter allows
+ *   one recovery retry after a stale `failed`, then stops, so a broken project can never loop.
  * - **Poll only while booting.** `starting` is the only state the console cannot learn about by
  *   waiting for the next console refresh, so it polls that one state every `PREVIEW_POLL_MS` and
  *   stops the moment the runtime answers `running`, `failed` or `stopped`. The timer is cleared on
@@ -57,12 +57,12 @@ export function usePreview(taskId: string, refreshToken: number): PreviewControl
   // Every request tags itself; only the newest tag may write state, so a slow reply for an older
   // task (or one overtaken by a command) can never land on the current one.
   const ticket = useRef(0);
-  const autoStarted = useRef(false);
+  const autoStarted = useRef(0);
   const stoppedByUser = useRef(false);
 
   // A new task starts with a clean slate: the previous task's one-shot flags must not leak.
   useEffect(() => {
-    autoStarted.current = false;
+    autoStarted.current = 0;
     stoppedByUser.current = false;
   }, [taskId]);
 
@@ -117,12 +117,15 @@ export function usePreview(taskId: string, refreshToken: number): PreviewControl
     void load();
   }, [load, refreshToken, nonce]);
 
-  // The one automatic start per task. Any later `stopped` answer is read as a decision, not as an
-  // instruction to try again — otherwise a project that refuses to boot would restart forever.
+  // The one automatic start per task. A `stopped` answer is a decision, but a `failed` answer can
+  // be stale: restarting the API reaps its old detached previews, and the page then inherited a
+  // failure nobody caused. Retry once automatically; the one-shot ref still prevents a broken
+  // project from looping.
   useEffect(() => {
-    if (status === null || !status.available || status.state !== 'stopped') return;
-    if (autoStarted.current || stoppedByUser.current) return;
-    autoStarted.current = true;
+    if (status === null || !status.available) return;
+    if (status.state !== 'stopped' && status.state !== 'failed') return;
+    if (autoStarted.current >= 2 || stoppedByUser.current) return;
+    autoStarted.current += 1;
     void command('start');
   }, [status, command]);
 
@@ -138,7 +141,7 @@ export function usePreview(taskId: string, refreshToken: number): PreviewControl
   }, [starting, load]);
 
   const run = useCallback((): void => {
-    autoStarted.current = true;
+    autoStarted.current = 2;
     stoppedByUser.current = false;
     void command('start');
   }, [command]);

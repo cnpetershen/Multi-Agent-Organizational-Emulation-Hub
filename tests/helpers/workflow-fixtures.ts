@@ -14,6 +14,7 @@ import { createIdentity } from '@maoeh/identity-system';
 import type { Organization } from '@maoeh/organization-model';
 import { loadOrganization } from '@maoeh/organization-model';
 import type { AuthzService, CommandActor, PermissionPolicy } from '@maoeh/permission-system';
+import type { AuthorityService } from '@maoeh/authority-engine';
 import { createAuthzService, employeeActor } from '@maoeh/permission-system';
 import type { Task, TaskService, TaskStore } from '@maoeh/task-system';
 import { createInMemoryTaskStore, createTaskService, registerTaskEvents } from '@maoeh/task-system';
@@ -98,6 +99,8 @@ export interface WorkflowFixtureOptions {
   readonly policy?: PermissionPolicy;
   readonly organization?: Organization;
   readonly definitions?: readonly WorkflowDefinition[];
+  /** M1.8: pass-through for the assignee-side authority check in overrideAssignments. */
+  readonly authority?: AuthorityService;
 }
 
 export interface WorkflowFixture {
@@ -188,6 +191,8 @@ export function createWorkflowFixture(options?: WorkflowFixtureOptions): Workflo
     instances: instanceStore,
     eventIdGenerator: nextEventId,
     instanceIdGenerator: nextInstanceId,
+    // M1.8: assignee-side authority for override validation (absent → those checks fail closed).
+    ...(options?.authority === undefined ? {} : { authority: options.authority }),
   });
 
   const sink: OrgEvent[] = [];

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   baseName,
+  deliveryFilesFromData,
   extensionOf,
   fixedPortOf,
   looksLikeNodeHttpServer,
@@ -84,6 +85,61 @@ function splitProduct(): readonly PlannedFile[] {
     file('server/README.md', '# server\n'),
   ];
 }
+
+describe('recovering files from a delivery result', () => {
+  const GAME_PAGE = '<!doctype html><html><canvas id="board"></canvas><script>play()</script></html>';
+
+  it('reads the canonical files[] list and normalizes each path', () => {
+    const files = deliveryFilesFromData({
+      files: [
+        { path: 'client\\index.html', language: 'html', content: GAME_PAGE },
+        { path: './README.md', language: 'markdown', content: '# Play me\n' },
+      ],
+    });
+    expect(files.map((file) => file.path)).toEqual(['client/index.html', 'README.md']);
+    expect(files[0]?.language).toBe('html');
+  });
+
+  it('sees a single-file delivery exposed as an index.html data key', () => {
+    const files = deliveryFilesFromData({ 'index.html': GAME_PAGE, playable: true, scoreboard: true });
+    expect(files).toHaveLength(1);
+    expect(files[0]).toMatchObject({ path: 'index.html', language: 'html', content: GAME_PAGE });
+    const analysis = planArtifact(files, 'Tic-Tac-Toe');
+    expect(analysis.plan?.plan).toBe('static');
+    expect(analysis.plan?.entryPath).toBe('index.html');
+  });
+
+  it('reads entrypoint + content and names bare HTML content', () => {
+    const entry = deliveryFilesFromData({ entrypoint: 'game/index.html', content: GAME_PAGE });
+    expect(entry[0]?.path).toBe('game/index.html');
+    const bare = deliveryFilesFromData({ content: GAME_PAGE });
+    expect(bare[0]?.path).toBe('index.html');
+  });
+
+  it('keeps the richer record when the same path appears twice', () => {
+    const files = deliveryFilesFromData({
+      files: [{ path: 'index.html', language: 'html', content: GAME_PAGE }],
+      'index.html': '<html>weaker duplicate</html>',
+    });
+    expect(files).toHaveLength(1);
+    expect(files[0]?.content).toBe(GAME_PAGE);
+  });
+
+  it('drops escaping paths instead of turning them into files on disk', () => {
+    const files = deliveryFilesFromData({
+      '../outside.html': GAME_PAGE,
+      '/etc/passwd': 'root',
+      'C:\\Windows\\win.ini': 'x',
+    });
+    expect(files).toHaveLength(0);
+  });
+
+  it('does not invent a file from ordinary delivery fields', () => {
+    expect(deliveryFilesFromData({ passed: true, failures: [], test_report: 'all pass' })).toHaveLength(0);
+    expect(deliveryFilesFromData(null)).toHaveLength(0);
+    expect(deliveryFilesFromData([])).toHaveLength(0);
+  });
+});
 
 describe('delivered path handling', () => {
   it('keeps an artifact-relative path and rejects anything that would escape it', () => {

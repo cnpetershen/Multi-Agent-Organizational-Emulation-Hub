@@ -18,6 +18,22 @@ export const WORKFLOW_INSTANCE_ABORTED = 'Workflow.InstanceAborted';
 export const WORKFLOW_INSTANCE_BLOCKED = 'Workflow.InstanceBlocked';
 export const WORKFLOW_INSTANCE_RESUMED = 'Workflow.InstanceResumed';
 /**
+ * M1.8: a human overrode the not-yet-entered task step's executor for this instance only.
+ * The fold merges `{ [stepId]: employeeId }` into `context.assignmentOverrides`; the
+ * definition and every other instance are untouched by construction.
+ */
+/**
+ * M1.8/M1.9: a human confirmed a draft instance on the canvas; the engine enters the entry
+ * stage and the workflow runs. The fold drops the `draft` marker from `context`.
+ */
+export const WORKFLOW_DRAFT_CONFIRMED = 'Workflow.DraftConfirmed';
+export const DRAFT_CONTEXT_KEY = 'draft';
+
+export const WORKFLOW_STEP_ASSIGNMENT_OVERRIDDEN = 'Workflow.StepAssignmentOverridden';
+/** `context` key carrying the per-instance `{ [stepId]: employeeId }` executor overrides. */
+export const ASSIGNMENT_OVERRIDES_CONTEXT_KEY = 'assignmentOverrides';
+
+/**
  * The instance leaves the organization together with every task it owns. The fold turns the
  * stream back into `null`, so a recovery rebuilds neither the instance nor its steps.
  */
@@ -36,6 +52,8 @@ export const WORKFLOW_EVENT_TYPES = [
   WORKFLOW_INSTANCE_BLOCKED,
   WORKFLOW_INSTANCE_RESUMED,
   WORKFLOW_INSTANCE_DELETED,
+  WORKFLOW_DRAFT_CONFIRMED,
+  WORKFLOW_STEP_ASSIGNMENT_OVERRIDDEN,
 ] as const;
 
 const idSchema = z.string().min(1).max(64);
@@ -131,6 +149,23 @@ export const instanceResumedPayloadSchema = z.object({
   resumedBy: idSchema,
 });
 
+export const stepAssignmentOverriddenPayloadSchema = z.object({
+  instanceId: idSchema,
+  stepId: idSchema,
+  employeeId: idSchema,
+  actorId: idSchema,
+  /** The previous *override* for this step, or null when this is the first override. */
+  previousEmployeeId: idSchema.nullable(),
+  reason: z.string().min(1).max(500).nullable(),
+});
+
+/** Who confirmed the draft, on the record; `reason` is optional. */
+export const draftConfirmedPayloadSchema = z.object({
+  instanceId: idSchema,
+  confirmedBy: idSchema,
+  reason: z.string().min(1).max(500).nullable(),
+});
+
 /**
  * Which tasks went with the instance, recorded on the deletion itself: without them "what did
  * this removal take out of the organization" would only be answerable by re-reading every
@@ -154,6 +189,8 @@ export type InstanceAbortedPayload = z.infer<typeof instanceAbortedPayloadSchema
 export type InstanceBlockedPayload = z.infer<typeof instanceBlockedPayloadSchema>;
 export type InstanceResumedPayload = z.infer<typeof instanceResumedPayloadSchema>;
 export type InstanceDeletedPayload = z.infer<typeof instanceDeletedPayloadSchema>;
+export type StepAssignmentOverriddenPayload = z.infer<typeof stepAssignmentOverriddenPayloadSchema>;
+export type DraftConfirmedPayload = z.infer<typeof draftConfirmedPayloadSchema>;
 
 function registerOnce(
   registry: EventRegistry,
@@ -180,6 +217,8 @@ export function registerWorkflowEvents(
     [WORKFLOW_INSTANCE_BLOCKED, instanceBlockedPayloadSchema],
     [WORKFLOW_INSTANCE_RESUMED, instanceResumedPayloadSchema],
     [WORKFLOW_INSTANCE_DELETED, instanceDeletedPayloadSchema],
+    [WORKFLOW_STEP_ASSIGNMENT_OVERRIDDEN, stepAssignmentOverriddenPayloadSchema],
+    [WORKFLOW_DRAFT_CONFIRMED, draftConfirmedPayloadSchema],
   ];
   for (const [type, schema] of registrations) {
     const result = registerOnce(registry, type, schema);

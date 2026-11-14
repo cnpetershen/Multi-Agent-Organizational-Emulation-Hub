@@ -203,28 +203,10 @@ export function slugOf(name: string): string {
 }
 
 /**
- * The code a build-shaped seat hands back when nothing declared *what kind* of build it is: one
- * self-contained page whose heading names the goal, so the delivery is runnable as-is.
+ * The deterministic stand-in for a build-shaped delivery: a runnable, brief-aware page (see
+ * `scaffold-deliverables.ts`) — never a bare `textContent = "<step>"` placeholder again.
  */
-function webScaffold(name: string, goal: string): string {
-  return [
-    '<!doctype html>',
-    '<html lang="en">',
-    '  <head>',
-    '    <meta charset="utf-8" />',
-    `    <title>${name}</title>`,
-    '  </head>',
-    '  <body>',
-    '    <main id="app"></main>',
-    '    <script type="module">',
-    `      // ${goal}`,
-    "      const app = document.querySelector('#app');",
-    `      if (app !== null) app.textContent = ${JSON.stringify(name)};`,
-    '    </script>',
-    '  </body>',
-    '</html>',
-  ].join('\n');
-}
+import { webScaffold } from './scaffold-deliverables.js';
 
 function file(path: string, language: string, content: string): DeliveryFile {
   return Object.freeze({ path, language, content });

@@ -12,11 +12,16 @@ import { loadOrganization, type Organization, type OrganizationSourceReader, typ
 import { createAuthzService } from '@maoeh/permission-system';
 import { controlPolicyForPosition, type ControlPlane, type ControlQuery } from '@maoeh/organization-control';
 import { loadWorkflowDefinitions, type WorkflowSourceReader } from '@maoeh/workflow-engine';
-import { createApiHandler, type ApiRuntime, type OwnershipApi, type PreviewApi } from './api-adapter.js';
+import { createApiHandler, type ApiRuntime, type ContentStudioApi, type OwnershipApi, type PreviewApi, type SandboxApi } from './api-adapter.js';
+import { createContentStudio, type ContentStudioInput } from './content-studio.js';
+import { contentStudioPage } from './content-studio-page.js';
+import { createSandboxService } from './sandbox-session.js';
+import { sandboxPage } from './sandbox-page.js';
 import { deterministicCognitionText } from './deterministic-cognition.js';
 import { createOwnershipStore, type CreateCompanyInput, type OwnershipResult, type OwnershipStore } from './ownership-store.js';
-import { productNameOf } from './preview-plan.js';
+import { deliveryFilesFromData, productNameOf } from './preview-plan.js';
 import { PreviewRuntime, type ArtifactFile, type PreviewRecipe } from './preview-runtime.js';
+import { translateDocument } from './translation.js';
 
 /**
  * Preview Runtime composition (M1.6 preview).
@@ -47,25 +52,15 @@ export function previewWorkspaceRoot(): string {
   return fileURLToPath(new URL('../../../', import.meta.url));
 }
 
-/** One delivered file, read defensively: a malformed entry is skipped, never thrown on. */
-function deliveredFile(entry: unknown): ArtifactFile | null {
-  if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return null;
-  const row = entry as Readonly<Record<string, unknown>>;
-  const path = typeof row['path'] === 'string' ? row['path'].trim() : '';
-  const content = typeof row['content'] === 'string' ? row['content'] : '';
-  if (path === '' || content === '') return null;
-  const language = typeof row['language'] === 'string' ? row['language'] : '';
-  return { path, language, content };
-}
-
-/** Every delivered file of one task, in delivery order. */
+/**
+ * Every delivered file of one task, in delivery order.
+ *
+ * The recovery rules live in `preview-plan.ts` because they are part of "what is this artifact":
+ * a live model may deliver `{ "index.html": "<!doctype html>…" }` instead of a `files[]` list, and
+ * a planner that only knows the richer shape reports a real, playable game as "no files".
+ */
 function filesOfTask(task: { readonly result: { readonly data: Readonly<Record<string, unknown>> } | null }): readonly ArtifactFile[] {
-  const raw = task.result?.data['files'];
-  if (!Array.isArray(raw)) return [];
-  return raw.flatMap((entry) => {
-    const file = deliveredFile(entry);
-    return file === null ? [] : [file];
-  });
+  return task.result === null ? [] : deliveryFilesFromData(task.result.data);
 }
 
 /**
@@ -117,7 +112,11 @@ export function buildPreviewRecipe(query: ControlQuery, taskId: string): Preview
 
   return {
     files: Object.freeze(files.map((file) => Object.freeze({ ...file }))),
-    title: productNameOf(anchor.goal, title === '' ? anchor.taskId : title),
+    // A standalone delivery has no workflow title to read the product name out of; its own task
+    // title is the honest heading. Only a workflow step unwraps the generated goal wrapper.
+    title: anchor.workflowInstanceId === null
+      ? (title === '' ? anchor.taskId : title)
+      : productNameOf(anchor.goal, title === '' ? anchor.taskId : title),
     taskId: anchor.taskId,
     sources: Object.freeze(sources.map((source) => Object.freeze({ ...source }))),
     skipped: Object.freeze(skipped.map((entry) => Object.freeze({ ...entry }))),
@@ -291,11 +290,21 @@ export interface ComposedRuntime {
   readonly eventLogPath: string | null;
   /** Why a configured log could not be opened, when the runtime fell back to memory. */
   readonly eventLogFailure: string | null;
+  /**
+   * The gateway this runtime thinks with, exposed read-only for tools that must borrow it instead
+   * of building a second one (the sandbox session uses it so `/api/llm` counts those calls too).
+   */
+  readonly gateway: LlmGateway;
 }
 
 export interface ComposedRuntimeOptions {
   /** Override the log path; `null` forces a throwaway in-memory run. Defaults to `MAOEH_EVENT_LOG`. */
   readonly eventLogPath?: string | null;
+  /**
+   * M1.9: drafts wait for the human's confirm on the canvas. Defaults to `true` (the console's
+   * behavior); tests opt out to keep the pre-existing autonomous loop intact.
+   */
+  readonly requirePlanConfirmation?: boolean;
   /**
    * Which founder's which company this runtime is. Defaults to an isolated in-memory record
    * seeded with `Guest Founder` + `Future AI Lab`, so a test (or an `eventLogPath` run) never
@@ -379,8 +388,32 @@ export async function createComposedRuntime(options: ComposedRuntimeOptions = {}
     },
   };
   const cognition = createCognitionExecutor({ gateway });
-  const simulation = await createSimulation({ organization, agentDefinitions: definitionsResult.value, cognitionProfiles: profilesResult.value, workflowDefinitions: workflowsResult.value, cognition, config: { tickDuration: 1, startTick: 0 }, ...(eventStore === null ? {} : { eventStore }) });
+  // M1.9: the console waits for the human's confirm on the canvas — capability-generated
+  // workflows start parked as drafts until then. Tests opt out via ComposedRuntimeOptions.
+  const simulation = await createSimulation({
+    organization,
+    agentDefinitions: definitionsResult.value,
+    cognitionProfiles: profilesResult.value,
+    workflowDefinitions: workflowsResult.value,
+    cognition,
+    config: { tickDuration: 1, startTick: 0 },
+    requirePlanConfirmation: options.requirePlanConfirmation ?? true,
+    ...(eventStore === null ? {} : { eventStore }),
+  });
   const operator = organization.employees[0]; if (operator === undefined) throw new Error('organization has no operator');
+  /**
+   * 一鱼多吃's real generator: the same gateway the organization thinks with, one call per
+   * platform, attributed to the founder's seat. It is a tool, not an agent cycle — it writes no
+   * event — but it is not anonymous either: the call carries an actor context and is counted by
+   * `/api/llm`, and the response labels mock output as mock.
+   */
+  const contentStudio = createContentStudio({
+    gateway,
+    provenance: llmConfig.value.mode === 'live' ? 'live' : 'mock',
+    provider: llmConfig.value.defaultProvider,
+    model: llmProviderConfig === undefined ? null : llmProviderConfig.model,
+    actorContext: simulation.identity.actorContext(operator.id, 'corr-content-studio' as never),
+  });
   const plane = createKernelControlPlane({ simulation, authz: createAuthzService({ organization, policy: controlPolicyForPosition(String(operator.positionId)) }), registry: simulation.registry, eventStore: simulation.eventStore });
   await recoverControlPlane(plane.control, plane.audit, simulation.eventStore);
   return {
@@ -396,9 +429,14 @@ export async function createComposedRuntime(options: ComposedRuntimeOptions = {}
         mode: llmConfig.value.mode,
         ...(llmProviderConfig === undefined ? {} : { model: llmProviderConfig.model }),
       }),
+      content: {
+        page: contentStudioPage,
+        generate: (input) => contentStudio.generate(input),
+      },
     },
     eventLogPath: eventStore === null ? null : eventLogPath,
     eventLogFailure,
+    gateway,
   };
 }
 
@@ -407,6 +445,8 @@ export interface StartApiServerOptions {
   readonly tick?: TickDriverOptions;
   /** Event log path override; `null` runs without persistence. See `resolveEventLogPath`. */
   readonly eventLogPath?: string | null;
+  /** M1.9: forwarded to `createComposedRuntime`. Defaults to `true`. */
+  readonly requirePlanConfirmation?: boolean;
 }
 
 export async function startApiServer(
@@ -416,7 +456,18 @@ export async function startApiServer(
   // An explicit event log path (tests, e2e, CI) means "this run is isolated", so the ownership
   // record is isolated with it; the default boot owns the real file beside the event logs.
   const ownership = createOwnershipStore({ path: resolveOwnershipStorePath(options.eventLogPath) });
-  const runtimeOptions = options.eventLogPath === undefined ? { ownership } : { eventLogPath: options.eventLogPath, ownership };
+  /**
+   * M1.9: the console confirms generated plans on the canvas by default. Headless harnesses
+   * (the e2e scripts, a CI boot) may opt out with `MAOEH_REQUIRE_PLAN_CONFIRMATION=0` and keep
+   * the pre-M1.9 autonomous loop; an explicit option always wins over the environment.
+   */
+  const requirePlanConfirmation = options.requirePlanConfirmation
+    ?? (process.env['MAOEH_REQUIRE_PLAN_CONFIRMATION'] === '0' ? false : undefined);
+  const runtimeOptions = {
+    ...(options.eventLogPath === undefined ? {} : { eventLogPath: options.eventLogPath }),
+    ...(requirePlanConfirmation === undefined ? {} : { requirePlanConfirmation }),
+    ownership,
+  };
   let runtime = await createComposedRuntime(runtimeOptions);
   const tickOptions = options.tick ?? {};
   let driver = startTickDriver(runtime.simulation, tickOptions);
@@ -479,9 +530,62 @@ export async function startApiServer(
     start: (taskId) => previewRunner.start(taskId),
     stop: (taskId) => previewRunner.stop(taskId),
   };
+  /**
+   * The workbench follows the current runtime, like every other read here. It is a thin forwarder
+   * rather than a captured instance so a company switch can never leave the page generating under
+   * the previous company's composition (the gateway itself is per runtime).
+   */
+  const currentContent = () => {
+    const content = runtime.api.content;
+    if (content === undefined) throw new Error('this runtime has no content studio');
+    return content;
+  };
+  const forwardedContent: ContentStudioApi = {
+    page: () => currentContent().page(),
+    generate: (input: ContentStudioInput) => currentContent().generate(input),
+  };
+  /**
+   * 赛博沙盘 runs on its own composed runtime with its own event log.
+   *
+   * That isolation is the design, not a shortcut: a session injects real `Communication.MessageSent`
+   * facts, and injecting them into the live company would wake its agents and start a second,
+   * unscripted conversation on top of the session. The demo company's log is never written.
+   */
+  const sandboxStateDir = join(defaultStateDir(), 'sandbox');
+  let sandboxRuntime: Promise<ComposedRuntime> | null = null;
+  const ensureSandboxRuntime = (): Promise<ComposedRuntime> => {
+    if (sandboxRuntime === null) {
+      sandboxRuntime = createComposedRuntime({
+        eventLogPath: join(sandboxStateDir, 'events.jsonl'),
+        requirePlanConfirmation: false,
+      }).catch((error: unknown) => {
+        // An unwritable state directory must not take the workbench down; the session still runs,
+        // it just does not survive a restart — and the failure is announced.
+        console.warn(`[sandbox] falling back to an in-memory session log: ${String(error)}`);
+        return createComposedRuntime({ eventLogPath: null, requirePlanConfirmation: false });
+      });
+    }
+    return sandboxRuntime;
+  };
+  const sandboxService = createSandboxService({
+    runtime: () => ensureSandboxRuntime(),
+    gateway: () => runtime.gateway,
+    provenance: () => (runtime.api.llm?.().mode === 'live' ? 'live' : 'mock'),
+    provider: () => runtime.api.llm?.().provider ?? null,
+    model: () => runtime.api.llm?.().model ?? null,
+    sessionsDir: sandboxStateDir,
+  });
+  const sandboxApi: SandboxApi = {
+    page: sandboxPage,
+    start: (input) => sandboxService.start(input),
+    list: (limit) => sandboxService.list(limit),
+    get: (sessionId) => sandboxService.get(sessionId),
+  };
   const api: ApiRuntime = {
     get control() { return controlPlaneFor(runtime); },
     get query() { return runtime.api.query; },
+    content: forwardedContent,
+    sandbox: sandboxApi,
     tick: async () => {
       const tick = runtime.api.tick;
       return tick === undefined ? { error: 'tick is unavailable' } : await tick();
@@ -496,6 +600,7 @@ export async function startApiServer(
       start: (taskId) => composedPreview.start(taskId),
       stop: (taskId) => composedPreview.stop(taskId),
     },
+    translate: (input) => translateDocument(input),
   };
   const handler = createApiHandler(api);
   const server = createServer(async (request: IncomingMessage, response: ServerResponse) => {

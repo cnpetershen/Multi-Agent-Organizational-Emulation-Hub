@@ -1163,6 +1163,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  /* Global `header` paints a white bar; this is a sub-header inside the dark palette. */
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--a-amber);
   font-size: 9px;
   font-weight: 750;

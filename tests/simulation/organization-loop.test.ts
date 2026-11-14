@@ -136,9 +136,12 @@ describe('M0.9 simulation: organization loop', () => {
   it('captures recovery metadata for the booted simulation', () => {
     expect(harness.simulation.recovery.cursor).toBe(0);
     expect(harness.simulation.recovery.tickNumber).toBe(0);
-    // A booted company already has exactly one record: its own formation
-    // (`Communication.ChannelOpened`, the company channel every fresh simulation boots with),
-    // so nothing has been consumed yet and the cursor is still 0.
-    expect(harness.simulation.recovery.eventCount).toBe(1);
+    // Recovery now precedes company formation (a starter company's roster only exists after the
+    // log replay), so a fresh boot replayed zero events and then recorded exactly one fact:
+    // its own formation. Both halves are asserted, because "0 replayed" alone would also hold for
+    // a company that never got a channel — which is the bug this ordering fixed.
+    expect(harness.simulation.recovery.eventCount).toBe(0);
+    const channels = harness.simulation.communication.getChannels();
+    expect(channels.map((channel) => channel.channelId)).toEqual(['company-future-ai-lab']);
   });
 });
