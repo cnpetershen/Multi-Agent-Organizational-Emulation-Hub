@@ -39,6 +39,7 @@
 | `M3.6-delivery-approval.md` | M3.6 交付审批：真实 execution 证据、批准/驳回/要求修改、workflow gate 推进、幂等/并发、审批历史、M3.7 approved 交接 | M3.6 实现契约（从属 M3.5 / M3.2 / M1.9） | M3.5、M3.4、M3.2、BASELINE、registry、dependency-graph | CURRENT |
 | `M3.7-promotion.md` | M3.7 推广：approved execution 派生策略/渠道/材料、provenance、人工编辑与版本、确认、M3.8 confirmed 交接 | M3.7 实现契约（从属 M3.6 / M3.5 / M3.2） | M3.6、M3.5、M3.2、BASELINE、registry、dependency-graph | CURRENT |
 | `M3.8-publication.md` | M3.8 发布：confirmed promotion 派生本地页面/manifest、人工确认、幂等/重试/部分成功、真实 URL、Document 事件、七阶段追溯 | M3.8 实现契约（从属 M3.7 / M3.6 / M3.2） | M3.7、M3.6、M3.2、BASELINE、registry、dependency-graph | CURRENT |
+| `M3.9-observability-events.md` | M3.9 可观测性收尾：Document.RequirementAnalyzed/Confirmed、Document.PromotionGenerated/Confirmed 的真实触发、幂等、Theater 归类、持久化回放 | M3.9 事件协议加法式扩展（从属 M3.1 / M3.2） | M3.1、M3.2、M3.3、M3.7、BASELINE、registry | CURRENT |
 | `../research/research-brief.md` | 同类项目对照、记忆架构、持久化执行、多 Agent 失败模式研究（带引用） | 研究参考，非约束 | — | CURRENT |
 | `../review/architecture-review.md` | 对抗性评审：4 阻断 / 14 重要 / 9 矛盾 / 12 遗漏 | 评审证据（其发现已并入基线） | 01–08 | CURRENT |
 | `../review/revision-log.md` | 评审逐条处置 + 已知遗留清单 | 遗留项权威 | review | CURRENT |

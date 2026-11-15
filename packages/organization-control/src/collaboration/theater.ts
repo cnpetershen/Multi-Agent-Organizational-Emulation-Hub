@@ -83,11 +83,17 @@ const STAGE_BY_EVENT_TYPE: Readonly<Record<string, TheaterStageId>> = Object.fre
   // 需求沙盘 — the brief is the discovery/sandbox output that starts the company's work.
   'Control.WorkBriefed': 'sandbox',
   'Work.SubmitBrief': 'sandbox',
+  'Document.RequirementAnalyzed': 'sandbox',
+  'Document.RequirementConfirmed': 'sandbox',
 
   // 智能体编排 — who does what, and the roster decisions that make the plan possible.
   'Control.DelegationDecided': 'orchestration',
   'Control.AgentCreated': 'orchestration',
   'Agent.Created': 'orchestration',
+
+  // 推广 — M3.7 real promotion-plan facts; not task/message fabrication.
+  'Document.PromotionGenerated': 'promotion',
+  'Document.PromotionConfirmed': 'promotion',
 
   // 调整画布 — the plan draft, its confirmation, and assignment overrides.
   'Workflow.DraftConfirmed': 'canvas',

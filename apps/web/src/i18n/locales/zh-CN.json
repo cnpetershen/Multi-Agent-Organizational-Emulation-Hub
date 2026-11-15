@@ -1743,7 +1743,17 @@
       "approval": "审批",
       "workflow": "工作流",
       "brief": "任务书",
-      "publication": "发布"
+      "publication": "发布",
+      "requirement": "需求",
+      "promotion": "推广"
+    },
+    "requirement": {
+      "analyzed": "需求已分析",
+      "confirmed": "需求已确认"
+    },
+    "promotion": {
+      "generated": "推广方案已生成",
+      "confirmed": "推广方案已确认"
     },
     "publication": {
       "drafted": "发布草稿",

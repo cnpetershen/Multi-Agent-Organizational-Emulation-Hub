@@ -1743,7 +1743,17 @@
       "approval": "Approval",
       "workflow": "Workflow",
       "brief": "Work brief",
-      "publication": "Publication"
+      "publication": "Publication",
+      "requirement": "Requirement",
+      "promotion": "Promotion"
+    },
+    "requirement": {
+      "analyzed": "Requirement analyzed",
+      "confirmed": "Requirement confirmed"
+    },
+    "promotion": {
+      "generated": "Promotion plan generated",
+      "confirmed": "Promotion plan confirmed"
     },
     "publication": {
       "drafted": "Publication draft",

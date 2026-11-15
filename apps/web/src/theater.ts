@@ -260,6 +260,28 @@ export interface PublicationCard {
   readonly actorId: string | null;
 }
 
+export interface RequirementCard {
+  readonly kind: 'requirement';
+  readonly key: string;
+  readonly seq: number;
+  readonly sim: number;
+  readonly title: string;
+  readonly version: number;
+  readonly status: 'analyzed' | 'confirmed';
+  readonly actorId: string | null;
+}
+
+export interface PromotionCard {
+  readonly kind: 'promotion';
+  readonly key: string;
+  readonly seq: number;
+  readonly sim: number;
+  readonly title: string;
+  readonly version: number;
+  readonly status: 'generated' | 'confirmed';
+  readonly actorId: string | null;
+}
+
 export type FeedItem =
   | MessageCard
   | HandoffCard
@@ -267,7 +289,9 @@ export type FeedItem =
   | ApprovalCard
   | WorkflowCard
   | BriefCard
-  | PublicationCard;
+  | PublicationCard
+  | RequirementCard
+  | PromotionCard;
 
 export interface FeedContext {
   /** Task titles from the snapshot, for events whose payload restates only the id. */
@@ -299,6 +323,16 @@ const PUBLICATION_TYPES: Readonly<Record<string, string>> = {
   'Document.PublicationPublished': 'published',
   'Document.PublicationPartiallyPublished': 'partial',
   'Document.PublicationFailed': 'failed',
+};
+
+const REQUIREMENT_TYPES: Readonly<Record<string, 'analyzed' | 'confirmed'>> = {
+  'Document.RequirementAnalyzed': 'analyzed',
+  'Document.RequirementConfirmed': 'confirmed',
+};
+
+const PROMOTION_TYPES: Readonly<Record<string, 'generated' | 'confirmed'>> = {
+  'Document.PromotionGenerated': 'generated',
+  'Document.PromotionConfirmed': 'confirmed',
 };
 
 const WORKFLOW_TYPES: Readonly<Record<string, string>> = {
@@ -343,6 +377,8 @@ export function theaterEventVisible(event: TheaterEvent): boolean {
   if (TASK_TYPES.has(type)) return type !== 'Task.Created' && type !== 'Task.Accepted';
   if (APPROVAL_TYPES[type] !== undefined) return true;
   if (PUBLICATION_TYPES[type] !== undefined) return true;
+  if (REQUIREMENT_TYPES[type] !== undefined) return true;
+  if (PROMOTION_TYPES[type] !== undefined) return true;
   if (WORKFLOW_TYPES[type] !== undefined) return true;
   return BRIEF_TYPES.has(type);
 }
@@ -528,6 +564,34 @@ export function buildFeed(
         actorId: event.actorId,
         assigneeId,
         status,
+      });
+      continue;
+    }
+
+    if (REQUIREMENT_TYPES[type] !== undefined) {
+      items.set(`requirement:${String(event.seq)}`, {
+        kind: 'requirement',
+        key: `requirement:${String(event.seq)}`,
+        seq: event.seq,
+        sim: event.occurredAtSim,
+        title: readString(payload['title'], ''),
+        version: readNumber(payload['version'], 1),
+        status: REQUIREMENT_TYPES[type] as 'analyzed' | 'confirmed',
+        actorId: event.actorId,
+      });
+      continue;
+    }
+
+    if (PROMOTION_TYPES[type] !== undefined) {
+      items.set(`promotion:${String(event.seq)}`, {
+        kind: 'promotion',
+        key: `promotion:${String(event.seq)}`,
+        seq: event.seq,
+        sim: event.occurredAtSim,
+        title: readString(payload['title'], ''),
+        version: readNumber(payload['version'], 1),
+        status: PROMOTION_TYPES[type] as 'generated' | 'confirmed',
+        actorId: event.actorId,
       });
       continue;
     }

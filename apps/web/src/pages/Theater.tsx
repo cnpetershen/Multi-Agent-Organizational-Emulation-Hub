@@ -548,6 +548,34 @@ function FeedCard({ item, control }: { item: FeedItem; control: ConsoleControl }
     );
   }
 
+  if (item.kind === 'requirement') {
+    return (
+      <>
+        <div className="theater-card-head">
+          <span className="theater-kind">{t('theater.feedType.requirement')}</span>
+          <span className="theater-when">{t('theater.time', { sim: item.sim })}</span>
+        </div>
+        <b className="theater-line">
+          {t(`theater.requirement.${item.status}` as MessageKey)} · {item.title} v{item.version}
+        </b>
+      </>
+    );
+  }
+
+  if (item.kind === 'promotion') {
+    return (
+      <>
+        <div className="theater-card-head">
+          <span className="theater-kind">{t('theater.feedType.promotion')}</span>
+          <span className="theater-when">{t('theater.time', { sim: item.sim })}</span>
+        </div>
+        <b className="theater-line">
+          {t(`theater.promotion.${item.status}` as MessageKey)} · {item.title} v{item.version}
+        </b>
+      </>
+    );
+  }
+
   if (item.kind === 'publication') {
     return (
       <>

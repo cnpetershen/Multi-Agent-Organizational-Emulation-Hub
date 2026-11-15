@@ -34,6 +34,13 @@ import {
   PUBLICATION_PUBLISHED,
   type PublicationEventPayload,
 } from './publication-events.js';
+import {
+  ensureObservabilityEvents,
+  promotionConfirmedEvent,
+  promotionGeneratedEvent,
+  requirementAnalyzedEvent,
+  requirementConfirmedEvent,
+} from './observability-events.js';
 import type { PlanningStore } from './planning-store.js';
 import {
   ExecutionApprovalRecordSchema,
@@ -1554,6 +1561,114 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
     await runtime.simulation.inject([event]);
   };
 
+  const emitRequirementAnalyzed = async (
+    plan: RequirementPlan,
+    analysisMode: 'live' | 'mock' | 'sandbox' | 'deterministic',
+  ): Promise<void> => {
+    const runtime = deps.runtime();
+    const registration = ensureObservabilityEvents(runtime.simulation.registry);
+    if (!registration.ok) {
+      throw new PlanningError('invalid_input', 'requirement event registration failed');
+    }
+    const event = requirementAnalyzedEvent({
+      registry: runtime.simulation.registry,
+      companyId: runtime.companyId,
+      simTime: runtime.simTime,
+      actorId: deps.operatorId(),
+      payload: {
+        requirementId: plan.requirementId,
+        version: plan.version,
+        title: plan.title,
+        sourceKind: plan.source.kind,
+        analysisMode,
+        inferredFieldCount: plan.provenance.inferred.length,
+        analyzedAt: plan.createdAt,
+      },
+    });
+    await runtime.simulation.inject([event]);
+  };
+
+  const emitRequirementConfirmed = async (
+    plan: RequirementPlan,
+    inferredAcknowledged: boolean,
+  ): Promise<void> => {
+    const runtime = deps.runtime();
+    const registration = ensureObservabilityEvents(runtime.simulation.registry);
+    if (!registration.ok) {
+      throw new PlanningError('invalid_input', 'requirement event registration failed');
+    }
+    const event = requirementConfirmedEvent({
+      registry: runtime.simulation.registry,
+      companyId: runtime.companyId,
+      simTime: runtime.simTime,
+      actorId: deps.operatorId(),
+      payload: {
+        requirementId: plan.requirementId,
+        version: plan.version,
+        title: plan.title,
+        confirmedBy: plan.confirmedBy ?? deps.operatorId(),
+        confirmedAt: plan.confirmedAt ?? plan.updatedAt,
+        inferredAcknowledged,
+      },
+    });
+    await runtime.simulation.inject([event]);
+  };
+
+  const emitPromotionGenerated = async (plan: PromotionPlan): Promise<void> => {
+    const runtime = deps.runtime();
+    const registration = ensureObservabilityEvents(runtime.simulation.registry);
+    if (!registration.ok) {
+      throw new PlanningError('invalid_input', 'promotion event registration failed');
+    }
+    const event = promotionGeneratedEvent({
+      registry: runtime.simulation.registry,
+      companyId: runtime.companyId,
+      simTime: runtime.simTime,
+      actorId: deps.operatorId(),
+      payload: {
+        promotionId: plan.promotionId,
+        version: plan.version,
+        title: plan.title,
+        executionId: plan.executionId,
+        planId: plan.planId,
+        planVersion: plan.planVersion,
+        approvalId: plan.approvalId,
+        generatedAt: plan.createdAt,
+        provenanceMode: plan.provenance.mode,
+        materialCount: plan.summary.materialCount,
+        channelCount: plan.summary.channelCount,
+      },
+    });
+    await runtime.simulation.inject([event]);
+  };
+
+  const emitPromotionConfirmed = async (plan: PromotionPlan): Promise<void> => {
+    const runtime = deps.runtime();
+    const registration = ensureObservabilityEvents(runtime.simulation.registry);
+    if (!registration.ok) {
+      throw new PlanningError('invalid_input', 'promotion event registration failed');
+    }
+    const event = promotionConfirmedEvent({
+      registry: runtime.simulation.registry,
+      companyId: runtime.companyId,
+      simTime: runtime.simTime,
+      actorId: deps.operatorId(),
+      payload: {
+        promotionId: plan.promotionId,
+        version: plan.version,
+        title: plan.title,
+        executionId: plan.executionId,
+        planId: plan.planId,
+        planVersion: plan.planVersion,
+        approvalId: plan.approvalId,
+        confirmedBy: plan.confirmedBy ?? deps.operatorId(),
+        confirmedAt: plan.confirmedAt ?? plan.updatedAt,
+        humanEdits: [...plan.provenance.humanEdits],
+      },
+    });
+    await runtime.simulation.inject([event]);
+  };
+
   const executionRecordFor = (executionId: string): ExecutionRecord => {
     const { companyId } = deps.runtime();
     const record = deps.store.getExecution(companyId, executionId);
@@ -1599,6 +1714,7 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
           now: now(),
         });
         deps.store.saveRequirement({ requirementId, companyId: runtime.companyId, currentVersion: 1, versions: [plan] });
+        await emitRequirementAnalyzed(plan, 'sandbox');
         return plan;
       }
 
@@ -1620,6 +1736,7 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
         now: now(),
       });
       deps.store.saveRequirement({ requirementId, companyId: runtime.companyId, currentVersion: 1, versions: [plan] });
+      await emitRequirementAnalyzed(plan, result.mode);
       return plan;
     },
 
@@ -1698,7 +1815,12 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
         confirmedBy: deps.operatorId(),
         updatedAt: now(),
       });
-      return saveNextVersion(record, confirmed);
+      const saved = saveNextVersion(record, confirmed);
+      await emitRequirementConfirmed(
+        saved,
+        parsed.data.acknowledgeInferred === true || saved.provenance.inferred.length === 0,
+      );
+      return saved;
     },
 
     async orchestrate(input) {
@@ -2384,6 +2506,7 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
         currentVersion: 1,
         versions: [planValue],
       });
+      await emitPromotionGenerated(planValue);
       return planValue;
     },
 
@@ -2544,6 +2667,7 @@ export function createPlanningService(deps: PlanningServiceDeps): PlanningServic
         currentVersion: confirmed.version,
         versions: [...record.versions, confirmed],
       });
+      await emitPromotionConfirmed(confirmed);
       return confirmed;
     },
 
