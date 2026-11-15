@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>MAOEH 技术文档</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 16mm 18mm 16mm;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.62;
+    color: #1e293b;
+  }
+  .cover {
+    height: 252mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    page-break-after: always;
+    text-align: center;
+  }
+  .cover .badge {
+    display: inline-block;
+    margin: 0 auto 18px auto;
+    padding: 4px 14px;
+    border: 1px solid #1f6feb;
+    border-radius: 999px;
+    color: #1f6feb;
+    font-size: 10pt;
+    letter-spacing: 2px;
+  }
+  .cover h1 { font-size: 30pt; margin: 0 0 8px 0; color: #0b2545; letter-spacing: 1px; }
+  .cover .sub { font-size: 14pt; color: #475569; margin-bottom: 30px; }
+  .cover .meta { font-size: 10.5pt; color: #64748b; line-height: 2; }
+  .cover .slogan { margin-top: 44px; font-size: 11pt; color: #1f6feb; }
+  .toc { page-break-after: always; }
+  .toc h2 { font-size: 18pt; color: #0b2545; border-bottom: 2px solid #1f6feb; padding-bottom: 8px; }
+  .toc ol { padding-left: 22px; }
+  .toc li { margin: 5px 0; }
+  .toc li.lv2 { margin-left: 18px; font-weight: normal; color: #475569; font-size: 10pt; }
+  .chapter { page-break-before: always; }
+  h2 {
+    font-size: 16pt;
+    color: #0b2545;
+    border-left: 6px solid #1f6feb;
+    padding-left: 10px;
+    margin: 4px 0 14px 0;
+  }
+  h3 { font-size: 12.5pt; color: #1d4ed8; margin: 18px 0 6px 0; }
+  h4 { font-size: 11pt; color: #334155; margin: 12px 0 4px 0; }
+  p { margin: 6px 0; text-align: justify; }
+  ul, ol { margin: 6px 0; padding-left: 22px; }
+  li { margin: 3px 0; }
+  code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 9pt;
+    background: #f1f5f9;
+    padding: 1px 4px;
+    border-radius: 3px;
+    color: #b91c1c;
+  }
+  pre {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 8.6pt;
+    line-height: 1.5;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-left: 3px solid #1f6feb;
+    border-radius: 4px;
+    padding: 8px 10px;
+    overflow: hidden;
+    page-break-inside: avoid;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  pre code { background: none; padding: 0; color: #1e293b; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 8px 0;
+    font-size: 9.3pt;
+    page-break-inside: avoid;
+  }
+  th, td {
+    border: 1px solid #cbd5e1;
+    padding: 5px 8px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eff6ff; color: #0b2545; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .callout {
+    background: #eff6ff;
+    border-left: 4px solid #1f6feb;
+    padding: 8px 12px;
+    margin: 10px 0;
+    page-break-inside: avoid;
+  }
+  .warn {
+    background: #fff7ed;
+    border-left: 4px solid #d97706;
+    padding: 8px 12px;
+    margin: 10px 0;
+    page-break-inside: avoid;
+  }
+  .small { font-size: 9pt; color: #64748b; }
+  .tag {
+    display: inline-block;
+    font-size: 8.5pt;
+    padding: 0 6px;
+    border-radius: 3px;
+    background: #e0f2fe;
+    color: #075985;
+    margin-right: 4px;
+  }
+  .refs { font-size: 8.8pt; color: #64748b; page-break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<!-- ===================== 封面 ===================== -->
+<div class="cover">
+  <div><span class="badge">AI 协同开发作品 · 技术文档</span></div>
+  <h1>MAOEH</h1>
+  <div class="sub">多智能体组织仿真平台<br/>Multi-Agent Organizational Emulation Hub</div>
+  <div class="meta">
+    技术栈：TypeScript · Node.js 22 · pnpm + Turborepo · React 19 · Vitest · DeepSeek LLM<br/>
+    仓库：github.com/cnpetershen/Multi-Agent-Organizational-Emulation-Hub<br/>
+    规模：30 个领域包 + 4 个应用 · 173 个测试文件 · 1254 个测试用例
+  </div>
+  <div class="slogan">把所有任务删掉，这家公司仍然活着。</div>
+</div>
+
+<!-- ===================== 目录 ===================== -->
+<div class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><b>项目概述</b></li>
+    <li class="lv2">1.1 项目定位与核心理念</li>
+    <li class="lv2">1.2 五条不可妥协的设计公理</li>
+    <li class="lv2">1.3 项目能做什么</li>
+    <li><b>架构设计：AI 生成代码采用的架构与约束机制</b></li>
+    <li class="lv2">2.1 总体架构：六层分层 + CQRS + 事件溯源</li>
+    <li class="lv2">2.2 Monorepo 包结构与职责边界</li>
+    <li class="lv2">2.3 如何约束 AI 生成的代码：四层机器强制</li>
+    <li class="lv2">2.4 文档即契约：架构冻结基线与变更流程</li>
+    <li class="lv2">2.5 反退化检查清单</li>
+    <li><b>意图控制策略：上下文与 Prompt 的设计</b></li>
+    <li class="lv2">3.1 总体思路：把 LLM 的自由文本压进可验证的窄通道</li>
+    <li class="lv2">3.2 上下文装配：十二道校验的 CognitionContext</li>
+    <li class="lv2">3.3 系统提示词：档案装配而非手写人设</li>
+    <li class="lv2">3.4 认知提示词：分区渲染的运行时事实</li>
+    <li class="lv2">3.5 输出端约束：封闭动作空间 + Zod Schema</li>
+    <li class="lv2">3.6 执行端约束：授权闸门，零 LLM 的确定性裁决</li>
+    <li class="lv2">3.7 Prompt 的实战迭代：从真实失败中沉淀规则</li>
+    <li class="lv2">3.8 确定性兜底与预算护栏</li>
+    <li><b>可复现性论证</b></li>
+    <li class="lv2">4.1 事件溯源：复现的结构性保证</li>
+    <li class="lv2">4.2 实测因果链：一次真实协作的完整回放</li>
+    <li class="lv2">4.3 LLM 调用记账与出处标注</li>
+    <li class="lv2">4.4 确定性 Mock 与分级的可复现承诺</li>
+    <li class="lv2">4.5 质量门禁与诚实归因</li>
+    <li class="lv2">4.6 证据链索引与版本回滚点</li>
+    <li class="lv2">4.7 复现步骤</li>
+    <li><b>关键功能实现</b></li>
+    <li class="lv2">5.1 十阶段认知循环</li>
+    <li class="lv2">5.2 工作流闭环：从任务书到审批发布</li>
+    <li class="lv2">5.3 多 Agent 协作原语</li>
+    <li class="lv2">5.4 赛博沙盘：多角色对抗质询</li>
+    <li class="lv2">5.5 一鱼多吃：多平台内容工场</li>
+    <li class="lv2">5.6 交付物预览运行时</li>
+    <li class="lv2">5.7 Web 控制台与改派工作室</li>
+    <li><b>AI 协同开发过程</b></li>
+    <li class="lv2">6.1 开发范式：人定义架构，AI 生成实现</li>
+    <li class="lv2">6.2 过程证据：里程碑验收文档链</li>
+    <li><b>局限与边界</b></li>
+    <li><b>总结</b></li>
+  </ol>
+</div>
+
+<!-- ===================== 1 项目概述 ===================== -->
+<div class="chapter">
+<h2>1. 项目概述</h2>
+
+<h3>1.1 项目定位与核心理念</h3>
+<p>MAOEH（Multi-Agent Organizational Emulation Hub）是一个 <b>AI 组织仿真平台</b>：让一群长期存在的 AI 员工在一家虚拟科技公司里工作、沟通、协作、决策、积累经验，并把整个过程暴露为<b>可回放的事件流</b>，供人类观察者观看、干预、甚至与 AI 同事并肩工作。</p>
+<p>它刻意划清了与四类常见系统的边界——不是 Chatbot，不是单 Agent 助手，不是 Multi-Agent 任务流水线，不是 Prompt Chain。判定一个设计是否"退化成普通 Agent Workflow"的试金石只有一条：<b>把所有任务删掉，这个系统还剩下什么？</b>在 MAOEH 里，剩下的是一家仍然活着的公司——有组织架构、有上下级、有权限、有记忆、有关系、有议程。任务只是这家公司在某个时刻<b>产生</b>的东西。</p>
+
+<h3>1.2 五条不可妥协的设计公理</h3>
+<p>全部工程决策都从以下五条公理推导，它们被写入架构冻结基线，并有对应的机器验证：</p>
+<table>
+  <tr><th style="width:6%">#</th><th style="width:26%">公理</th><th>工程含义</th></tr>
+  <tr><td><b>A1</b></td><td>组织先于任务</td><td>任何副作用操作必须携带 <code>ActorContext</code>（工号 + 岗位 + 权限域）。内核拒绝无主体的操作。</td></tr>
+  <tr><td><b>A2</b></td><td>Agent 是长期实体，不是函数</td><td>独立于任务的生命周期与持久状态。没有任务时，系统仍能描述"每个员工此刻在做什么"。</td></tr>
+  <tr><td><b>A3</b></td><td>一切组织状态变更都是事件</td><td>唯一写入口是 <code>event-store.append(event)</code>。状态变更不可绕过事件总线，可回放即可解释。</td></tr>
+  <tr><td><b>A4</b></td><td>LLM 只能提议，内核才能执行</td><td>LLM 输出被限制为结构化 Intent。权限校验、状态机跳转、审批判定 100% 由确定性代码完成。LLM 永不直接产生副作用。</td></tr>
+  <tr><td><b>A5</b></td><td>员工之间不直接调用</td><td>没有 Agent RPC，只有消息事件与订阅唤醒。耦合只发生在事件契约上。</td></tr>
+</table>
+<div class="callout">A4 与 A5 是本项目区别于"玩具 Demo"的工程底线。它们同时解决了多 Agent 系统最普遍的三种失败：越权操作、错误在调用链上复利放大、以及不可观测的隐式耦合。</div>
+
+<h3>1.3 项目能做什么</h3>
+<p>一家典型的 MAOEH 公司有 6–10 名 AI 员工（当前演示公司为 7 名员工、5 个部门、15 个岗位），每个员工拥有完整的"岗位人格"——身份（工号、背景故事、价值观）、岗位（部门、汇报线、职责范围）、技能（会成长也会生疏）、记忆（历史决策与项目经验）、关系（信任度随协作事件演化）、决策权（L0–L5 决策等级与决策域）。</p>
+<p>系统让它们像真实企业成员一样自动运转：被事件唤醒、回忆经验、推理判断、规划行动、通过权限闸门、产出事件、写下记忆、更新关系。人类作为董事会观察者，<b>看见</b>这一切、<b>审批</b>重大决策、甚至<b>注入</b>外部事件（如竞品发布、用户投诉），观察组织如何响应。</p>
+<p>当前实现已覆盖：组织内核与权限体系、10 阶段认知循环、事件溯源存储、工作流引擎、任务系统、仿真调度器、Agent 通信（频道 / @提及 / 协作请求 / 任务交接）、协同网络画布、改派工作室、交付物预览运行时、多角色对抗质询沙盘、多平台内容工场，以及中英双语 Web 控制台。技术选型上采用 TypeScript（Node ≥ 22）全栈、pnpm workspaces + Turborepo 管理模块边界、React 19 + Vite 6 构建控制台、自研 llm-gateway 统一接入 LLM（Mock / OpenAI 兼容 / DeepSeek）。</p>
+</div>
+
+<!-- ===================== 2 架构设计 ===================== -->
+<div class="chapter">
+<h2>2. 架构设计：AI 生成代码采用的架构与约束机制</h2>
+
+<h3>2.1 总体架构：六层分层 + CQRS + 事件溯源</h3>
+<p>本项目采用<b>六层分层架构 + CQRS + Event Sourcing</b>。命令下行、事件上行：写入路径为 <code>Intent → Command → 内核裁决（权限/状态机/审批）→ append(OrgEvent)</code>；读取路径为 <code>org_events → Projector（投影成读模型）+ Reactor（唤醒/推进流程）+ Streamer（推给人类）</code>。</p>
+<pre>⑥ 观测与交互层   Web 控制台（组织架构图 · 收件箱 · 决策档案 · 事件时间线 · 成本账本）· 人类观察者
+⑤ 编排层        SimClock + Scheduler · Workflow Engine · Decision Engine · Meeting Engine · Escalation     [确定性]
+④ Agent 层      Agent Runtime（认知循环）· AI 员工（Identity/Role/Cognition/Memory/Skill）· Tool Gateway  [概率性]
+③ 组织层        Company · Department · Position · Employee · Permission & Authority · Relationship Graph  [确定性]
+② 基础设施层    Event Bus（Outbox + Stream）· 存储 · llm-gateway（路由/预算/结构化输出）· Observability
+① 证据基础      事件日志（append-only，唯一真相源）</pre>
+<p>分层的核心价值在于<b>确定性与概率性的物理隔离</b>：组织层与编排层不含任何 LLM 调用，可被单元测试 100% 覆盖；只有 Agent 层调用 LLM，且输出必须穿过授权闸门；基础设施层只提供机制，不承载业务判断；人类看到的永远是事件流的投影。</p>
+
+<h3>2.2 Monorepo 包结构与职责边界</h3>
+<p>仓库由 <b>30 个领域包 + 4 个应用</b>组成，模块边界即目录边界：</p>
+<table>
+  <tr><th style="width:24%">分组</th><th>包</th></tr>
+  <tr><td>组织内核（Domain）</td><td>organization-model（纯函数领域模型）、organization-control（控制平面）、permission-system（RBAC+ABAC+L0–L5 决策等级）、identity-system、authority-engine、policy-engine、shared-types</td></tr>
+  <tr><td>事件基础设施</td><td>event-system（事件分类法+注册+信封）、event-store（FileEventStore / InMemoryEventStore，可回放）、persistence（唯一 DB 连接持有者）</td></tr>
+  <tr><td>Agent 层</td><td>agent-definition（YAML 档案加载+Zod 校验）、agent-cognition（全系统唯一 Prompt 归属地）、agent-runtime（认知循环）、agent-memory、agent-tools</td></tr>
+  <tr><td>编排层</td><td>workflow-engine、task-system、runtime-scheduler、decision-engine、meeting-engine、escalation-engine、agent-communication</td></tr>
+  <tr><td>支撑设施</td><td>llm-gateway（唯一 LLM 出口）、runtime-state、observability（llm_calls 账本）、audit-system、artifact-system、knowledge-system、config</td></tr>
+  <tr><td>应用</td><td>apps/api（HTTP 服务）、apps/kernel（仿真内核）、apps/projector（读模型投影）、apps/web（React 控制台）</td></tr>
+</table>
+<p>关键的职责切分被冻结为契约，例如：<code>agent-runtime</code> 可以读、校验、执行 Plan，但<b>不知道任何一句 Prompt 内容</b>；Prompt 定义与常量全部归属 <code>agent-cognition</code>；权限判定归属 <code>permission-system.can()</code>，runtime 的授权阶段只能调用它、不能自行判断；通信原语归 <code>agent-communication</code>，但可见性由权限系统裁决。</p>
+
+<h3>2.3 如何约束 AI 生成的代码：四层机器强制</h3>
+<p>本项目由 AI 编码代理协作开发（见第 6 章）。要让 AI 在 30 个包的复杂度下持续产出符合架构的代码，靠"人肉 review"是不可靠的——约束必须<b>机器化、可在 CI 中一票否决</b>。我们建立了四层独立机制：</p>
+
+<h4>第一层：依赖方向守卫（dependency-cruiser）</h4>
+<p>十条 forbidden 规则（含环禁令）覆盖全部架构底线，其中最关键的五条：</p>
+<pre>no-circular        依赖环 = 立即阻断（无例外）
+not-to-apps        packages/* 永不依赖 apps/*（F1）
+domain-pure        领域包零 I/O、零 LLM、零 agent-* 引用，只可依赖同组包
+single-llm-egress  LLM Provider SDK 只允许出现在 packages/llm-gateway（F6）
+runtime-no-prompt  agent-runtime 不得 import agent-cognition 的任何 Prompt（F8）
+control-plane-pure 控制平面不得直连 llm-gateway / agent-cognition / runtime / persistence（ADR-013）</pre>
+<p>每条规则不只是"风格约定"，而是与公理一一对应：例如 <code>single-llm-egress</code> 保证全仓任何地方都不可能私自直连模型厂商 SDK——AI 生成的代码若引入违规 import，CI 在架构检查阶段即失败。</p>
+
+<h4>第二层：导入边界（ESLint）</h4>
+<p>补充 dependency-cruiser 之外的细粒度规则：provider SDK 单出口、<code>@maoeh/persistence</code> 白名单、<code>apps/web</code> 禁止导入任何后端包（前端只经 HTTP API 访问领域）。</p>
+
+<h4>第三层：结构守卫测试（Vitest）</h4>
+<p><code>tests/architecture/</code> 用测试断言结构事实：Package Registry 与目录树双向一致；A4 公理的源码扫描（全仓无绕过 ActorContext 的 LLM 调用）；A5 公理的启发式（<code>Agent</code> 类型上不得存在指向另一个 <code>Agent</code> 的方法）；迁移冻结；控制平面边界（C1–C4、C10 的静态断言）。当前架构门禁为 10 个守卫文件、55 个测试用例，dependency-cruiser 零违规。</p>
+
+<h4>第四层：CI 固定顺序</h4>
+<pre>pnpm typecheck（全部工作区项目 tsc --noEmit）
+  → pnpm lint（全仓 ESLint）
+  → pnpm architecture:check（dependency-cruiser + 结构守卫）
+  → pnpm test:unit
+  → pnpm test:integration</pre>
+<p>顺序不可交换：类型与架构先于功能测试，任何一层失败即阻断合入。当前规模：53 个 typecheck 任务、173 个测试文件、1254 个测试用例。</p>
+
+<h3>2.4 文档即契约：架构冻结基线与变更流程</h3>
+<p><code>docs/architecture/ARCHITECTURE-BASELINE.md</code> 是全仓最高权威的 17 节架构契约：代码与文档冲突时<b>以文档为准</b>；"先改代码后补文档"被定义为违规并阻断合入。任何架构变更必须走固定流程：</p>
+<pre>Architecture Change（提案）
+  → ADR 写入 08-adr.md（含理由 / 备选方案 / 复审触发条件）
+  → 更新 ARCHITECTURE-BASELINE.md（受影响章节）
+  → 更新 package-registry.md / dependency-graph.md / 索引
+  → 更新实现代码（与文档同批）
+  → Architecture Audit 全量复检 → 重新 FROZEN（版本号 +1）</pre>
+<div class="callout">对 AI 协同开发而言，这套流程的作用是双向的：它既约束人类工程师，更约束 AI——AI 编码代理在每轮修改前被要求先理解基线、指出受影响模块与影响面（见仓库根 AGENTS.md 的 Coding Rules），架构文档成为 AI 的"工作说明"，使 AI 生成的代码天然贴合既定架构，而不是每轮对话重新发明。</div>
+<p>同样地，仓库根部的 <code>AGENTS.md</code> 是写给 AI 开发代理的行为契约：先理解现有架构、识别受影响模块、解释潜在影响；偏好清晰模块 / 强类型 / 可测试组件 / 显式接口；禁止硬编码行为、重复逻辑、隐藏依赖；"不要为了快速 Demo 牺牲架构"。</p>
+
+<h3>2.5 反退化检查清单</h3>
+<p>每个里程碑结束时逐条核对，任一条不通过即为架构回退：</p>
+<ul>
+  <li><b>无任务存活测试</b>——清空所有 Task 后，系统仍能输出组织架构、员工状态、日报与关系网；</li>
+  <li><b>无匿名 LLM</b>——不存在可绕过 <code>ActorContext</code> 调用 LLM 的公开 API；</li>
+  <li><b>无越权副作用</b>——所有副作用经过 <code>AuthzService.can()</code>，单测覆盖拒绝路径；</li>
+  <li><b>无 Agent 间 RPC</b>——<code>Agent</code> 类型上不存在指向另一个 <code>Agent</code> 的方法；</li>
+  <li><b>可回放</b>——<code>replay(0, now)</code> 能重建出与当前一致的读模型；</li>
+  <li><b>工作流可偏离</b>——Agent 能提出改步 / 退回 / 升级请求，且被内核记录而非静默忽略；</li>
+  <li><b>记忆可追溯</b>——每条长期记忆都能回答"我在哪条事件上学到的"；</li>
+  <li><b>人类可解释</b>——界面上任意组织状态都能一键跳到导致它的事件链。</li>
+</ul>
+</div>
+
+<!-- ===================== 3 意图控制策略 ===================== -->
+<div class="chapter">
+<h2>3. 意图控制策略：上下文与 Prompt 的设计</h2>
+
+<h3>3.1 总体思路：把 LLM 的自由文本压进可验证的窄通道</h3>
+<p>"意图控制"要解决的问题是：LLM 天然产生自由文本，而组织仿真要求<b>可验证、可授权、可审计</b>的行为。我们的策略是把 LLM 的输出从"一段话"压缩为"一个结构化提议"，再把提议交给确定性内核裁决。控制链路分三段：</p>
+<pre>输入端：上下文装配（12 道校验的事实渲染） + 系统提示词（档案装配）
+   ↓
+输出端：封闭动作空间（47 个枚举动作） + Zod strictObject 输出契约
+   ↓
+执行端：授权闸门 AuthzService.can()（零 LLM）→ 确定性内核执行或拒绝</pre>
+<p>三段各回答一个问题：输入端回答"AI 此刻能知道什么"（防止幻觉），输出端回答"AI 只能说什么"（防止格式漂移），执行端回答"AI 说的算不算数"（防止越权）。LLM 的文本永远不会直接成为一个副作用。</p>
+
+<h3>3.2 上下文装配：十二道校验的 CognitionContext</h3>
+<p>认知上下文由 <code>agent-cognition/src/context/build-context.ts</code> 装配，采用 fail-fast 策略逐项校验，任何一项不满足即拒绝构建（返回类型化错误，绝不带着残缺上下文调用模型）：</p>
+<ul>
+  <li><code>actorContext</code> 必填——"没有 ActorContext 就没有 CognitionContext（A4）"，直接从源头杜绝匿名 LLM 调用；</li>
+  <li>三重身份一致性——<code>definition.employeeId</code>、<code>actorContext.employeeId</code>、<code>state.employeeId</code> 必须与目标 Agent 一致，防止"拿 A 的档案、用 B 的身份"这类错配；</li>
+  <li><code>inputEvent</code>（唤醒事件）、<code>organization</code>（组织快照）、<code>profile</code>（认知画像）全部必填；</li>
+  <li>装配完成的上下文 <code>Object.freeze()</code> 深度冻结，杜绝后续环节篡改。</li>
+</ul>
+<p>这套校验的意义：<b>LLM 收到的每一个事实都来自确定性数据源</b>（事件日志、组织快照、状态机视图），而不是模型自己想象。</p>
+
+<h3>3.3 系统提示词：档案装配而非手写人设</h3>
+<p>系统提示词（<code>prompts/system.ts</code>）不是手写的"人设小作文"，而是从结构化档案<b>程序化装配</b>：</p>
+<pre>You are ${definition.identity.name}, an employee inside a simulated organization.
+
+Your traits:          ← 来自 agent-definition YAML 的 identity.traits
+Your responsibilities: ← 来自 YAML 的 responsibilities
+Your capabilities:   ← 来自 YAML 的 capabilities
+Reasoning style: ${profile.reasoningStyle}          ← 来自 cognition/*.yaml 认知画像
+Planning style:   ${profile.planningStyle}
+Decision framework: ${profile.decisionFramework}
+Reflection policy: ${profile.reflectionPolicy}
+
+Rules:
+- Act only within the authority granted by your role.
+- Never invent employees, departments or facts that are not provided in the context.
+- Answer with a single JSON object and nothing else: no prose, no markdown fences.
+- The JSON object must satisfy the schema described in the request exactly.</pre>
+<p>认知画像是四个维度的显式数据（例如技术岗画像 <code>tech-task</code>：<code>reasoning_style: technical</code>、<code>planning_style: task_oriented</code>、<code>decision_framework: first_principles</code>、<code>reflection_policy: after_action</code>）。仓库已为战略 / 技术 / 产品 / 质量等角色准备了 6 类画像文件。系统提示词四条硬规则各司其职：权限内行事（授权闸门的提示侧预声明）、禁止虚构（反幻觉——上下文没有的组织事实一律不可发明）、只回 JSON（输出契约）、严格按 Schema（结构化输出）。</p>
+<div class="callout"><b>工程收益</b>：新增一个 AI 员工 = 新增一组 YAML 文件，不需要改任何 TypeScript。Agent 的"人格"是数据而非代码，校验由 Zod Schema 保证（8 层档案缺一不可装配），这正是"不要只靠写 Prompt 创建 Agent"原则的落地形态。</div>
+
+<h3>3.4 认知提示词：分区渲染的运行时事实</h3>
+<p>每次唤醒的用户提示词（<code>prompts/cognition.ts</code>）按分区渲染<b>当下世界的最小完备事实</b>，每个分区都有明确的授权语义：</p>
+<table>
+  <tr><th style="width:20%">分区</th><th>渲染内容与设计意图</th></tr>
+  <tr><td>Current state</td><td>仿真时间、雇佣状态、在场状态、议程。时间来自 SimClock 而非墙钟，保证可重放。</td></tr>
+  <tr><td>Your open tasks</td><td>每个在办任务渲染 <code>status</code> 与 <code>next=&lt;ACTION&gt;</code>（由状态机计算的唯一合法下一动作），以及该状态下的 <code>legal commands</code>——把任务状态机"喂"给模型，使其提议天然合法。</td></tr>
+  <tr><td>Task execution protocol</td><td>任务状态机的全局协议：<code>assigned → AcceptTask → accepted → StartTask → started → SubmitReport/ProduceArtifact</code>；被拒后如何重试（见 3.7）。</td></tr>
+  <tr><td>Non-negotiable submission rule</td><td>提交报告的 <code>data</code> 必须包含任务的<b>全部</b> <code>requiredOutputKeys</code>，键名逐字一致、不得同义替换；实现类任务的交付物必须是<b>真实可运行文件</b>（如完整的 <code>index.html</code>），"一段描述"不算交付。这是确定性验收器关闭任务的依据。</td></tr>
+  <tr><td>Organization</td><td>公司 / 部门 / 岗位 / 汇报线 / 同事，以及<b>能力地图</b>——"公司能做什么"的全景（岗位 × 能力 × 空缺状态）。空缺分两种语义：<code>(vacant)</code>（无人可做）与 <code>(vacant, covered by [岗位])</code>（汇报链已上收），只有前者才允许 <code>RecommendHire</code>。</td></tr>
+  <tr><td>Communication</td><td>只渲染该 Agent 所在的频道与最近消息，并给出 <code>SendMessage</code> 参数契约；"只能发往所在频道、不得发明 channelId、每周期最多一条、不得只发感谢"等通信规则全部就地声明——提示的可见域与授权服务的裁决域严格一致。</td></tr>
+  <tr><td>Work catalog</td><td><b>仅当授权结果 canDispatchWork=true 时渲染</b>：可派发岗位（含权威等级、在办任务数）、工作流模板、在途实例数。非管理者永远收不到它无法使用的目录——"不知道"就是第一道权限防线。</td></tr>
+  <tr><td>Plan conventions</td><td>每个复杂动作的参数契约与使用条件：DispatchWork 只指岗位不指人、多阶段任务书必须 CreateProposal 走工作流、被指派为流程步骤执行者时不得再向下派发等。</td></tr>
+  <tr><td>Input event</td><td>唤醒本 Agent 的原始事件（JSON，含 causation 信息），保证模型基于事实而非转述。</td></tr>
+  <tr><td>Required JSON schema</td><td>输出契约，用<b>真实值类型的示例</b>而非描述性文字给出（见 3.7）。</td></tr>
+</table>
+<p>分区的共同原则：<b>渲染给模型的每一个选项，都必须是授权服务事后会放行的选项</b>。提示词不是"请求"，而是授权域的镜像。</p>
+
+<h3>3.5 输出端约束：封闭动作空间 + Zod Schema</h3>
+<p>LLM 的计划只能取自 <code>shared-types</code> 中的封闭动作空间——47 个枚举动作（任务生命周期 8 个、通信 5 个、协作与交接 4 个、审批决策 8 个、组织治理 6 个、控制面 5 个等），纯加法扩展（ADR-013/014 各追加动作时走架构变更流程）。动作空间之外不存在任何"逃生口"。</p>
+<p>输出本身由 Zod Schema 强制（<code>schemas/cognition-output.ts</code>）：</p>
+<pre>const cognitionOutputSchema = z.strictObject({
+  interpretation: z.string().min(1),            // 对输入事件的理解
+  considerations: z.array(z.string().min(1)).min(1).max(12),  // 权衡因素
+  conclusion: z.string().min(1),
+  confidence: z.number().min(0).max(1),         // 数值而非字符串
+  plan: z.strictObject({
+    goal: z.string().min(1),
+    doneWhen: z.string().min(1),
+    steps: z.array(z.strictObject({
+      action: z.string().min(1),                // 必须命中封闭动作空间
+      args: z.record(z.string(), z.unknown()),
+      reasonRef: z.number().int().min(0),       // 强制引用 considerations 的下标
+    })).min(1).max(8),                           // 单周期计划 ≤ 8 步
+  }),
+});</pre>
+<p>四个细节体现了意图控制的精度：<code>strictObject</code> 拒绝任何未声明键（模型不能夹带私货）；<code>reasonRef</code> 强制每一步给出理由指针，计划天然自带解释；<code>confidence</code> 用类型约束挡住"92%"这类字符串；<code>steps.max(8)</code> 与运行时预算护栏呼应，防止单周期计划爆炸。</p>
+
+<h3>3.6 执行端约束：授权闸门，零 LLM 的确定性裁决</h3>
+<p>认知循环第 7 阶段 Authorize 是整个系统的安全核心，完全由确定性代码执行：</p>
+<pre>LLM：「我要发布 v1.0」（意图）
+        ↓
+AuthzService.can(cto, 'workflow.approve', 'wf:product_dev#step:release')
+        ├── allow          → 执行
+        ├── NEEDS_APPROVAL → 改写为 RequestApproval(escalateTo: 'ceo')
+        └── NO_PERMISSION → 改写为 Escalate(reason)</pre>
+<p>权限模型为 RBAC + ABAC + L0–L5 决策等级三层合一：<code>can(actor, action, resource, ctx)</code> 返回三态决策（允许 / 需上级审批并指明升级对象 / 拒绝并给出分类原因）。签名契约冻结为"必须携带完整 ActorContext"——<code>can(actor, action)</code> 这类丢失上下文的退化签名被架构基线明文禁止。权限随岗位不随人：停职即失效，有效权限由权限闭包收敛计算，而非档案声明。</p>
+<p>此外每一步执行前由 Runtime 落检查点并填充幂等键（<code>Step.idempotencyKey</code>），按 <code>employeeId</code> 做单写者并发控制（乐观版本号），重启后从检查点恢复、无副作用泄漏。LLM 即使反复输出同一动作，内核也只执行一次。</p>
+
+<h3>3.7 Prompt 的实战迭代：从真实失败中沉淀规则</h3>
+<p>意图控制策略不是一次设计完成的，每一条提示规则背后都有一次真实失败。这是本策略最重要的经验：<b>把"事后归因"沉淀为"事前提示契约"</b>。代表性迭代：</p>
+<table>
+  <tr><th style="width:30%">真实观察到的失败</th><th>沉淀进提示词 / Schema 的规则</th></tr>
+  <tr><td>DeepSeek 对描述性文字不敏感，输出格式漂移</td><td>输出 Schema 分区不再用文字描述，改用<b>真实值类型的 JSON 示例</b>渲染（提示词内注释明确记录了这一发现："DeepSeek respects examples over descriptions"）。</td></tr>
+  <tr><td>模型在任务已 accepted 时再次 AcceptTask，浪费周期</td><td>每个在办任务渲染状态机计算出的 <code>next=&lt;ACTION&gt;</code>；明示"不要重复接受已接受的任务"、"提交前必须先 StartTask"。</td></tr>
+  <tr><td>被内核拒绝后原样重试同一调用</td><td>拒绝分类引导：<code>invalid_transition</code> → 重读任务状态再重试；<code>invalid_args</code> → 修改参数，绝不重复同一调用。</td></tr>
+  <tr><td>提交报告"完成了"但交付物只是一段描述</td><td>非协商提交规则：<code>data</code> 必须含全部 <code>requiredOutputKeys</code>；实现类任务必须附真实可运行文件。确定性验收器据此关闭任务，"完成但没产品"不可能通过。</td></tr>
+  <tr><td>策略允许 SendMessage 但提示词没有任何频道与契约，线上组织零通信事件</td><td>新增 Communication 分区：只渲染本人所在频道、给出参数契约与"请求-回应"协议（收到 request 必须实质回应；收到 response 应据此完成自己的任务，不再客套回复）。</td></tr>
+  <tr><td>规划者只知道自己的能力标签，把多能力任务拆成单薄一步</td><td>能力地图分区：渲染"公司能提供什么"（能力 → 声明该能力的岗位席位），并区分两种空缺语义，使 <code>RecommendHire</code> 只在真正无人可做时出现。</td></tr>
+  <tr><td>管理者试图直接"命令"某个具体员工</td><td>管理者规则四条：任务书是承诺不是回复；每项工作必须指名一个岗位与一个可验证产出；"你无法命令任何人，只能派发给岗位、让组织唤醒它"。</td></tr>
+</table>
+<p>这些规则全部以代码形式存在于 <code>prompts/cognition.ts</code>，与授权服务的裁决逻辑一一对应，可被版本控制、diff 和测试——提示词在本项目中是<b>一等工程制品</b>，不是一次性文本。</p>
+
+<h3>3.8 确定性兜底与预算护栏</h3>
+<ul>
+  <li><b>Mock Provider</b>：自研 llm-gateway 内置确定性 in-process provider，同一输入恒定输出，是 CI 与离线仿真的基石；真实 DeepSeek 调用仅用于实证运行（live 模式）。</li>
+  <li><b>唯一出口</b>：任何包（经 agent-cognition）调用 LLM 必须携带 ActorContext，经 llm-gateway 统一路由 / 重试 / 结构化输出校验 / Token 预算 / 成本记账；无 actor 即拒绝。</li>
+  <li><b>周期护栏</b>：单周期计划 ≤ 8 步、Token 预算上限、重试白名单；超限即停，由确定性代码兜住概率性组件的一切越界行为。</li>
+</ul>
+</div>
+
+<!-- ===================== 4 可复现性论证 ===================== -->
+<div class="chapter">
+<h2>4. 可复现性论证</h2>
+<p>可复现性在本项目中被当作架构属性而非文档态度：不是"我们承诺可以复现"，而是<b>系统结构上无法不复现</b>。论证分六层展开。</p>
+
+<h3>4.1 事件溯源：复现的结构性保证</h3>
+<p>一切组织状态变更的唯一写入口是 <code>event-store.append(event)</code>，事件 immutable、append-only，不存在 UPDATE/DELETE 业务路径（A3）。每条事件携带 <code>causationId</code>（直接原因）与 <code>correlationId</code>（同一业务链），以及仿真时间与墙钟时间双时间戳。因此：</p>
+<ul>
+  <li><b>状态可重建</b>：所有读模型（组织图、任务板、收件箱、时间线）都从事件流投影而来，<code>replay(0, now)</code> 必须重建出与当前一致的读模型——这是反退化检查清单的固定条目；</li>
+  <li><b>行为可追溯</b>：任何 Agent 行为都能沿 causation 链回溯到最初触发它的那条事件，沿 correlation 链还原完整业务过程；</li>
+  <li><b>时间可重放</b>：调度基于 SimClock（分钟精度仿真时间）而非墙钟，重放模式（Replay Mode）以事件日志驱动 SimClock，使"回到第 N 天"成为数据操作而非魔法。</li>
+</ul>
+
+<h3>4.2 实测因果链：一次真实协作的完整回放</h3>
+<p>以下不是设计描述，而是 2026-11-14 两次独立隔离运行（不同时间、不同事件日志、每次重新调用真实 DeepSeek）实际落盘的事件因果链，两次结构完全一致：</p>
+<pre>msg1 (cto-john → engineer-mike, request)   causationId = evt-4  (Task.Assigned)
+msg2 (engineer-mike → cto-john, response)  causationId = evt-7  (msg1 的事件)
+cto cycle 3（采纳工程师方案并提交）          causationId = evt-11 (msg2 的事件)
+correlationId：全程一致，贯穿整条业务链
+
+任务生命周期：Created → Assigned → Accepted → Started → ProgressReported → Completed</pre>
+<p>判定脚本对每次运行给出 6/6 项 true（任务闭环、消息成对、因果链完整、隔离性、无污染、复跑一致）。任何人拿到这两份日志，可以不看源码就还原"谁、何时、为什么、做了什么、结果如何"——这正是 A3 + A4 + A5 公理在数据层面的投影。</p>
+
+<h3>4.3 LLM 调用记账与出处标注</h3>
+<p>llm-gateway 对每次调用落 <code>llm_calls</code> 账本（真相源），成本进入每个认知周期的 <code>CycleResult.cost</code>。这带来两重可复现保证：</p>
+<ul>
+  <li><b>出处透明</b>：界面上每个 LLM 产物都标注 provenance（如 <code>LLM · deepseek / deepseek-flash</code>），多平台内容工场明确显示"4 次调用"；区分"模型生成"与"人工补充"——人工编辑被如实标注为人工补充，不冒充模型输出。</li>
+  <li><b>输入可重放</b>：请求与响应全量记录，同一 prompt + 同一模型可复查；CI 默认走确定性 Mock，不烧钱、不抖动。</li>
+</ul>
+
+<h3>4.4 确定性 Mock 与分级的可复现承诺</h3>
+<p>我们把"可复现"按对外承诺的强度分为三级，并明确每一级的前提，不夸大：</p>
+<table>
+  <tr><th style="width:16%">级别</th><th style="width:26%">承诺</th><th>支撑</th></tr>
+  <tr><td><b>A 级 · 全流程确定性</b></td><td>无网络、无 API key、无外部依赖，从启动到组织运转、任务闭环、工作流审批全部可复现</td><td>默认 Mock 模式：确定性 in-process provider + 文件事件存储；CI 全绿即证明（typecheck 53 项、lint、架构守卫、1254 个测试）</td></tr>
+  <tr><td><b>B 级 · 真实 LLM 可复跑</b></td><td>配置 <code>.env</code> 后，协作、质询、多平台生成等真实模型链路可重复运行</td><td>两次独立隔离运行结构一致（4.2）；沙盘四角色会话、四平台生成均有审计目录与 provenance</td></tr>
+  <tr><td><b>C 级 · 历史证据可核验</b></td><td>论文/材料中的每个数字都能在仓库或日志中指到出处</td><td><code>.maoeh/audit/**</code> 审计目录：浏览器 10 项判定 report.json、协作 6/6 判定、内容资产 JSON、测试日志（见 4.6）</td></tr>
+</table>
+<div class="warn">诚实声明：真实 LLM 的逐字输出不可复现（温度 &gt; 0 的模型本身如此），但可复现的是<b>结构</b>——事件类型、因果链形状、状态机迁移、验证规则与验收结果。这是事件溯源带来的本质区别：我们复现"组织行为学"，不是复现"模型文本"。</div>
+
+<h3>4.5 质量门禁与诚实归因</h3>
+<p>可复现性依赖门禁真实。我们的原则是<b>不删除、不放宽任何既有断言</b>，失败如实归因。以 2026-11-14 最终验收为例（全部日志存档）：</p>
+<table>
+  <tr><th>门禁</th><th>结果</th></tr>
+  <tr><td><code>pnpm typecheck</code></td><td>exit 0（53/53 个项目）</td></tr>
+  <tr><td><code>pnpm lint</code></td><td>exit 0</td></tr>
+  <tr><td><code>pnpm architecture:check</code></td><td>exit 0（10 守卫文件 / 55 测试；dependency-cruiser 0 违规）</td></tr>
+  <tr><td>全量测试 #1</td><td>173 文件 / 1254 测试，1253 通过 1 失败（exit 1）</td></tr>
+  <tr><td>失败项单独复跑</td><td>2/2 通过（1.5s，exit 0）</td></tr>
+  <tr><td>全量测试 #2</td><td>1254/1254 全绿（exit 0）</td></tr>
+</table>
+<p>同一份代码、同一份断言，两次全量之间没有任何修改。失败项固定为 <code>tests/integration/preview-runtime-http.test.ts</code>——并行负载下真实预览子进程 60s 内未启动。归因结论如实写入验收文档：<b>环境/负载敏感的 flake，不是代码缺陷被掩盖</b>。这种"失败 → 归因 → 修复"的记录本身（见 docs/review/ 与 docs/competition/ 的里程碑报告链）就是工程规范的最强证据。</p>
+
+<h3>4.6 证据链索引与版本回滚点</h3>
+<ul>
+  <li><b>证据目录</b>：<code>.maoeh/audit/</code> 下按运行时戳归档——browser（headless Edge + CDP 真实点击，10 项机器判定 + 截图）、collaboration（两次独立协作运行）、content-studio（四平台生成与导出）、sandbox（对抗质询会话）；<code>.maoeh/logs/</code> 存全量测试与门禁日志。</li>
+  <li><b>复现脚本</b>：<code>scripts/</code> 提供 verify-collaboration、verify-preview、verify-browser、deliver-product、dump-events、diagnose-events 等独立脚本，验收不依赖肉眼截图。</li>
+  <li><b>回滚点</b>：Git 标签 <code>checkpoint-2026-11-14-night</code> 与同名分支指向验收时的可运行状态；里程碑驱动的提交历史（M1.0 → M3.9）完整保留。</li>
+  <li><b>文档链</b>：每个里程碑都有实现契约（docs/architecture/M*.md）与验收报告（docs/competition/M*_REPORT / ACCEPTANCE），审计-修复-复验的闭环全部落档。</li>
+</ul>
+
+<h3>4.7 复现步骤</h3>
+<pre># 环境：Node.js ≥ 22，pnpm 9.15.9（仓库锁定版本）
+git clone https://github.com/cnpetershen/Multi-Agent-Organizational-Emulation-Hub
+cd Multi-Agent-Organizational-Emulation-Hub
+pnpm install            # 首次安装
+pnpm build              # 构建全部包（演示前建议 turbo run build --force，避免缓存旧产物）
+pnpm dev                # 并发启动：Web 控制台 http://localhost:5173 · API http://localhost:3001
+
+# 质量门禁（与 CI 同序）
+pnpm typecheck
+pnpm lint
+pnpm architecture:check
+pnpm test               # unit + integration + simulation + acceptance
+
+# 启用真实 LLM（可选；默认 Mock 模式无需任何 key）
+cp .env.example .env    # MAOEH_LLM_MODE=live / MAOEH_LLM_API_KEY=... / BASE_URL / MODEL</pre>
+<p>启动后系统自带种子公司（Future AI Lab，Guest Founder 所有）；也可以在控制台 Foundry 页创建自己的 AI 公司（自动生成 CEO / CTO / CPO / Backend / Frontend / QA 完整初建组织）。黄金演示路径：注入"用户流失严重，建议做新手引导"类任务书 → 经理解码并规划 → 工作流草稿在画布上等待人类确认 → 执行者逐步交付 → 审批 → 交付物在交付包中预览 / 下载——每一步在 Events 时间线中都有对应事件。</p>
+</div>
+
+<!-- ===================== 5 关键功能 ===================== -->
+<div class="chapter">
+<h2>5. 关键功能实现</h2>
+
+<h3>5.1 十阶段认知循环</h3>
+<p>每个 AI 员工的每次行动都走同一条 10 阶段流水线：</p>
+<pre>① Wake 唤醒      事件 / 日程 / 发言权 → WakeRequest（6 种唤醒原因，优先级 0–9 防饿死）
+② Load 载入      AgentState + 工作记忆 + 收件箱增量
+③ Perceive 感知  原始输入 → 结构化 Perception                          ← LLM
+④ Recall 回忆    记忆检索 → RecallBundle                                ← 记忆系统
+⑤ Deliberate 推理 "这件事对我意味着什么？我该做吗？"                    ← LLM
+⑥ Plan 规划      产出 Plan（动作取自封闭 Action Space）                  ← LLM
+⑦ Authorize 授权 ★ 确定性代码，零 LLM —— 权限闸门（3.6 节）
+⑧ Act 行动       逐 Step 执行，每步前落检查点、填幂等键
+⑨ Observe 观察   成功 / 失败 / 返工 / 拒绝（拒绝原因分类落档）
+⑩ Reflect 更新   写记忆 · 更新关系 · 更新技能 · 自调度</pre>
+<p>只有 ③⑤⑥ 三段调用 LLM，其余全部确定性。这是"概率性组件被确定性骨架包裹"的完整形态。</p>
+
+<h3>5.2 工作流闭环：从任务书到审批发布</h3>
+<p>人类对"工作"只有一个写入口：<b>任务书（Work Brief）</b>——不存在人类直接把任务塞给某个 Agent 的一等公民路径（ADR-014）。闭环流程：</p>
+<pre>人类提交任务书 → 管理者认知解码（"任务书是承诺，不是回复"）
+  → 能力分析：按能力 id（而非岗位名）匹配组织能力地图
+  → 多阶段简报自动生成工作流提案（CreateProposal），单能力原子项才允许 DispatchWork
+  → 草稿在工作流画布上等待人类确认（带"等待确认"横幅，确认前不执行）
+  → 确认后逐步骤执行：每位执行者收到 Task.Assigned 被唤醒，按状态机交付
+  → 审批门（SoD 职责分离）：如 QA 不能自测、发布需上级审批
+  → 交付物归集进交付包（游戏 / 文档 / 3D / 文件同屏），可预览、可下载 .zip</pre>
+<p>工作流支持 Agent 提出偏离（改步 / 退回 / 升级），偏离被内核记录并等待人类裁定，而非静默忽略——"工作流可偏离"是反退化检查的固定条目。</p>
+
+<h3>5.3 多 Agent 协作原语</h3>
+<table>
+  <tr><th style="width:22%">原语</th><th>语义与约束</th></tr>
+  <tr><td>SendMessage</td><td>频道消息（request/response 语义配对）；只能发往所在频道、每周期最多一条；可见性由权限系统裁决。</td></tr>
+  <tr><td>RequestCollaboration</td><td>正式协作请求：指名同事 + 关联自己名下的 taskId + 目的。必须留下记录的正式依赖用它，临时提问用 SendMessage。</td></tr>
+  <tr><td>HandoffTask / AcceptHandoff / DeclineHandoff</td><td>任务交接是真实的工作转移：请求方发出后任务不动，接收方在本周期决定接受或拒绝（必须给理由）；接受后任务重指派、结果留在同一 taskId，发起方可从 <code>Task.HandoffCompleted</code> 读到结局。</td></tr>
+</table>
+<p>全部协作都经事件流：A 产出事件 → 订阅匹配 → 唤醒 B。不存在 Agent 持有另一个 Agent 引用直接调用的情况（A5，机器可验证）。</p>
+
+<h3>5.4 赛博沙盘：多角色对抗质询</h3>
+<p>入口 <code>/api/sandbox</code>（apps/api 的 sandbox-session）。四个角色来自真实组织定义——提案方 CTO、质询方 QA、答辩方工程师、评审 CEO——在<b>独立组装的运行时与独立事件日志</b>中逐轮发言，不污染演示公司日志。每条发言经 CommunicationService 授权校验后写入真实的 <code>Communication.MessageSent</code>，transcript 即这些事件本身。评审返回结构化评分，每个维度必须引用具体 <code>messageId</code>，解析器校验该 id 确实存在于本次会话，否则标注"未引用具体发言"——<b>评分必须指认证据</b>。</p>
+<p>浏览器实跑（headless Edge + CDP 真实点击，2026-11-14）：4 角色 / 4 条消息 / 评分 78/100，4/4 条评分全部引用具体发言；会话可保存、回看、导出。运行判定 10 项全部 true。</p>
+
+<h3>5.5 一鱼多吃：多平台内容工场</h3>
+<p>入口 <code>/api/studio</code> + <code>/api/content/generate</code>：一份素材、四个平台（小红书 / 抖音 / B站 / 公众号）各一次<b>真实 LLM 调用</b>。实测四平台文案长度 341–821 字、两两 4-gram 最大重合度 ≤ 0.098——差异化是真实的、可度量的。产物支持人工编辑（如实标注"人工补充"）、审核、导出 JSON（含编辑与审核状态、provenance）。当前仅文本 provider，图片 / 音频 / 视频未实现，文档与页面均不声称。</p>
+
+<h3>5.6 交付物预览运行时</h3>
+<p>Agent 交付的产物不是摆设：交付的 Python / Node / 单文件 HTML 项目会被复制到隔离目录、真实启动子进程、动态分配端口、以真实 URL 访问。例如已交付的赛博沙盘单文件版（deliverables/cyber-sandbox/index.html，零依赖可双击运行）与 Python 实现的俄罗斯方块（deliverables/ss-tetris，含 server / client / run.py）。文档类交付按 Markdown / HTML 纸面渲染（HTML 在禁用脚本的 sandbox 帧中）；OBJ / STL 有零依赖线框 3D 预览；整个交付包可浏览器内打包 .zip 下载。</p>
+
+<h3>5.7 Web 控制台与改派工作室</h3>
+<p>React 19 控制台包含 Overview、协同网络画布（Agent × 工作流 × 交付物的实时关系图，节点全部来自 snapshot / workflows / tasks 读模型，不新增状态）、Agents 档案、Events 时间线、Tasks、Workflows、Canvas 改派工作室、Runtime 控制（暂停 / 恢复 / 注入任务）、Deliverables 交付包、Foundry 建司、Communications、Approvals 审批，中英双语。</p>
+<p>改派工作室：CEO 排好的流程以节点图呈现；把团队成员拖到待处理节点完成改派，节点显示能力 / 角色 / 权限 / 当前席位 / SoD 标记；已进入的步骤锁定并说明原因。要点：<b>内核在写入前仍然复核雇佣状态、角色与权限，LLM 不参与改派</b>——UI 便捷性从不换取授权安全。</p>
+</div>
+
+<!-- ===================== 6 AI 协同开发 ===================== -->
+<div class="chapter">
+<h2>6. AI 协同开发过程</h2>
+
+<h3>6.1 开发范式：人定义架构，AI 生成实现</h3>
+<p>本项目的代码主体由 AI 编码代理（Qoder / Codex 等）在人类主导下生成。我们的协同范式是：<b>人类负责架构决策与验收，AI 负责在冻结契约内生成实现</b>。</p>
+<table>
+  <tr><th style="width:24%">环节</th><th>人类</th><th>AI 编码代理</th></tr>
+  <tr><td>架构</td><td>定义公理、分层、包边界、依赖禁令；裁决 ADR</td><td>按基线落地方案（每次修改前被要求先理解架构、指出受影响模块）</td></tr>
+  <tr><td>意图</td><td>撰写里程碑契约（docs/architecture/M*.md：实现契约 + 验收标准）</td><td>按契约实现，产出的偏差需回指 ADR</td></tr>
+  <tr><td>实现</td><td>验收</td><td>生成 TypeScript 代码 / 测试 / 文档（30 包、万行级）</td></tr>
+  <tr><td>质量</td><td>拒绝放宽断言；要求失败归因</td><td>跑门禁、写归因报告、修复后复验</td></tr>
+</table>
+<p>约束 AI 的机制即第 2 章所述的四层机器强制 + AGENTS.md 行为契约 + 文档先行的变更流程。实践效果：AI 生成的代码从一开始就生长在受护栏保护的骨架内——依赖方向违规在架构门禁即被拦下，无需人工逐文件审查。</p>
+
+<h3>6.2 过程证据：里程碑验收文档链</h3>
+<p>AI 协同过程在仓库中留有完整可审计的轨迹：</p>
+<ul>
+  <li><b>实现契约</b>：M1.0–M3.9 每个里程碑一份（docs/architecture/），先写契约后写代码；</li>
+  <li><b>验收报告</b>：docs/competition/ 下的 M*_REPORT / ACCEPTANCE / FINAL_STATUS 系列，含真实运行判定、失败归因、遗留清单——包括"修复沙箱页语法、修复失败分支与 Results 数据源"、"记录操作者身份限制"、"记录暂停守卫修复"等修复证据提交；</li>
+  <li><b>审计修正</b>：docs/review/ 的架构评审、修订日志、以及"角色代理无法完成任务"等专项分析，每次都是"失败 → 归因 → 沉淀规则（多数沉淀进提示词，见 3.7）→ 复验"；</li>
+  <li><b>Git 历史</b>：里程碑驱动的分支与合并（feat/m2-workflow-closed-loop 等）、检查点标签，提交信息与验收文档互相对应。</li>
+</ul>
+<div class="callout">一个有代表性的闭环：审计发现"策略允许 SendMessage 但提示词没有任何频道契约，导致线上组织零通信事件"——修复方式不是改代码硬塞消息，而是补齐 Communication 上下文分区与提示契约，让真实模型<b>自发</b>产出可授权的消息；随后两次独立隔离运行验证因果链完整。这条从失败到规则再到复验的路径，是"意图控制策略"与"可复现性"两章共享的方法论。</div>
+</div>
+
+<!-- ===================== 7 局限与边界 ===================== -->
+<div class="chapter">
+<h2>7. 局限与边界</h2>
+<p>按工程规范，已知不足保留陈述、不悄悄删除：</p>
+<table>
+  <tr><th style="width:32%">事项</th><th>事实与计划</th></tr>
+  <tr><td>长期记忆尚未接入向量库</td><td>MVP 规划的 PostgreSQL 16 + pgvector / Redis 未引入；当前采用文件事件存储 + 进程内状态，换取确定性仿真离线可跑。记忆分表与反投毒规则（共享事实须 ≥2 佐证来源）已冻结为架构约束，待执行载体。</td></tr>
+  <tr><td>认知画像尚未全量异构绑定</td><td>6 类认知画像文件（战略 / 技术 / 产品 / 质量等）已就位，但尚未全部绑定到 7 名员工（审计时全部为 exec-strategic）；认知异构（同一输入不同角色产出可比较的差异）列入冲刺计划。</td></tr>
+  <tr><td>图片 / 音频 / 视频生成未实现</td><td>llm-gateway 当前只有文本 provider；页面与文档一律不声称已生成图片。</td></tr>
+  <tr><td>沙盘多轮稳定性未充分验证</td><td>对抗质询已真实跑通（4 角色 / 引用式评分），但 ≥3 轮连续会话、并发会话队列、评分解析失败重试仍在计划中。</td></tr>
+  <tr><td>个别测试环境敏感</td><td>preview-runtime-http 集成测试在重负载并行下偶发超时（已归因为 flake，单独复跑通过）；计划做隔离/重试策略，不放宽断言。</td></tr>
+  <tr><td>频道成员不随招聘更新</td><td>新员工入职暂不自动进入公司频道，需要 <code>Channel.MembersChanged</code> 类事件（列入计划）。</td></tr>
+</table>
+<p>项目同时划定了永久红线：不做通用工作流编排引擎（不与 n8n / Zapier 同台）；永不取消授权闸门让 LLM 直接产生副作用；永不用隐藏状态驱动行为；不做自动扩编 / 自动优化组织结构——组织变革必须是被决策的，否则系统退化为优化器，不再能回答"组织是如何运作的"。本项目的价值在于<b>理解</b>，不在于最优。</p>
+</div>
+
+<!-- ===================== 8 总结 ===================== -->
+<div class="chapter">
+<h2>8. 总结</h2>
+<p>MAOEH 交付的不是一组 AI 功能，而是一台<b>能被审计的 AI 公司</b>：每个 AI 员工做什么、为什么做、谁批准、结果如何，都能从一条事件链里还原。三个重点的最终回答：</p>
+<table>
+  <tr><th style="width:22%">重点</th><th>回答</th></tr>
+  <tr><td><b>意图控制策略</b></td><td>三段窄通道：十二道校验的事实装配 + 档案化系统提示词 + 分区渲染的授权镜像（输入端）；47 个封闭动作 + Zod strictObject（输出端）；零 LLM 的三态授权闸门与幂等内核（执行端）。提示规则全部从真实失败中沉淀，是一等工程制品。</td></tr>
+  <tr><td><b>架构设计</b></td><td>六层分层 + CQRS + 事件溯源，30 包 Monorepo，确定性与概率性物理隔离；AI 生成的代码被"冻结基线 + dependency-cruiser 十条禁令 + ESLint 边界 + Vitest 结构守卫 + CI 固定顺序"四层机器强制约束在架构之内。</td></tr>
+  <tr><td><b>可复现性论证</b></td><td>结构上不可不复现：append-only 事件 + causation/correlation 因果链 + SimClock 重放 + llm_calls 记账；分级承诺（A 级确定性全流程 / B 级真实 LLM 可复跑 / C 级证据可核验），1254 个测试与全量审计目录背书，失败如实归因。</td></tr>
+</table>
+<p>一句话定位：<b>把所有任务删掉，这家公司仍然活着</b>——而这正是它区别于一切"多 Agent 任务流水线"的根本。</p>
+<p class="small" style="margin-top:24px">主要参考（仓库内）：</p>
+<p class="refs">
+README.md · AGENTS.md · docs/architecture/ARCHITECTURE-BASELINE.md（冻结基线 v1.1）· docs/architecture/package-registry.md · docs/architecture/dependency-graph.md · docs/architecture/01–08 系列设计文档 · docs/architecture/M1.0–M3.9 里程碑契约 · docs/competition/FINAL_STATUS.md、PROVINCIAL_FIRST_PLAN.md 及各里程碑验收报告 · docs/review/ 评审与修订日志 · .dependency-cruiser.mjs · .github/workflows/ci.yml · packages/agent-cognition/src/{prompts,context,schemas} · packages/shared-types/src/index.ts（ACTIONS）· packages/llm-gateway/src · scripts/verify-*.mjs · .maoeh/audit/** · Git 标签 checkpoint-2026-11-14-night
+</p>
+</div>
+
+</body>
+</html>

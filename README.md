@@ -270,7 +270,7 @@ MAOEH 不押注单一知识范式，而是把三代知识工程融合进同一�
 ```
 Multi-Agent-Organizational-Emulation-Hub/
 │
-├─ packages/                        # 28 包（权威清单见 docs/architecture/package-registry.md）
+├─ packages/                        # 29 包（权威清单见 docs/architecture/package-registry.md）
 │  ├─ 组织内核
 │  │   ├─ organization-model/       # 组织实体（Company/Department/Position/Employee）+ 图谱
 │  │   ├─ organization-control/     # 控制平面：状态机 / 授权 / Agent 生命周期
@@ -284,16 +284,16 @@ Multi-Agent-Organizational-Emulation-Hub/
 │  │   ├─ agent-definition/         # YAML 档案加载 + Zod Schema 校验
 │  │   ├─ agent-cognition/          # 认知档案 + 推理 + 规划 + 上下文构建
 │  │   ├─ agent-runtime/            # 10 阶段认知循环 + 运行时决策 + Turn 校验
-│  │   ├─ agent-memory/             # 记忆系统（规划中）
-│  │   └─ agent-tools/              # Tool Gateway（规划中）
+│  │   ├─ agent-memory/             # 记忆系统（占位）
+│  │   └─ agent-tools/              # Tool Gateway（占位）
 │  ├─ 编排层
-│  │   ├─ workflow-engine/          # 流程模板 + 审批门 + 状态机 + 验证
-│  │   ├─ task-system/              # Task 实体 + 派发 + 验收分离
+│  │   ├─ workflow-engine/          # 流程模板 + 审批门 + 状态机 + 验证 + 能力工作流生成（M1.6）
+│  │   ├─ task-system/              # Task 实体 + 派发 + 验收分离 + 交接链（M3.1）
 │  │   ├─ runtime-scheduler/        # SimClock + Scheduler + 三路唤醒
-│  │   ├─ decision-engine/          # 提案 / 评议 / 表决（规划中）
-│  │   ├─ meeting-engine/           # 议程 / 发言权轮转（规划中）
-│  │   ├─ escalation-engine/        # 卡死检测 / 升级阶梯（规划中）
-│  │   └─ agent-communication/      # 频道 / 消息 / @提及 / 协作请求
+│  │   ├─ decision-engine/          # 提案 / 评议 / 表决（占位）
+│  │   ├─ meeting-engine/           # 议程 / 发言权轮转（占位）
+│  │   ├─ escalation-engine/        # 卡死检测 / 升级阶梯（占位）
+│  │   └─ agent-communication/      # 频道 / 消息 / @提及 / 协作请求 / 统一协作事件协议（M3.1）
 │  ├─ 支撑
 │  │   ├─ llm-gateway/              # OpenAI 兼容 + Mock provider + 预算 + 结构化输出
 │  │   ├─ runtime-state/            # AgentState + StateStore
@@ -301,16 +301,16 @@ Multi-Agent-Organizational-Emulation-Hub/
 │  │   ├─ audit-system/             # 审计记录 + 审计服务
 │  │   ├─ artifact-system/          # 产物存储
 │  │   ├─ knowledge-system/         # 文档存储
-│  │   ├─ authority-engine/         # 权威边界（规划中）
-│  │   ├─ policy-engine/            # 组织政策（规划中）
+│  │   ├─ authority-engine/         # 权威边界（部分实现）
+│  │   ├─ policy-engine/            # 组织政策（占位）
 │  │   ├─ config/                   # 配置加载
 │  │   └─ shared-types/             # 跨包共享类型
 │
 ├─ apps/
-│  ├─ api/                           # HTTP API 服务（Node）
-│  ├─ kernel/                        # 运行时内核（仿真 / 调度 / 快照）
+│  ├─ api/                           # HTTP API 服务（组织查询 / Agent 管理 / 运行时控制 / 需求沙盘 / 计划 / 审批 / 推广 / 发布 / 沙盘会话 / 内容工作室）
+│  ├─ kernel/                        # 运行时内核（仿真 / 调度 / 快照 / Plan Executor / 崩溃恢复）
 │  ├─ projector/                     # 读模型投影
-│  └─ web/                           # React 控制台（组织图 / Agent 档案 / 收件箱 / 时间线）
+│  └─ web/                           # React 控制台（分组导航 + 中英双语 + Foundry 建司 + Results 交付深链）
 │
 ├─ agents/
 │  └─ future-ai-lab/                 # ★ AI 员工档案（YAML，数据非代码）
@@ -318,8 +318,10 @@ Multi-Agent-Organizational-Emulation-Hub/
 │       ├─ departments/              # 部门定义
 │       ├─ positions/                # 岗位模板（CEO / CTO / 工程师 / QA …）
 │       ├─ agent-definitions/        # Agent 定义（CEO-Alex / CTO-John / …）
-│       ├─ employees/                # 具体员工实例
+│       ├─ employees/                # 具体员工实例（6 名：CEO / CTO / PM / Engineer / QA / Marketing）
 │       └─ cognition/                # 认知档案（exec-strategic / tech-task / …）
+│
+├─ workflows/                        # ★ YAML 流程定义（product-development / hiring / product-analysis / decision-making）
 │
 ├─ tests/
 │  ├─ architecture/                  # 架构守卫测试（强制依赖方向 / 结构边界）
@@ -327,7 +329,7 @@ Multi-Agent-Organizational-Emulation-Hub/
 │  ├─ integration/                   # 集成测试（Agent 生命周期 / 流程派发 / 协作请求 …）
 │  ├─ simulation/                    # 仿真测试（确定性 / 恢复 / 控制回路）
 │  ├─ acceptance/                    # 验收测试（运行时健康度 / 预览 / 协作 / 交付物）
-│  ├─ e2e/                           # E2E（Playwright / 浏览器自动化）
+│  ├─ e2e/                           # E2E（console-loop / work-brief / create-company-smoke）
 │  └─ helpers/                       # Test fixtures
 │
 ├─ database/migrations/              # SQL DDL（001–005，当前实现未用 PG）
@@ -345,24 +347,27 @@ Multi-Agent-Organizational-Emulation-Hub/
 
 | 模块 | 状态 | 说明 |
 |------|------|------|
-| **Monorepo 骨架** | ✅ 完成 | 32 包 · 4 应用 · TypeScript 严格模式 · pnpm workspaces · Turborepo |
-| **架构守卫** | ✅ 完成 | dependency-cruiser（9 条 forbidden 规则）+ ESLint + Vitest 结构守卫 |
+| **Monorepo 骨架** | ✅ 完成 | 29 包 · 4 应用（33 个 TS 项目）· TypeScript 严格模式 · pnpm workspaces · Turborepo |
+| **架构守卫** | ✅ 完成 | dependency-cruiser（F1–F13 禁令 + 环禁令）+ ESLint + Vitest 结构守卫（11 文件 / 62 条用例）|
 | **LLM Gateway** | ✅ 可用 | Mock provider（确定性，供 CI 和仿真）+ OpenAI 兼容 provider + 预算 + Schema 校验 |
 | **Organization Model** | ✅ 可用 | 公司 / 部门 / 岗位 / 员工 / 图谱 / 能力匹配 / YAML 加载 |
 | **Permission System** | ✅ 可用 | ActorContext / AuthzService / Policy / ResourceRef / 拒绝原因分类 |
 | **Event Store** | ✅ 可用 | FileEventStore（可持久化）+ InMemoryEventStore（测试友好）|
 | **Agent Runtime** | ✅ 可用 | 10 阶段认知循环 + Turn 校验 + 运行时决策 + 事件产出 |
 | **Agent Cognition** | ✅ 可用 | 认知档案加载 + 推理 + 规划 + 上下文构建 + Zod Schema 约束输出 |
-| **Workflow Engine** | ✅ 可用 | 流程模板 + 审批门 + 状态机 + 验证 + 生成（含 Hiring 流程）|
-| **Task System** | ✅ 可用 | Task 实体 + 派发 + 验收分离 + Store + 校验 |
+| **Workflow Engine** | ✅ 可用 | 流程模板 + 审批门 + 状态机 + 验证 + 能力工作流生成（M1.6，含 Hiring 流程）|
+| **Task System** | ✅ 可用 | Task 实体 + 派发 + 验收分离 + Store + 校验 + 交接链（M3.1）|
 | **Runtime Scheduler** | ✅ 可用 | SimClock + Scheduler + 唤醒策略 + 预算 |
-| **Agent Communication** | ✅ 可用 | 频道 / 消息 / @提及 / 协作请求 / 投递 / 权限校验 |
+| **Agent Communication** | ✅ 可用 | 频道 / 消息 / @提及 / 协作请求 / 投递 / 权限校验 + M3.1 统一协作事件协议（消息 sent→delivered→processed/failed · 任务交接双向链）|
 | **Organization Control** | ✅ 可用 | 状态机 + 授权 + Agent 生命周期 + 事件定义 |
 | **Ownership Store** | ✅ 可用 | Founder → Company → 激活切换，持久化到仓库外状态目录 |
-| **Kernel（仿真）** | ✅ 可用 | Run-Tick / Plan-Executor / Snapshot / Work-Catalog |
-| **API 服务** | ✅ 可用 | HTTP 入口（组织查询 / Agent 管理 / 流程 / 运行时控制） |
-| **Web 控制台** | ✅ 可用 | Overview / **Network（协同网络画布）** / Agents / Events / Tasks / Workflows / **Canvas（暗色改派工作室）** / Runtime / Deliverables / Foundry / Communications / Approvals + 中英双语 |
-| **交付物预览** | ✅ 可用 | **交付包**按工作流归组，游戏 / 文档 / 3D / 文件同屏；游戏在控制台内真实启动（含单文件 `index.html` 交付）；文档按 Markdown / HTML 纸面呈现；OBJ/STL 线框 3D 预览；一键下载 `.zip` |
+| **Kernel（仿真）** | ✅ 可用 | Run-Tick / Plan-Executor（M3.5 确认方案忠实翻译）/ Snapshot / Work-Catalog |
+| **API 服务** | ✅ 可用 | HTTP 入口（组织查询 / Agent 管理 / 流程 / 运行时控制 / 需求沙盘 / 计划 / 交付审批 / 推广 / 发布 / 赛博沙盘 / 内容工作室）|
+| **Web 控制台** | ✅ 可用 | 中英双语 · 分组导航（公司 / 工作 / 决策 / 活动 / 系统）+ Foundry 建司 + Results 交付深链；**Network（协同网络画布）** / **Planning（需求沙盘）** / **PlanCanvas（调整画布）** / **Canvas（暗色改派工作室）** / **Theater（协作剧场）** / Deliverables / Tasks / Workflows / Approvals / **DeliveryApproval（交付审批）** / **Promotion（推广）** / **Publication（发布）** / Communications / Events / Runtime / Agents / Overview |
+| **协作剧场（M3.2）** | ✅ 可用 | 以 seq 为游标的真实 SSE 尾部 · 断线续传 · 七阶段证据透镜 · 只读回放 |
+| **业务闭环（M3.1–M3.9）** | ✅ 可用 | 需求沙盘 → 智能体编排 → 人工确认调整画布 → 真实 Agent 执行 → 交付审批 → 推广 → 发布；2026-11-15 DeepSeek live 全链路验收 7/7 PASS（全量 220 个测试文件 / 1481 条用例）|
+| **交付物预览** | ✅ 可用 | **交付包**按工作流归组，游戏 / 文档 / 3D / 文件同屏；游戏在控制台内真实启动（含单文件 `index.html` 交付）；文档按 Markdown / HTML 纸面呈现；OBJ/STL 线框 3D 预览；一键下载 `.zip`；预览类型判定以内容为准（M2.3）|
+| **Authority / Policy Engine** | 📋 部分 | Authority：`levelFor` / `domainsFor` / `meets` 决策域等级查询；Policy 占位 |
 | **Decision / Meeting / Escalation** | 📋 占位 | 有 index.ts 导出，领域逻辑待实现 |
 | **Agent Memory / Tools / Knowledge** | 📋 占位 | MVP 规划的 Postgres + pgvector 方案暂未引入 |
 | **数据库** | 📋 占位 | migrations 001–005 已写，当前实现用文件事件存储 |
@@ -417,6 +422,43 @@ Multi-Agent-Organizational-Emulation-Hub/
   - 文件按步骤归组，支持逐个下载和**下载全部 `.zip`**（浏览器内 store-only ZIP）。
 - 设计细节见 [`docs/architecture/M2.1-assignment-studio-delivery-package.md`](docs/architecture/M2.1-assignment-studio-delivery-package.md)。
 
+## M2.2–M2.4 · 空缺席位 · 画布平移 · 韧性与双语
+
+- **M2.2**：空缺席位进入可拖拽调色板（拖到待处理节点 → 走招聘流程）；人员 / 空缺 / 工作流三级检查器 + 审批门；画布拖拽平移 + 滚轮缩放；可折叠导航；公司结构条；交付物按**项目**分块并展示成员分工。
+- **M2.3**：预览类型判定以交付物**实际内容**为准，不再按文件名猜测游戏 / 文档 / 3D。
+- **M2.4**：多阶段任务书必须拆成 `CreateProposal` 而非多个独立任务；计划执行器容忍真实 LLM 的多种参数形状；文档类交付物中英文互看；一次失败 / 一次重试不再让任务卡死。
+- 设计细节见 [M2.2](docs/architecture/M2.2-project-workspace-navigation.md) · [M2.3](docs/architecture/M2.3-preview-type-truth.md) · [M2.4](docs/architecture/M2.4-multi-agent-resilience-bilingual.md)。
+
+---
+
+## 需求到发布 · 七阶段业务闭环（M3.1–M3.9）
+
+控制台的 **Planning → Publication** 把一条业务目标完整跑成真实交付，每一步都走既有事件 / 权限 / 审计路径：
+
+```
+① 需求沙盘   ② 智能体编排   ③ 调整画布    ④ 任务实施   ⑤ 交付审批   ⑥ 推广     ⑦ 发布
+（结构化需求 →（真实席位编排 →（人工确认    →（真实 Agent  →（执行证据   →（策略/渠道 →（本地页面 +
+ vN + provenance）草案 + 依赖）  DAG + 版本）   调度 + 交付）   门禁推进）   /材料 + provenance）真实 URL）
+```
+
+- **① 需求沙盘**（Planning 页，M3.3）：用户目标被结构化为带 provenance 的需求方案 vN——用户原话逐字保留，其余字段全部标注「AI 推断」，阻塞问题未回答不可确认。三个来源：**live**（真实模型调用 + 严格 Zod Schema）、**sandbox**（赛博沙盘会话转写，不重新开场）、**deterministic**（mock / 无模型，只保留用户原话 + 从既有能力词表识别能力）。
+- **② 智能体编排**（M3.3）：基于**真实在编员工**与能力词表生成编排草案（依赖 / 输入输出 / 验收）；能力无席位会被**显式报告，绝不静默分配**；只产出 `Workflow.*` 草稿实例（`awaitingConfirmation`），不产生任何 Task。
+- **③ 调整画布**（PlanCanvas 页，M3.4）：节点 / 员工 / 依赖编辑、DAG 拓扑校验、不可变方案版本 + 乐观锁；人工确认前**不创建任何任务**。
+- **④ 任务实施**（M3.5）：确认的方案忠实翻译为工作流实例——真实 Task + Agent 调度、幂等启动、检查点恢复、真实交付物、审批门交接。
+- **⑤ 交付审批**（M3.6，DeliveryApproval 页 / Results 验收面板）：以真实执行证据为依据**批准 / 驳回 / 要求修改**；推进 workflow gate；幂等 + 并发安全；完整审批历史。
+- **⑥ 推广**（M3.7，Promotion 页）：从已批准的执行派生策略 / 渠道 / 材料，provenance 全程携带；支持人工编辑 + 版本化；确认后才交接 M3.8。
+- **⑦ 发布**（M3.8，Publication 页）：从已确认的推广派生本地页面 / manifest；人工确认、幂等与部分成功追踪；产出**真实 URL** + `Document.PromotionConfirmed` 等事件 + 七阶段追溯。
+
+配套的基础设施级补齐：
+
+- **统一协作事件协议**（M3.1）：十一种协作类型归入同一 append-only 日志（**7 类复用既有事件（已实现），4 类保留为未来引擎契约（未实现、不发假事件）**；新增事件仅交接链与「消息已处理」）；消息 `sent → delivered → processed/failed`；任务交接 `HandoffRequested → Accepted/Declined → Assigned → … → HandoffCompleted`；`trace / lifecycle / audit` 都是纯读投影，断链显式报告而不是被猜平。
+- **协作剧场**（M3.2，Theater 页）：以 `seq` 为游标的真实 SSE 尾部——断线续传 + 重复保护；七阶段证据透镜（不强行归类）；员工舞台 / 协作现场 / 历史回放；只读，不产生任何事件。
+- **可观测性收尾**（M3.9）：`Document.RequirementAnalyzed/Confirmed`、`Document.PromotionGenerated/Confirmed` 的真实触发与幂等；Theater 归类正确；持久化回放验证。
+
+**验收（2026-11-15，DeepSeek `deepseek-flash` · live）**：七阶段 7/7 PASS；全量 **220 个测试文件 / 1481 条用例**通过；架构守卫 11 文件 / 62 条；dependency-cruiser 0 违规；typecheck / lint / build 全绿。详见 [`docs/competition/M3_END_TO_END_ACCEPTANCE.md`](docs/competition/M3_END_TO_END_ACCEPTANCE.md)。
+
+> 控制台还包含 **赛博沙盘**（Results 页内嵌：CTO 提案 / QA 质询 / Engineer 答辩 / CEO 评审的多角色对抗质询，评分带逐条消息引用）与**内容工作室**（一鱼多吃：一次素材 → 小红书 / 抖音 / B站 / 公众号四个平台的真实 LLM 生成，可编辑 / 审核 / 导出 JSON，provenance 标注 `mock` 或真实模型）。
+
 ---
 
 ## 快速开始
@@ -448,12 +490,15 @@ pnpm --filter @maoeh/web dev   # Web 控制台
 ### 运行测试
 
 ```bash
-pnpm typecheck          # 全部 32 个项目的 tsc --noEmit
+pnpm typecheck          # 全部 33 个项目的 tsc --noEmit
 pnpm lint               # ESLint 全仓
 pnpm architecture:check # 架构守卫 + dependency-cruiser 全仓巡航
 pnpm test               # 全部测试（unit + integration + simulation + acceptance）
 pnpm test:unit          # 仅单元测试
 pnpm test:integration   # 仅集成测试
+pnpm test:e2e           # E2E：控制台完整回路（console-loop）
+pnpm test:e2e:brief     # E2E：任务书 → 工作流链路（work-brief）
+pnpm test:e2e:create    # E2E：建司冒烟（create-company-smoke）
 ```
 
 ### LLM 配置
@@ -486,7 +531,7 @@ cp .env.example .env
 
 | 层 | 工具 | 强制内容 |
 |----|------|----------|
-| 依赖方向 | **dependency-cruiser**（[`.dependency-cruiser.mjs`](.dependency-cruiser.mjs)）| F1–F12 禁令 + 环禁令 |
+| 依赖方向 | **dependency-cruiser**（[`.dependency-cruiser.mjs`](.dependency-cruiser.mjs)）| F1–F13 禁令 + 环禁令 |
 | 导入边界 | **ESLint**（[`eslint.config.mjs`](eslint.config.mjs)）| provider SDK 单出口、`@maoeh/persistence` 白名单、`apps/web` 禁后端包 |
 | 结构守卫 | **Vitest**（[`tests/architecture/`](tests/architecture/)）| Registry↔目录双向一致、迁移冻结、A4 源码扫描、A5 结构启发式 |
 
@@ -529,6 +574,8 @@ QA 通过 → 发布 → 产出《项目复盘》+ 关系变化 + 技能成长 +
 
 这条路径一次性验证了：事件驱动、Agent 自主性、记忆影响决策、组织权限、流程可偏离、人在环路、失败与返工、以及成本核算。
 
+> 这条路径在 `main` 上是**可真实运行的七阶段闭环**（Planning → Publication，见上文「需求到发布 · 七阶段业务闭环」）——以真实 LLM、真实 Agent 调度、真实交付物与真实发布 URL 走完；赛博沙盘可作为任务书的前置澄清环节。
+
 ---
 
 ## 路线图 · 向 HAI 3.0 主动协作演进
@@ -538,6 +585,7 @@ HAI 1.0 被动响应 · 工具型智能体
 ─────────────────────────────────
 v0.1 · 活着的公司   ← 当前
   6 员工 · 组织内核 + Agent 运行时 + 记忆 + 权限 + 流程 + 决策 + 观测
+  需求 → 发布七阶段闭环落地（M1.x / M2.x / M3.1–M3.9，2026-11 全链路验收通过）
   人类作为"董事会"——看见、审批、注入事件
         ↓
 
@@ -582,12 +630,12 @@ v1.x · 有市场的生态
 
 ## 架构文档
 
-完整设计见 [`docs/architecture/`](docs/architecture/)。文档本身即**开发契约**。
+完整设计见 [`docs/architecture/`](docs/architecture/)（文档索引与权威级别：[`docs/architecture/README.md`](docs/architecture/README.md)）。文档本身即**开发契约**。
 
 | 文档 | 内容 |
 |------|------|
 | [ARCHITECTURE-BASELINE](docs/architecture/ARCHITECTURE-BASELINE.md) | **冻结基线（最高权威）**：17 节架构契约 + Architecture Change Process |
-| [Package Registry](docs/architecture/package-registry.md) | 28 包命名裁定、职责、公共 API、允许/禁止依赖、层归属 |
+| [Package Registry](docs/architecture/package-registry.md) | 29 包 + 4 应用命名裁定、职责、公共 API、允许/禁止依赖、层归属 |
 | [Dependency Graph](docs/architecture/dependency-graph.md) | 六层依赖方向、F1–F13 禁令、机器强制配置设计 |
 | [01-overview](docs/architecture/01-overview.md) | 五条公理、分层架构、命令/事件双通路、部署拓扑 |
 | [02-modules](docs/architecture/02-modules.md) | 核心模块职责边界、依赖方向硬规则、TypeScript 接口契约 |
@@ -597,7 +645,16 @@ v1.x · 有市场的生态
 | [06-mvp-scope](docs/architecture/06-mvp-scope.md) | 范围/不做清单、技术选型、8 周里程碑、12 条验收标准 |
 | [07-roadmap](docs/architecture/07-roadmap.md) | 组织演化、文化、多公司市场、工具生态、项目红线 |
 | [08-adr](docs/architecture/08-adr.md) | 关键架构决策 + 理由 + 备选方案 + 复审触发条件 |
+| [M1.0](docs/architecture/M1.0-organization-control-plane.md) · [M1.4](docs/architecture/M1.4-collaborative-work-orchestration.md) · [M1.5](docs/architecture/M1.5-identity-company-ownership.md) · [M1.6](docs/architecture/M1.6-position-authoring-capability-workflows.md) · [M1.7](docs/architecture/M1.7-llm-provider-config.md) · [M1.8](docs/architecture/M1.8-assignment-override-canvas.md) | M1.x 实现契约：控制平面 / 任务书编排 / 身份与公司所有权 / 岗位作者化与能力工作流生成 / LLM 接入与配置 / 改派画布 |
 | [M2.0-network-canvas-delivery-preview](docs/architecture/M2.0-network-canvas-delivery-preview.md) | 协同网络画布、3D 点缀、游戏/文档交付物预览的实现契约与验收 |
 | [M2.1-assignment-studio-delivery-package](docs/architecture/M2.1-assignment-studio-delivery-package.md) | 暗色改派工作室、交付包（游戏 / 文档 / 3D / 文件 / ZIP）的实现契约与验收 |
+| [M2.2](docs/architecture/M2.2-project-workspace-navigation.md) · [M2.3](docs/architecture/M2.3-preview-type-truth.md) · [M2.4](docs/architecture/M2.4-multi-agent-resilience-bilingual.md) | M2.x：项目与审批门 / 预览类型真相 / 多 Agent 韧性 + 双语文档交付 |
+| [M3.1](docs/architecture/M3.1-collaboration-event-protocol.md) · [M3.2](docs/architecture/M3.2-collaboration-theater.md) · [M3.3](docs/architecture/M3.3-requirements-orchestration.md) · [M3.4](docs/architecture/M3.4-plan-canvas-confirmation.md) · [M3.5](docs/architecture/M3.5-plan-execution.md) · [M3.6](docs/architecture/M3.6-delivery-approval.md) · [M3.7](docs/architecture/M3.7-promotion.md) · [M3.8](docs/architecture/M3.8-publication.md) · [M3.9](docs/architecture/M3.9-observability-events.md) | M3.x 实现契约：统一协作事件协议 / 协作剧场（SSE）/ 需求沙盘与编排 / 调整画布与人工确认 / 任务实施 / 交付审批 / 推广 / 发布 / 可观测性收尾 |
+
+> 验收报告与里程碑证据见 [`docs/competition/`](docs/competition/)（M2/M3 最终验收、七阶段全链路验收等，仅作历史证据，不是产品文档）。
 
 ---
+
+## 许可证
+
+[MIT](LICENSE) · Copyright (c) 2025–2026 MAOEH Contributors
