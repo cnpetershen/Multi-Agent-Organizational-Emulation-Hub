@@ -91,6 +91,10 @@ const PAGE_KEYS: Readonly<Record<Page, { readonly title: MessageKey; readonly la
  * with approvals unable to unpause it. It is now persisted per company, next to the session.
  */
 const SIDEBAR_COLLAPSED_KEY = 'maoeh.sidebar.collapsed';
+/**
+ * The rail collapses to a 78px icon strip. Remembered per browser, not per company: it is a
+ * workspace preference, and switching company must not flip the layout back.
+ */
 const readPersistedCollapsed = (): boolean => {
   try {
     return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
@@ -103,7 +107,7 @@ const persistCollapsed = (value: boolean): void => {
     if (value) window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, '1');
     else window.localStorage.removeItem(SIDEBAR_COLLAPSED_KEY);
   } catch {
-    /* private mode — the sidebar still collapses for this visit */
+    /* private mode — the rail still collapses for this visit */
   }
 };
 
@@ -135,6 +139,8 @@ export function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => readPersistedCollapsed());
   const heldRef = useRef(held);
+  /** True while `held` came from storage and has not yet been checked against the live runtime. */
+  const adoptRef = useRef(held);
   const setHeldBoth = useCallback((value: boolean): void => {
     heldRef.current = value;
     setHeld(value);
@@ -148,6 +154,9 @@ export function App() {
   const [sessionStatus, setSessionStatus] = useState<'checking' | 'gate' | 'ready'>(() =>
     readSession() === null ? 'gate' : 'checking',
   );
+  // Which face of the gate to open when the console hands control back: the landing hero, or
+  // the founder form directly (the footer's "New company" action).
+  const [gateIntent, setGateIntent] = useState<'hero' | 'create'>('hero');
   const activeOrganizationId = session?.organizationId ?? null;
   const sessionRef = useRef(session);
   sessionRef.current = session;
@@ -171,7 +180,9 @@ export function App() {
           setSession(refreshed);
         }
         // Reloading lost the gate-hold in memory: restore it from storage so approvals can
-        // actually resume the runtime instead of silently doing nothing.
+        // actually resume the runtime instead of silently doing nothing. The restore is marked
+        // as adopted so the reconciliation effect can drop it if the kernel is already running.
+        adoptRef.current = true;
         setHeldBoth(readPersistedHold(activeOrganizationId));
         setSessionStatus('ready');
       } catch {
@@ -190,16 +201,28 @@ export function App() {
     writeSession(next);
     setSession(next);
     setSessionStatus('ready');
+    setGateIntent('hero');
   }, []);
 
   const leaveCompany = useCallback((): void => {
     clearSession();
     setSession(null);
     setSessionStatus('gate');
+    setGateIntent('hero');
     setSidebarOpen(false);
     setFeedback(null);
     push('/');
   }, [push]);
+
+  /**
+   * "New company" from the console footer: leave the current company and land on the gate with
+   * the creation form already open. The gate is still the only place a company is founded — this
+   * only saves the founder from hunting for the entry in the first place.
+   */
+  const startNewCompany = useCallback((): void => {
+    leaveCompany();
+    setGateIntent('create');
+  }, [leaveCompany]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -280,6 +303,27 @@ export function App() {
   };
   const simulation = snapshot?.simulation ?? null;
   const connected = snapshotState.error === null && snapshot !== null;
+
+  /**
+   * Reconcile a hold that was restored from storage.
+   *
+   * The hold is a console-side flag persisted per company, so a tab that was closed while a gate
+   * was open reopens "held". If the gate has since been decided elsewhere — another page, another
+   * tab, or before this one loaded — the kernel is already running again, and keeping the flag
+   * left the banner telling the operator to go decide an approval that was already decided.
+   *
+   * Only a flag adopted from storage is reconciled (`adoptRef`), never one set by `beginHold` in
+   * this tab: that would race the pause command it is about to send.
+   */
+  useEffect(() => {
+    if (!adoptRef.current) return;
+    if (snapshot === null || simulation === null) return;
+    adoptRef.current = false;
+    if (simulation.paused) return;
+    const openGates = snapshot.workflows.filter((workflow) => isOpenApproval(workflow) && workflow['executionPlan'] !== true).length;
+    if (openGates === 0) setHeldBoth(false);
+  }, [snapshot, simulation, setHeldBoth]);
+
   const runtimeLabel = held ? t('shell.runtimeHeld') : simulation?.paused ? t('shell.runtimePaused') : t('shell.runtimeLive');
   const runtimeDescription = held ? t('shell.stateHeld') : simulation?.paused ? t('shell.statePaused') : t('shell.stateRunning');
   // The delivery route is part of the Deliverables section: the sidebar keeps highlighting it
@@ -290,7 +334,7 @@ export function App() {
 
   // Gate first: no entered company, no console. The splash only covers the brief moment a
   // stored session is being re-confirmed by the API.
-  if (sessionStatus === 'gate') return <Foundry onEntered={enterCompany} />;
+  if (sessionStatus === 'gate') return <Foundry onEntered={enterCompany} initialView={gateIntent === 'create' ? 'founder' : 'hero'} />;
   if (sessionStatus === 'checking') {
     return (
       <div className="foundry foundry-boot">
@@ -321,7 +365,7 @@ export function App() {
       </div>
       <div className="company-block"><span className="company-mark">{snapshot?.company.name.slice(0, 1) ?? 'C'}</span><div><strong>{snapshot?.company.name ?? t('app.companyFallback')}</strong><span>{t('app.tagline')}</span>{founderName !== '' && <span className="founder-line">{founderName}</span>}</div></div>
       <nav aria-label={t('nav.ariaLabel')}>{NAV_GROUPS.map((group) => <div className="nav-group" key={group.labelKey}><span className="nav-label">{t(group.labelKey)}</span>{group.items.map((item) => <button className={item === activeNav ? 'active' : ''} key={item} onClick={() => navigate(item)} title={t(PAGE_KEYS[item].title)} aria-label={t(PAGE_KEYS[item].title)}><span className={`nav-icon nav-${item.toLowerCase()}`} aria-hidden="true" /><span className="nav-text">{t(PAGE_KEYS[item].title)}</span>{item === 'Approvals' && <span className="nav-count" data-count={snapshot?.workflows.filter((workflow) => isOpenApproval(workflow) && workflow['executionPlan'] !== true).length || undefined} aria-hidden="true" />}</button>)}</div>)}</nav>
-      <div className="side-foot"><i className="connection-dot" data-connected={connected} /><span className="side-connection-text">{connected ? t('shell.connected') : t('shell.disconnected')}</span><span className={`side-runtime ${simulation?.paused || held ? 'paused' : 'running'}`}>{runtimeLabel}</span><button type="button" className="founder-switch" onClick={leaveCompany} title={t('foundry.switchCompany')}><span className="founder-switch-text">{t('foundry.switchCompany')}</span></button></div>
+      <div className="side-foot"><i className="connection-dot" data-connected={connected} /><span className="side-connection-text">{connected ? t('shell.connected') : t('shell.disconnected')}</span><span className={`side-runtime ${simulation?.paused || held ? 'paused' : 'running'}`}>{runtimeLabel}</span><button type="button" className="founder-switch" onClick={leaveCompany} title={t('foundry.switchCompany')}><span className="founder-switch-text">{t('foundry.switchCompany')}</span></button><button type="button" className="founder-switch founder-new" onClick={startNewCompany} title={t('foundry.newCompany')}><span className="founder-switch-text">{t('foundry.newCompany')}</span></button></div>
     </aside>
     <main>
       <header className="topbar"><div className="topbar-left"><button className="menu-toggle" type="button" onClick={() => setSidebarOpen(true)} aria-label={t('nav.openMenu')}>☰</button><div><p className="eyebrow">{snapshot?.company.name ?? t('app.eyebrowFallback')}</p><h1>{t(heading)}</h1></div></div><div className="topbar-right"><span className={`connection-status ${connected ? 'connected' : 'offline'}`}><i />{connected ? t('shell.statusConnected') : t('shell.statusOffline')}</span>{simulation !== null && <span className="runtime-status"><b>{runtimeDescription}</b><span>{t('shell.tick', { tick: simulation.tick })}</span></span>}<LanguageSwitch /><button type="button" className="topbar-refresh" onClick={snapshotRefresh}>{t('common.refresh')}</button></div></header>

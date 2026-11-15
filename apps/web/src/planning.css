@@ -521,3 +521,7 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Same three-card metric row as the other workbenches. */
+.planning-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:760px){.planning-stats{grid-template-columns:1fr}}

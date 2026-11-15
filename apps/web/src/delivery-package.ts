@@ -246,6 +246,22 @@ export interface DeliveryProject {
   readonly completed: number;
   readonly total: number;
   readonly state: DeliveryProjectState;
+  /** The brief this instance belongs to; several attempts of one brief share it. */
+  readonly correlationId: string;
+  /**
+   * Attempts of the same brief that delivered nothing — a failed or aborted run the operator
+   * should see as history, not as a second project card next to the delivery that worked.
+   */
+  readonly earlierAttempts: readonly DeliveryAttempt[];
+}
+
+/** One earlier attempt of the same brief, folded under the delivery that succeeded. */
+export interface DeliveryAttempt {
+  readonly instanceId: string;
+  readonly title: string;
+  readonly status: string;
+  readonly completed: number;
+  readonly total: number;
 }
 
 const finishedStatus = (status: string): boolean =>
@@ -370,6 +386,8 @@ export function deliveryProjects(
       completed: projectTasksList.filter((task) => task.completed).length,
       total: projectTasksList.length,
       state: projectState(gateOpen, projectTasksList),
+      correlationId: readString(workflow['correlationId'], ''),
+      earlierAttempts: [],
     });
   }
 
@@ -399,6 +417,8 @@ export function deliveryProjects(
       completed: parsed.filter((task) => task.completed).length,
       total: parsed.length,
       state: projectState(false, parsed),
+      correlationId: readString(memberTasks[0]?.['correlationId'], ''),
+      earlierAttempts: [],
     });
   }
 
@@ -422,6 +442,8 @@ export function deliveryProjects(
       completed: status.trim().toLowerCase() === 'completed' ? 1 : 0,
       total: 1,
       state: projectState(false, parsed),
+      correlationId: readString(task['correlationId'], ''),
+      earlierAttempts: [],
     });
   }
 
@@ -443,8 +465,57 @@ export function deliveryProjects(
   }
 
   const rank: Record<DeliveryProjectState, number> = { needAction: 0, running: 1, completed: 2 };
-  return [...byTitle.values()].sort((left, right) =>
+  return [...foldAttempts([...byTitle.values()])].sort((left, right) =>
     rank[left.state] - rank[right.state] || left.title.localeCompare(right.title));
+}
+
+/**
+ * One brief, several attempts: show the delivery that worked, not the failures beside it.
+ *
+ * The same brief can produce a failed or aborted instance and a later complete one — they share
+ * a `correlationId` and read as one project to the operator. Attempts that delivered nothing are
+ * folded into the best card of that brief and listed as "earlier attempts"; anything that did
+ * deliver keeps its own card (a hiring or promotion run is a separate project, not a retry).
+ */
+function foldAttempts(projects: readonly DeliveryProject[]): readonly DeliveryProject[] {
+  const groups = new Map<string, DeliveryProject[]>();
+  for (const project of projects) {
+    const key = project.correlationId === '' ? `instance:${project.instanceId}` : `correlation:${project.correlationId}`;
+    const list = groups.get(key);
+    if (list === undefined) groups.set(key, [project]);
+    else list.push(project);
+  }
+  const out: DeliveryProject[] = [];
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      out.push(group[0] as DeliveryProject);
+      continue;
+    }
+    const ranked = [...group].sort((left, right) =>
+      right.completed - left.completed
+      || right.total - left.total
+      || (left.state === 'completed' ? -1 : 1) - (right.state === 'completed' ? -1 : 1));
+    const best = ranked[0] as DeliveryProject;
+    const delivered = group.filter((project) => project.completed > 0 && project !== best);
+    const empty = group.filter((project) => project.completed === 0);
+    out.push(...delivered);
+    out.push(empty.length === 0
+      ? best
+      : {
+          ...best,
+          earlierAttempts: [
+            ...best.earlierAttempts,
+            ...empty.map((project): DeliveryAttempt => ({
+              instanceId: project.instanceId,
+              title: project.title,
+              status: project.status === '' ? project.state : project.status,
+              completed: project.completed,
+              total: project.total,
+            })),
+          ],
+        });
+  }
+  return out;
 }
 
 /** The task ids a package needs, so the page can fetch all records in one effect. */

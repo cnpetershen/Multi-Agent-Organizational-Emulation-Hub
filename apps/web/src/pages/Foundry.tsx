@@ -39,10 +39,10 @@ function localizedError(cause: unknown, t: (key: MessageKey) => string): string 
   return match === undefined ? message : t(ERROR_KEYS[match] as MessageKey);
 }
 
-export function Foundry({ onEntered }: { onEntered: (session: CompanySession) => void }) {
+export function Foundry({ onEntered, initialView = 'hero' }: { onEntered: (session: CompanySession) => void; initialView?: View }) {
   const { t } = useI18n();
   const ownership = useJson('/api/ownership', parseOwnership, 0);
-  const [view, setView] = useState<View>('hero');
+  const [view, setView] = useState<View>(initialView);
   const [founderName, setFounderName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [busy, setBusy] = useState(false);

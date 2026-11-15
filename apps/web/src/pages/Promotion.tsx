@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { messageOf, requestJson, type Row } from '../api';
 import { artifactContent, parseApprovalLists, parseExecutionReview, type ApprovalRecordView, type ExecutionReviewView } from '../approval';
-import { Empty, PageIntro, Panel, StatusPill } from '../components';
+import { Empty, PageIntro, Panel, StatCard, StatusPill } from '../components';
 import type { ConsoleControl } from '../control';
 import { useI18n } from '../i18n';
 import {
@@ -272,7 +272,7 @@ export function PromotionPage({ control }: { control: ConsoleControl }) {
   };
 
   return (
-    <div className="stack">
+    <div className="stack promotion-page">
       <PageIntro
         eyebrow={t('promotion.eyebrow')}
         title={t('page.promotion.title')}
@@ -281,9 +281,24 @@ export function PromotionPage({ control }: { control: ConsoleControl }) {
       />
       {notice !== null && <p className="promotion-notice" role="status">{notice}</p>}
       {error !== null && <p className="form-error" role="alert">{error}</p>}
-      <div className="promotion-layout">
-        <aside className="promotion-rail">
-          <Panel title={t('promotion.approvedPanel')} actions={<span className="muted">{t('promotion.approvedHint')}</span>}>
+      <div className="stat-grid workbench-stats">
+        <StatCard label={t('promotion.statApproved')} value={approved.length} detail={t('promotion.approvedHint')} tone="blue" />
+        <StatCard
+          label={t('promotion.statVersions')}
+          value={record?.versions.length ?? 0}
+          detail={current === null ? t('promotion.noVersions') : `v${String(current.version)} · ${current.status}`}
+          tone="neutral"
+        />
+        <StatCard
+          label={t('promotion.stateLabel')}
+          value={current === null ? t('promotion.notStarted') : current.status}
+          detail={t('promotion.notPublished')}
+          tone={current?.status === 'confirmed' ? 'green' : 'amber'}
+        />
+      </div>
+      <div className="workbench-grid">
+        <section className="workbench-rail">
+          <Panel title={t('promotion.approvedPanel')}>
             {approved.length === 0 ? (
               <Empty title={t('promotion.noApproved')} hint={t('promotion.noApprovedHint')} />
             ) : (
@@ -324,9 +339,9 @@ export function PromotionPage({ control }: { control: ConsoleControl }) {
               </div>
             )}
           </Panel>
-        </aside>
+        </section>
 
-        <main className="promotion-main">
+        <section className="workbench-main">
           {selectedExecution === null || review === null ? (
             <Empty title={t('promotion.selectSource')} hint={t('promotion.selectSourceHint')} />
           ) : (
@@ -446,7 +461,7 @@ export function PromotionPage({ control }: { control: ConsoleControl }) {
               )}
             </>
           )}
-        </main>
+        </section>
       </div>
     </div>
   );

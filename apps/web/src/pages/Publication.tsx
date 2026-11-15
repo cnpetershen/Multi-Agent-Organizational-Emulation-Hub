@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { messageOf, requestJson, type Row } from '../api';
-import { Empty, PageIntro, Panel } from '../components';
+import { Empty, PageIntro, Panel, StatCard } from '../components';
 import type { ConsoleControl } from '../control';
 import { useI18n } from '../i18n';
 import {
@@ -224,7 +224,7 @@ export function PublicationPage({ control }: { control: ConsoleControl }) {
   const latestAttempt = current?.attempts[current.attempts.length - 1] ?? null;
 
   return (
-    <div className="stack">
+    <div className="stack publication-page">
       <PageIntro
         eyebrow={t('publication.eyebrow')}
         title={t('page.publication.title')}
@@ -233,9 +233,24 @@ export function PublicationPage({ control }: { control: ConsoleControl }) {
       />
       {notice !== null && <p className="promotion-notice" role="status">{notice}</p>}
       {error !== null && <p className="form-error" role="alert">{error}</p>}
-      <div className="publication-layout">
-        <aside className="publication-rail">
-          <Panel title={t('publication.confirmedPanel')} actions={<span className="muted">{t('publication.confirmedHint')}</span>}>
+      <div className="stat-grid workbench-stats">
+        <StatCard label={t('publication.statConfirmed')} value={promotions.length} detail={t('publication.confirmedHint')} tone="blue" />
+        <StatCard
+          label={t('publication.statHistory')}
+          value={publications.length}
+          detail={current === null ? t('publication.notStarted') : `v${String(current.version)} · ${current.status}`}
+          tone="neutral"
+        />
+        <StatCard
+          label={t('publication.stateLabel')}
+          value={current === null ? t('publication.notStarted') : current.status}
+          detail={t('publication.localOnly')}
+          tone={current?.status === 'published' ? 'green' : 'amber'}
+        />
+      </div>
+      <div className="workbench-grid">
+        <section className="workbench-rail">
+          <Panel title={t('publication.confirmedPanel')}>
             {promotions.length === 0 ? (
               <Empty title={t('publication.noConfirmed')} hint={t('publication.noConfirmedHint')} />
             ) : (
@@ -260,9 +275,9 @@ export function PublicationPage({ control }: { control: ConsoleControl }) {
               </div>
             )}
           </Panel>
-        </aside>
+        </section>
 
-        <main className="publication-main">
+        <section className="workbench-main">
           {selectedPromotion === null ? (
             <Empty title={t('publication.selectPromotion')} hint={t('publication.selectPromotionHint')} />
           ) : record === null ? (
@@ -376,7 +391,7 @@ export function PublicationPage({ control }: { control: ConsoleControl }) {
               </div>
             </>
           )}
-        </main>
+        </section>
       </div>
     </div>
   );

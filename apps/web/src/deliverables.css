@@ -67,3 +67,11 @@
 .project-actions button{border:1px solid var(--border-strong);border-radius:5px;background:var(--surface);padding:5px 9px;color:var(--ink-soft);font:inherit;font-size:11.5px;cursor:pointer}
 .project-actions button:hover{background:var(--surface-subtle)}
 @media(max-width:700px){.project-list{padding:13px 14px}.project-card-head{flex-direction:column}.project-card-right{width:100%;justify-content:space-between}.project-contributor{grid-template-columns:1fr}.project-task-list li{flex-wrap:wrap}}
+
+/* --- Earlier attempts of the same brief, folded under the delivery --------- */
+.project-attempts{border-top:1px dashed var(--border,#e1e6eb);margin-top:12px;padding-top:10px;display:grid;gap:6px}
+.project-attempts ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.project-attempts li{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted,#71808f)}
+.project-attempts li span{color:#4a5560;font-weight:600;overflow-wrap:anywhere}
+.project-attempts li small{font-size:11px;letter-spacing:.03em;text-transform:uppercase}
+.deliverable-filter.hidden-toggle{margin-left:auto;font-weight:600}

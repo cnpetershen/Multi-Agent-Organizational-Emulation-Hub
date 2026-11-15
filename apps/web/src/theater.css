@@ -1,5 +1,5 @@
 /* ==========================================================================
-   M3.2 · 协作剧场 / Collaboration Theater.
+   M3.2 路 鍗忎綔鍓у満 / Collaboration Theater.
 
    The company as a working stage: a dark deck inside the console shell, the
    real employees on the left, the stream of real events in the middle, the
@@ -25,13 +25,13 @@
   gap: 14px;
   padding: 20px;
   border: 1px solid var(--th-line);
-  border-radius: 14px;
+  border-radius: 8px;
   color: var(--th-ink);
   background:
     radial-gradient(1000px 480px at 12% -8%, rgba(37, 133, 90, 0.16), transparent 60%),
     radial-gradient(760px 420px at 88% 0%, rgba(59, 92, 204, 0.16), transparent 62%),
     linear-gradient(180deg, #0b1218 0%, #080d12 100%);
-  box-shadow: 0 22px 60px rgba(8, 13, 18, 0.28);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.10);
 }
 
 .theater-page h2,
@@ -40,41 +40,62 @@
   margin: 0;
 }
 
-.theater-hero {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 18px;
-  flex-wrap: wrap;
-}
-
-.theater-kicker {
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  font-weight: 700;
-  color: var(--th-mint);
-}
-
-.theater-hero h2 {
-  margin-top: 4px;
-  font-size: 26px;
-  letter-spacing: -0.02em;
-}
-
-.theater-lede {
-  margin-top: 6px;
-  max-width: 620px;
-  color: var(--th-muted);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.theater-hero-state {
+/* The page header now lives on the console canvas (PageIntro), so the live state chips sit on a
+   light surface: same components, light palette. The dark palette below stays inside the deck. */
+.theater-status {
+  --th-muted: #71808f;
+  --th-faint: #9aa5b1;
+  --th-ink: #17202a;
+  --th-mint: #25855a;
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+}
+
+/* The live controls must not be squeezed onto a second line by a long description. */
+.theater-shell .page-intro-actions {
+  flex: 0 0 auto;
+}
+
+/* The metrics live on the deck, matching the Network canvas' dark metric strip. */
+.theater-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.theater-metric {
+  padding: 10px 12px;
+  border: 1px solid var(--th-line);
+  border-radius: 8px;
+  background: rgba(9, 15, 21, 0.55);
+  backdrop-filter: blur(8px);
+}
+
+.theater-metric b {
+  display: block;
+  color: #f4f8fb;
+  font-size: 22px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.theater-metric span {
+  display: block;
+  margin-top: 2px;
+  color: var(--th-muted);
+  font-size: 10.5px;
+  font-weight: 650;
+}
+
+.theater-metric small {
+  display: block;
+  margin-top: 3px;
+  color: var(--th-faint);
+  font-size: 9.5px;
+  line-height: 1.3;
 }
 
 .theater-live,
@@ -98,6 +119,15 @@
   height: 6px;
   border-radius: 50%;
   background: var(--th-faint);
+}
+
+/* On the light page header the same chips read as console status pills. */
+.theater-status .theater-live,
+.theater-status .theater-runtime,
+.theater-status .theater-tick,
+.theater-status .theater-hold {
+  background: var(--surface, #fff);
+  border-color: var(--border, #e2e6eb);
 }
 
 .theater-live-live {
@@ -164,7 +194,7 @@
 .theater-stages {
   border: 1px solid var(--th-line);
   background: rgba(11, 18, 25, 0.72);
-  border-radius: 11px;
+  border-radius: 8px;
   padding: 12px 14px;
   display: grid;
   gap: 10px;
@@ -253,7 +283,7 @@
 .theater-feed {
   border: 1px solid var(--th-line);
   background: rgba(11, 18, 25, 0.78);
-  border-radius: 11px;
+  border-radius: 8px;
   padding: 13px 14px;
   min-width: 0;
 }
@@ -393,7 +423,7 @@
   border: 1px solid var(--th-line);
   background: rgba(14, 23, 32, 0.6);
   color: var(--th-ink);
-  border-radius: 7px;
+  border-radius: 6px;
   padding: 7px 9px;
   font: inherit;
   cursor: pointer;

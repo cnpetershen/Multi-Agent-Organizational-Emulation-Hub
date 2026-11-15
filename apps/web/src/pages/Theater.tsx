@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { readString, requestJson, type Row } from '../api';
 import { simulationCommand } from '../commands';
-import { AgentAvatar } from '../components';
+import { AgentAvatar, PageIntro } from '../components';
 import type { ConsoleControl } from '../control';
 import { useI18n, type MessageKey } from '../i18n';
 import {
@@ -219,36 +219,42 @@ export function TheaterPage({ control }: { control: ConsoleControl }) {
     }
   };
 
-  return (
-    <div className="theater-page">
-      <div className="theater-hero">
-        <div>
-          <p className="theater-kicker">{t('theater.eyebrow')}</p>
-          <h2>{t('theater.title')}</h2>
-          <p className="theater-lede">{t('theater.description')}</p>
-        </div>
-        <div className="theater-hero-state">
-          <span className={`theater-live theater-live-${stream.status}`}>
-            <i /> {streamLabel}
-          </span>
-          <span className={`theater-runtime ${paused ? 'paused' : 'running'}`}>
-            {paused ? t('theater.runtime.paused') : t('theater.runtime.running')}
-          </span>
-          <button
-            type="button"
-            className="theater-control"
-            disabled={pending}
-            onClick={() => void toggleRuntime()}
-            data-testid="theater-runtime-toggle"
-          >
-            {paused ? t('theater.runtime.resume') : t('theater.runtime.pause')}
-          </button>
-          {control.held && <span className="theater-hold">{t('theater.runtime.hold')}</span>}
-          <span className="theater-tick">{t('theater.time', { sim: control.simTime })}</span>
-        </div>
-      </div>
+  const stagesProven = THEATER_STAGES.filter((entry) => (counts[entry] ?? 0) > 0).length;
 
-      <section className="theater-stages" aria-label={t('theater.stages.title')}>
+  return (
+    <div className="stack theater-shell">
+      <PageIntro
+        eyebrow={t('theater.eyebrow')}
+        title={t('theater.title')}
+        description={t('theater.description')}
+        actions={
+          <div className="theater-status">
+            <span className={`theater-live theater-live-${stream.status}`}>
+              <i /> {streamLabel}
+            </span>
+            <button
+              type="button"
+              className="theater-control"
+              disabled={pending}
+              onClick={() => void toggleRuntime()}
+              data-testid="theater-runtime-toggle"
+            >
+              {paused ? t('theater.runtime.resume') : t('theater.runtime.pause')}
+            </button>
+            {control.held && <span className="theater-hold">{t('theater.runtime.hold')}</span>}
+          </div>
+        }
+      />
+
+      <div className="theater-page">
+        {/* The canvas family (Network, Assignment canvas, Theater) keeps its metrics on the dark
+            deck, not as light cards above it. */}
+        <div className="theater-metrics">
+          <div className="theater-metric"><b>{counts.all}</b><span>{t('theater.stat.events')}</span><small>{t('theater.stat.eventsDetail')}</small></div>
+          <div className="theater-metric"><b>{control.snapshot.agents.length}</b><span>{t('theater.stat.agents')}</span><small>{t('theater.stat.agentsDetail')}</small></div>
+          <div className="theater-metric"><b>{stagesProven}/7</b><span>{t('theater.stat.stages')}</span><small>{t('theater.stat.stagesDetail')}</small></div>
+        </div>
+        <section className="theater-stages" aria-label={t('theater.stages.title')}>
         <div className="theater-stage-head">
           <h3>{t('theater.stages.title')}</h3>
           <span>{t('theater.stages.hint')}</span>
@@ -439,6 +445,7 @@ export function TheaterPage({ control }: { control: ConsoleControl }) {
             </ol>
           )}
         </section>
+      </div>
       </div>
     </div>
   );

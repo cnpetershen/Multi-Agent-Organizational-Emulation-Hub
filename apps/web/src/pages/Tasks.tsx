@@ -9,6 +9,7 @@ import { HiringTaskNote } from '../hiring-views';
 import { useJson } from '../hooks';
 import { useI18n } from '../i18n';
 import { statusLabel, taskStatus } from '../status';
+import { useTaskRecords } from '../useTaskRecords';
 
 function ctxOf(control: ConsoleControl): CommandContext { return { companyId: control.companyId, simTime: control.simTime }; }
 
@@ -63,6 +64,19 @@ export function TasksPage({ control }: { control: ConsoleControl }) {
   const active = rows.filter((row) => !['completed', 'cancelled'].includes(readString(row['statusCode'], ''))).length;
   const review = rows.filter((row) => readString(row['statusCode'], '') === 'review').length;
   const blocked = rows.filter((row) => ['blocked', 'failed'].includes(readString(row['statusCode'], ''))).length;
+  /**
+   * Work that reached a terminal non-success state. A rejected or failed step is a fact the log
+   * keeps: the workflow consumed it and aborted, so it cannot be resumed. The operator still
+   * needs a way forward, so the card carries the recorded reason and hands the same goal to the
+   * same seat as a new task.
+   */
+  const stuck = rows.filter((row) => ['rejected', 'failed'].includes(readString(row['status'], '').toLowerCase()));
+  /**
+   * The queue rows come from `/api/snapshot`, which carries no failure reason and no goal: both
+   * live only on the task record. Fetching the records for the terminal handful lets the panel
+   * quote the watchdog's own sentence and hand the original goal back to the seat.
+   */
+  const stuckRecords = useTaskRecords(stuck.map((row) => readString(row['taskId'], '')), control.refreshToken);
   /** Reassigning by capability is only possible on a task that declares capabilities to match. */
   const targetRow = reassignTarget === null ? null : rows.find((row) => readString(row['taskId'], '') === reassignTarget) ?? null;
   const targetHasSkills = targetRow === null ? false : declaredSkills(targetRow).length > 0;
@@ -97,6 +111,33 @@ export function TasksPage({ control }: { control: ConsoleControl }) {
       if (ok) { setTitle(''); setGoal(''); setDetail(''); setReason(''); if (byCapability) setSkills([]); }
     } finally { setBusy(false); }
   };
+  /**
+   * Hand a terminal step to the same seat as a fresh task.
+   *
+   * A rejected/failed task is a recorded fact: the workflow consumed it and its instance is
+   * aborted, so nothing can "resume" it. What the operator needs is the same goal back on the
+   * same seat with a new, auditable task — which is exactly `Organization.InjectTask`.
+   */
+  const retryStuck = async (row: Row): Promise<void> => {
+    const taskId = readString(row['taskId'], '');
+    const record = stuckRecords.records[taskId] ?? null;
+    const titleText = record?.title ?? readString(row['title'], t('common.untitledTask'));
+    const goalText = record?.goal ?? (readString(row['goal'], '') || titleText);
+    const seat = record?.positionId ?? readString(row['positionId'], '');
+    const failure = record?.rejectReason ?? record?.blockedReason ?? '';
+    setBusy(true);
+    try {
+      await control.run(
+        injectTask(ctxOf(control), {
+          title: titleText,
+          goal: goalText,
+          detail: `Retry of ${taskId} (${readString(row['status'], '')}).`,
+          ...(seat === '' ? {} : { positionId: seat }),
+        }, `retry of ${taskId} after ${readString(row['status'], '')}: ${failure === '' ? 'no reason recorded' : failure}`),
+        t('tasks.stuck.retried', { title: titleText }),
+      );
+    } finally { setBusy(false); }
+  };
   const confirmReassign = async (): Promise<void> => {
     if (reassignTarget === null) return;
     if (targetBlocked) {
@@ -123,6 +164,27 @@ export function TasksPage({ control }: { control: ConsoleControl }) {
   return <div className="stack">
     <PageIntro eyebrow={t('tasks.eyebrow')} title={t('page.tasks.title')} description={t('tasks.description')} actions={<button type="button" className="primary" onClick={() => control.navigate('Overview')}>{t('tasks.startBrief')}</button>} />
     <div className="stat-grid task-stats"><StatCard label={t('tasks.stat.active')} value={active} detail={t('tasks.stat.activeDetail', { count: snapshot.tasks.length })} tone="blue" /><StatCard label={t('tasks.stat.inReview')} value={review} detail={t('tasks.stat.inReviewDetail')} tone="amber" /><StatCard label={t('tasks.stat.attention')} value={blocked} detail={t('tasks.stat.attentionDetail')} tone={blocked > 0 ? 'amber' : 'green'} /></div>
+    {stuck.length > 0 && (
+      <Panel title={t('tasks.stuck.panel')} actions={<span className="muted">{t('tasks.stuck.hint')}</span>}>
+        <ul className="stuck-list">
+          {stuck.map((row) => {
+            const taskId = readString(row['taskId'], '');
+            const record = stuckRecords.records[taskId] ?? null;
+            const failure = record?.rejectReason ?? record?.blockedReason ?? t('tasks.stuck.noReason');
+            return (
+              <li key={taskId}>
+                <div className="stuck-copy">
+                  <b>{readString(row['title'], taskId)}</b>
+                  <small>{taskId} · {readString(row['status'], '')} · {readString(row['attempts'], '')}</small>
+                  <p>{failure}</p>
+                </div>
+                <button type="button" className="primary" disabled={busy} onClick={() => { void retryStuck(row); }}>{t('tasks.stuck.retry')}</button>
+              </li>
+            );
+          })}
+        </ul>
+      </Panel>
+    )}
     <Panel title={t('tasks.create.panel')} actions={<span className="muted">{t('tasks.create.hint')}</span>}>
       <div className="task-intake">
         <div>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { messageOf, readString, requestJson, type Row } from '../api';
-import { Empty, PageIntro, Panel, StatusPill } from '../components';
+import { Empty, PageIntro, Panel, StatCard, StatusPill } from '../components';
 import type { ConsoleControl } from '../control';
 import { useI18n, type MessageKey } from '../i18n';
 import {
@@ -329,6 +329,8 @@ export function PlanningPage({ control }: { control: ConsoleControl }) {
     }
   };
 
+  const confirmedRequirements = requirements.filter((entry) => entry.status === 'confirmed').length;
+
   return (
     <div className="planning-page">
       <PageIntro
@@ -336,6 +338,28 @@ export function PlanningPage({ control }: { control: ConsoleControl }) {
         title={t('planning.title')}
         description={t('planning.description')}
       />
+
+      {/* Same three-card metric row as the other workbenches (Promotion, Publication). */}
+      <div className="stat-grid planning-stats">
+        <StatCard
+          label={t('planning.stat.requirements')}
+          value={requirements.length}
+          detail={t('planning.stat.requirementsDetail', { count: confirmedRequirements })}
+          tone="blue"
+        />
+        <StatCard
+          label={t('planning.stat.sessions')}
+          value={sessions.length}
+          detail={t('planning.stat.sessionsDetail')}
+          tone="neutral"
+        />
+        <StatCard
+          label={t('planning.stat.nodes')}
+          value={orchestration === null ? 0 : orchestration.nodes.length}
+          detail={orchestration === null ? t('planning.stat.nodesNone') : t('planning.stat.nodesDetail', { count: orchestration.nodes.length })}
+          tone={orchestration !== null && orchestration.status === 'ready' ? 'green' : 'amber'}
+        />
+      </div>
 
       {error !== null && <div className="planning-error" role="alert">{error}</div>}
 

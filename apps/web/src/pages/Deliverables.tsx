@@ -100,10 +100,14 @@ function ContributorRow({
 function ProjectCard({
   control,
   project,
+  hidden,
+  onHide,
   onDelete,
 }: {
   readonly control: ConsoleControl;
   readonly project: DeliveryProject;
+  readonly hidden: boolean;
+  readonly onHide: (() => void) | null;
   readonly onDelete: (task: DeliveryProjectTask, hasWorkflow: boolean) => void;
 }) {
   const { t } = useI18n();
@@ -126,6 +130,11 @@ function ProjectCard({
         </div>
         <div className="project-card-right">
           <StatusPill value={state.tone} label={t(state.labelKey)} />
+          {onHide !== null && (
+            <button type="button" className="link" onClick={onHide}>
+              {hidden ? t('deliverables.hidden.show') : t('deliverables.hidden.hide')}
+            </button>
+          )}
           {project.anchorTaskId !== null && (
             <button type="button" className="primary" onClick={() => control.openResults(project.anchorTaskId as string)}>
               {t('deliverables.project.open')}
@@ -165,6 +174,20 @@ function ProjectCard({
         )}
       </div>
 
+      {project.earlierAttempts.length > 0 && (
+        <div className="project-attempts">
+          <span className="field-label">{t('deliverables.project.attempts')}</span>
+          <ul>
+            {project.earlierAttempts.map((attempt) => (
+              <li key={attempt.instanceId}>
+                <span>{attempt.title}</span>
+                <small>{t('deliverables.project.attemptMeta', { status: attempt.status, done: attempt.completed, total: attempt.total })}</small>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {project.gateOpen && (
         <div className="project-actions">
           <button type="button" onClick={() => control.navigate('Approvals')}>{t('deliverables.card.decide')}</button>
@@ -177,19 +200,47 @@ function ProjectCard({
 export function DeliverablesPage({ control }: { control: ConsoleControl }) {
   const { t } = useI18n();
   const [filter, setFilter] = useState<Filter>('all');
+  /**
+   * "Hide" is a view preference, not a fact: it never touches the event log or the kernel. Only
+   * projects that delivered nothing can be hidden, so a real delivery can never disappear from
+   * the workspace; the toggle brings them back.
+   */
+  const hiddenKey = `maoeh.hidden.${control.companyId}`;
+  const [hidden, setHidden] = useState<readonly string[]>(() => {
+    try {
+      const raw = window.localStorage.getItem(`maoeh.hidden.${control.companyId}`);
+      const parsed: unknown = raw === null ? [] : JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === 'string') : [];
+    } catch {
+      return [];
+    }
+  });
+  const [showHidden, setShowHidden] = useState(false);
+  const toggleHidden = (instanceId: string, hide: boolean): void => {
+    const next = hide ? [...new Set([...hidden, instanceId])] : hidden.filter((entry) => entry !== instanceId);
+    setHidden(next);
+    try {
+      window.localStorage.setItem(hiddenKey, JSON.stringify(next));
+    } catch {
+      /* private mode — the choice lasts for this visit only */
+    }
+  };
   // The workflows endpoint carries the stage, the step progress and the gate state the project
   // blocks show; the snapshot remains the fallback so the workspace renders before it answers.
   const workflows = useJson('/api/workflows', parseRows, control.refreshToken);
   const workflowRows = workflows.data ?? control.snapshot.workflows;
   const projects = deliveryProjects(control.snapshot.tasks, workflowRows);
+  const hiddenIds = new Set(hidden);
+  const hiddenCount = projects.filter((project) => hiddenIds.has(project.instanceId)).length;
+  const active = projects.filter((project) => showHidden || !hiddenIds.has(project.instanceId));
   const countOf = (state: DeliveryProjectState): number =>
-    projects.filter((project) => project.state === state).length;
+    active.filter((project) => project.state === state).length;
   const counts = {
     running: countOf('running'),
     needAction: countOf('needAction'),
     completed: countOf('completed'),
   };
-  const visible = filter === 'all' ? projects : projects.filter((project) => project.state === filter);
+  const visible = filter === 'all' ? active : active.filter((project) => project.state === filter);
 
   const remove = async (task: DeliveryProjectTask, hasWorkflow: boolean): Promise<void> => {
     if (task.taskId === '') return;
@@ -208,7 +259,7 @@ export function DeliverablesPage({ control }: { control: ConsoleControl }) {
 
     <Panel
       title={t('deliverables.projects.panel')}
-      actions={<span className="muted">{t('deliverables.projects.hint', { count: projects.length })}</span>}
+      actions={<span className="muted">{t('deliverables.projects.hint', { count: active.length })}</span>}
     >
       <div className="deliverable-filters" role="tablist" aria-label={t('deliverables.projects.panel')}>
         {FILTERS.map((entry) => (
@@ -220,23 +271,41 @@ export function DeliverablesPage({ control }: { control: ConsoleControl }) {
             key={entry}
             onClick={() => setFilter(entry)}
           >
-            {t(FILTER_KEYS[entry])}<b>{entry === 'all' ? projects.length : counts[entry]}</b>
+            {t(FILTER_KEYS[entry])}<b>{entry === 'all' ? active.length : counts[entry]}</b>
           </button>
         ))}
+        {hiddenCount > 0 && (
+          <button
+            type="button"
+            className={`deliverable-filter hidden-toggle${showHidden ? ' active' : ''}`}
+            aria-pressed={showHidden}
+            onClick={() => setShowHidden((value) => !value)}
+          >
+            {t('deliverables.hidden.toggle', { count: hiddenCount })}
+          </button>
+        )}
       </div>
-      {projects.length === 0
+      {active.length === 0
         ? <Empty title={t('deliverables.workspace.empty')} hint={t('deliverables.workspace.emptyHint')} />
         : visible.length === 0
           ? <Empty title={t('deliverables.workspace.noneInFilter')} hint={t('deliverables.workspace.noneInFilterHint')} />
           : <div className="project-list">
-              {visible.map((project) => (
-                <ProjectCard
-                  key={project.instanceId}
-                  control={control}
-                  project={project}
-                  onDelete={(task, hasWorkflow) => void remove(task, hasWorkflow)}
-                />
-              ))}
+              {visible.map((project) => {
+                const isHidden = hiddenIds.has(project.instanceId);
+                // Only empty projects get the affordance: a delivery must never be one click
+                // away from disappearing from the workspace.
+                const canHide = !project.standalone && (project.completed === 0 || isHidden);
+                return (
+                  <ProjectCard
+                    key={project.instanceId}
+                    control={control}
+                    project={project}
+                    hidden={isHidden}
+                    onHide={canHide ? () => toggleHidden(project.instanceId, !isHidden) : null}
+                    onDelete={(task, hasWorkflow) => void remove(task, hasWorkflow)}
+                  />
+                );
+              })}
             </div>}
     </Panel>
   </div>;

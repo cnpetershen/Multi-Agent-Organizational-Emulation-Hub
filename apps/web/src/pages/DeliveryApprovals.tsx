@@ -130,10 +130,13 @@ export function DeliveryApprovalsPage({ control }: { control: ConsoleControl }) 
       if (decided.execution !== undefined) setReview(parseExecutionReview({ execution: decided.execution, plan: review.plan, history: [] }));
       await loadLists();
       await openReview(review.execution.executionId);
+      // A delivery gate can be the very gate the console is holding the runtime for. Deciding it
+      // here must release that hold, or the banner keeps asking for a decision already made.
+      const resumed = await control.releaseHold(true);
       control.setFeedback({
         kind: 'success',
         title: t(`deliveryApproval.done.${action}` as MessageKey),
-        detail: reason.trim() === '' ? null : reason.trim(),
+        detail: resumed ? t('approvals.resumedDetail') : reason.trim() === '' ? null : reason.trim(),
       });
       setReason('');
     } catch (cause) {

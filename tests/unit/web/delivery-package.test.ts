@@ -193,3 +193,70 @@ describe('delivery package', () => {
   });
 });
 
+
+/**
+ * One brief can be attempted twice: a run that stalled and a later one that delivered. The
+ * workspace must read as one project with history, not as two cards where the operator cannot
+ * tell which one is the real delivery.
+ */
+describe('one brief, several attempts', () => {
+  const brief = 'ui-brief-1';
+  const projectTask = (taskId: string, instanceId: string, status: string): Row => ({
+    taskId,
+    title: 'Product Requirement',
+    status,
+    workflowInstanceId: instanceId,
+    assigneeEmployeeId: 'business-analyst-hire',
+    positionId: 'business-analyst',
+    attempt: 1,
+    maxAttempts: 1,
+  });
+  const projectWorkflow = (instanceId: string, title: string, status: string, taskId: string): Row => ({
+    instanceId,
+    title,
+    status,
+    correlationId: brief,
+    steps: [{ stepId: 'step-1', name: 'Product Requirement' }],
+    stepStates: [{ stepId: 'step-1', status: status === 'completed' ? 'done' : 'rejected', taskId }],
+    approval: null,
+  });
+
+  it('folds an attempt that delivered nothing under the delivery that worked', () => {
+    const projects = deliveryProjects(
+      [projectTask('task-ok', 'instance-ok', 'completed'), projectTask('task-bad', 'instance-bad', 'rejected')],
+      [
+        projectWorkflow('instance-ok', 'SLA remediation workflow', 'completed', 'task-ok'),
+        projectWorkflow('instance-bad', 'SLA remediation', 'aborted', 'task-bad'),
+      ],
+    );
+    expect(projects).toHaveLength(1);
+    expect(projects[0]?.instanceId).toBe('instance-ok');
+    expect(projects[0]?.earlierAttempts).toHaveLength(1);
+    expect(projects[0]?.earlierAttempts[0]?.instanceId).toBe('instance-bad');
+    expect(projects[0]?.earlierAttempts[0]?.completed).toBe(0);
+  });
+
+  it('never folds an attempt that delivered something of its own', () => {
+    const projects = deliveryProjects(
+      [projectTask('task-a', 'instance-a', 'completed'), projectTask('task-b', 'instance-b', 'completed')],
+      [
+        projectWorkflow('instance-a', 'Hiring follow-up', 'completed', 'task-a'),
+        projectWorkflow('instance-b', 'Promotion follow-up', 'completed', 'task-b'),
+      ],
+    );
+    expect(projects).toHaveLength(2);
+    expect(projects.every((project) => project.earlierAttempts.length === 0)).toBe(true);
+  });
+
+  it('keeps projects of different briefs apart even when nothing was delivered', () => {
+    const other = projectWorkflow('instance-x', 'Another brief', 'aborted', 'task-x');
+    const projects = deliveryProjects(
+      [projectTask('task-ok', 'instance-ok', 'completed'), projectTask('task-x', 'instance-x', 'rejected')],
+      [
+        projectWorkflow('instance-ok', 'SLA remediation workflow', 'completed', 'task-ok'),
+        { ...other, correlationId: 'ui-brief-2', stepStates: [{ stepId: 'step-1', status: 'rejected', taskId: 'task-x' }] },
+      ],
+    );
+    expect(projects).toHaveLength(2);
+  });
+});

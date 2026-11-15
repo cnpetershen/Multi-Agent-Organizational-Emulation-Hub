@@ -19,6 +19,7 @@
     "title": "Create Your AI Company",
     "subtitle": "Name the founder, name the company, and MAOEH stands up the organization: a CEO first, then every AI employee you hire.",
     "createCta": "Create my AI company",
+    "newCompany": "New company",
     "signIn": "Sign in",
     "howTitle": "Three steps to your own AI company",
     "step1": "Founder",
@@ -588,6 +589,13 @@
       "reasonHint": "Why this direct dispatch exists — written to the audit trail",
       "reasonPlaceholder": "the board asked for it before the next brief"
     },
+    "stuck": {
+      "panel": "Rejected or failed work",
+      "hint": "A terminal step aborts its workflow; retry hands the same goal to the same seat as a new task.",
+      "retry": "Retry this step",
+      "retried": "Retry dispatched: {title}",
+      "noReason": "No reason was recorded for this failure."
+    },
     "queue": {
       "panel": "Work queue",
       "hint": "{count} tasks · live from Runtime",
@@ -654,7 +662,14 @@
       "empty": "No tasks in this project yet",
       "emptyHint": "The workflow will add tasks as its steps enter.",
       "open": "Open delivery",
-      "openTask": "Open"
+      "openTask": "Open",
+      "attempts": "Earlier attempts of this brief",
+      "attemptMeta": "{status} · {done}/{total} delivered"
+    },
+    "hidden": {
+      "toggle": "Show hidden ({count})",
+      "hide": "Hide",
+      "show": "Restore"
     },
     "workspace": {
       "panel": "Active tasks",
@@ -1306,9 +1321,18 @@
   },
   "planning": {
     "eyebrow": "PLANNING STUDIO",
-    "title": "Requirements sandbox → agent orchestration",
+    "title": "Requirements sandbox",
     "description": "Turn a business goal into a confirmed requirement, then into an editable workflow draft built from the company's real employees and capabilities. Nothing starts here.",
     "untitled": "Untitled requirement",
+    "stat": {
+      "requirements": "Requirements",
+      "requirementsDetail": "{count} confirmed",
+      "sessions": "Sandbox sessions",
+      "sessionsDetail": "real transcripts, not scripts",
+      "nodes": "Planned nodes",
+      "nodesNone": "no orchestration yet",
+      "nodesDetail": "{count} nodes in the current draft"
+    },
     "list": {
       "title": "Requirements",
       "new": "New",
@@ -1570,6 +1594,9 @@
     "eyebrow": "PROMOTION · M3.7",
     "description": "Turn an approved delivery into a versioned promotion plan. Confirmation means ready for the release stage, never published.",
     "count": "{count} approved deliveries",
+    "stateLabel": "Current state",
+    "statApproved": "Approved",
+    "statVersions": "Versions",
     "approvedPanel": "Approved sources",
     "approvedHint": "M3.6 approved only",
     "noApproved": "No approved delivery yet",
@@ -1637,6 +1664,9 @@
     "eyebrow": "PUBLICATION · M3.8",
     "description": "Publish only a human-confirmed promotion plan. This installation publishes a real local page and manifest; external platforms have no connector and are never faked.",
     "count": "{count} confirmed promotions",
+    "stateLabel": "Current state",
+    "statConfirmed": "Confirmed",
+    "statHistory": "History",
     "confirmedPanel": "Confirmed promotions",
     "confirmedHint": "M3.7 confirmed only",
     "noConfirmed": "No confirmed promotion",
@@ -1715,6 +1745,14 @@
       "idle": "Available for work",
       "working": "Current work",
       "paused": "Paused by the operator"
+    },
+    "stat": {
+      "events": "Events in view",
+      "eventsDetail": "from the company's own log",
+      "agents": "Agents on duty",
+      "agentsDetail": "real employees, not roles",
+      "stages": "Stages proven",
+      "stagesDetail": "of the seven business stages"
     },
     "stages": {
       "title": "Business stages",

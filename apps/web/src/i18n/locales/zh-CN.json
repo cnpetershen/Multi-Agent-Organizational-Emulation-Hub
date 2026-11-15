@@ -19,6 +19,7 @@
     "title": "创建你的 AI 公司",
     "subtitle": "写下创始人，起一个公司名，MAOEH 就会为你组建组织：先有一位 CEO，再由你招募每一位 AI 员工。",
     "createCta": "创建我的 AI 公司",
+    "newCompany": "新建公司",
     "signIn": "登录",
     "howTitle": "三步拥有你自己的 AI 公司",
     "step1": "创始人",
@@ -588,6 +589,13 @@
       "reasonHint": "这次直接派发的缘由 — 将写入审计轨迹",
       "reasonPlaceholder": "董事会要求在下一份任务书之前先做"
     },
+    "stuck": {
+      "panel": "被拒绝 / 失败的工作",
+      "hint": "终态步骤会中止它所在的工作流；重试会把同一个目标作为新任务派给同一个岗位。",
+      "retry": "重试这一步",
+      "retried": "已重新派发：{title}",
+      "noReason": "这次失败没有记录原因。"
+    },
     "queue": {
       "panel": "工作队列",
       "hint": "{count} 个任务 · 实时来自运行时",
@@ -654,7 +662,14 @@
       "empty": "这个项目还没有任务",
       "emptyHint": "工作流步骤进入后会在这里生成任务。",
       "open": "打开交付",
-      "openTask": "打开"
+      "openTask": "打开",
+      "attempts": "这个事项先前的尝试",
+      "attemptMeta": "{status} · 已交付 {done}/{total}"
+    },
+    "hidden": {
+      "toggle": "显示已隐藏（{count}）",
+      "hide": "隐藏",
+      "show": "恢复显示"
     },
     "workspace": {
       "panel": "进行中的任务",
@@ -1306,9 +1321,18 @@
   },
   "planning": {
     "eyebrow": "规划工作室",
-    "title": "需求沙盘 → 智能体编排",
+    "title": "需求沙盘",
     "description": "把一个真实业务目标变成已确认的需求，再由公司真实员工与能力生成可编辑的工作流草案。这里不会启动任何工作。",
     "untitled": "未命名需求",
+    "stat": {
+      "requirements": "需求",
+      "requirementsDetail": "已确认 {count} 条",
+      "sessions": "沙盘会话",
+      "sessionsDetail": "真实对话，不是脚本",
+      "nodes": "编排节点",
+      "nodesNone": "还没有编排",
+      "nodesDetail": "当前草案共 {count} 个节点"
+    },
     "list": {
       "title": "需求",
       "new": "新建",
@@ -1570,6 +1594,9 @@
     "eyebrow": "推广 · M3.7",
     "description": "把已批准交付转成可版本化的推广方案。确认只表示可以交给发布阶段，绝不等于已经发布。",
     "count": "{count} 个已批准交付",
+    "stateLabel": "当前状态",
+    "statApproved": "已批准",
+    "statVersions": "版本",
     "approvedPanel": "已批准来源",
     "approvedHint": "仅 M3.6 已批准",
     "noApproved": "暂无已批准交付",
@@ -1637,6 +1664,9 @@
     "eyebrow": "发布 · M3.8",
     "description": "只发布人工确认的推广方案。本安装执行真实的本地页面与清单发布；外部平台没有连接器，绝不伪造发布成功。",
     "count": "{count} 个已确认推广方案",
+    "stateLabel": "当前状态",
+    "statConfirmed": "已确认",
+    "statHistory": "历史",
     "confirmedPanel": "已确认推广方案",
     "confirmedHint": "仅 M3.7 confirmed",
     "noConfirmed": "暂无已确认推广方案",
@@ -1715,6 +1745,14 @@
       "idle": "可接受工作",
       "working": "当前工作",
       "paused": "已被操作员暂停"
+    },
+    "stat": {
+      "events": "当前事件",
+      "eventsDetail": "全部来自公司自己的事件日志",
+      "agents": "在岗员工",
+      "agentsDetail": "真实员工，不是岗位占位",
+      "stages": "已证实阶段",
+      "stagesDetail": "共七个业务阶段"
     },
     "stages": {
       "title": "业务阶段",
