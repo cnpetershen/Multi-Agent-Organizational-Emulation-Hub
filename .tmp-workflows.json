@@ -1,0 +1,901 @@
+[
+  {
+    "instanceId": "instance-1",
+    "workflowId": "hire-gate",
+    "title": "Hire Agent Engineer for agent-engineer",
+    "status": "completed",
+    "stageId": "stage-hire",
+    "activeStepIds": [],
+    "blockedReason": null,
+    "paused": false,
+    "startedAtSim": 327,
+    "completedAtSim": 327,
+    "eventCount": 0,
+    "approval": {
+      "stepId": "step-hire-approval",
+      "status": "granted",
+      "requiredCount": 1,
+      "grantedBy": [
+        "ceo-alex"
+      ]
+    },
+    "goal": "No staffed seat and no staffed manager can carry implementation: fill seat \"agent-engineer\" so the workflow proposed next has an executor.",
+    "correlationId": "ui-1794572762204-2",
+    "initiatedBy": "ceo-alex",
+    "stepStates": [
+      {
+        "stepId": "step-hire-approval",
+        "status": "done",
+        "taskId": null
+      }
+    ],
+    "steps": [
+      {
+        "stepId": "step-hire-approval",
+        "stageId": "stage-hire",
+        "stageName": "Root approval",
+        "name": "Approve the hiring request",
+        "description": null,
+        "kind": "approval",
+        "status": "done",
+        "taskId": null,
+        "assigneeEmployeeId": "ceo-alex",
+        "assigneePositionId": "ceo",
+        "capability": null,
+        "assignment": null,
+        "requiredRoles": [
+          "ceo",
+          "board-operator"
+        ],
+        "requiredAuthority": null,
+        "overridden": false
+      }
+    ],
+    "assignmentOverrides": {},
+    "draft": false
+  },
+  {
+    "instanceId": "instance-2",
+    "workflowId": "hire-gate",
+    "title": "Hire AI Researcher for ai-researcher",
+    "status": "completed",
+    "stageId": "stage-hire",
+    "activeStepIds": [],
+    "blockedReason": null,
+    "paused": false,
+    "startedAtSim": 327,
+    "completedAtSim": 327,
+    "eventCount": 0,
+    "approval": {
+      "stepId": "step-hire-approval",
+      "status": "granted",
+      "requiredCount": 1,
+      "grantedBy": [
+        "ceo-alex"
+      ]
+    },
+    "goal": "No staffed seat and no staffed manager can carry technical_design: fill seat \"ai-researcher\" so the workflow proposed next has an executor.",
+    "correlationId": "ui-1794572762204-2",
+    "initiatedBy": "ceo-alex",
+    "stepStates": [
+      {
+        "stepId": "step-hire-approval",
+        "status": "done",
+        "taskId": null
+      }
+    ],
+    "steps": [
+      {
+        "stepId": "step-hire-approval",
+        "stageId": "stage-hire",
+        "stageName": "Root approval",
+        "name": "Approve the hiring request",
+        "description": null,
+        "kind": "approval",
+        "status": "done",
+        "taskId": null,
+        "assigneeEmployeeId": "ceo-alex",
+        "assigneePositionId": "ceo",
+        "capability": null,
+        "assignment": null,
+        "requiredRoles": [
+          "ceo",
+          "board-operator"
+        ],
+        "requiredAuthority": null,
+        "overridden": false
+      }
+    ],
+    "assignmentOverrides": {},
+    "draft": false
+  },
+  {
+    "instanceId": "instance-3",
+    "workflowId": "hire-gate",
+    "title": "Hire Business Analyst for business-analyst",
+    "status": "completed",
+    "stageId": "stage-hire",
+    "activeStepIds": [],
+    "blockedReason": null,
+    "paused": false,
+    "startedAtSim": 327,
+    "completedAtSim": 327,
+    "eventCount": 0,
+    "approval": {
+      "stepId": "step-hire-approval",
+      "status": "granted",
+      "requiredCount": 1,
+      "grantedBy": [
+        "ceo-alex"
+      ]
+    },
+    "goal": "No staffed seat and no staffed manager can carry product_requirement: fill seat \"business-analyst\" so the workflow proposed next has an executor.",
+    "correlationId": "ui-1794572762204-2",
+    "initiatedBy": "ceo-alex",
+    "stepStates": [
+      {
+        "stepId": "step-hire-approval",
+        "status": "done",
+        "taskId": null
+      }
+    ],
+    "steps": [
+      {
+        "stepId": "step-hire-approval",
+        "stageId": "stage-hire",
+        "stageName": "Root approval",
+        "name": "Approve the hiring request",
+        "description": null,
+        "kind": "approval",
+        "status": "done",
+        "taskId": null,
+        "assigneeEmployeeId": "ceo-alex",
+        "assigneePositionId": "ceo",
+        "capability": null,
+        "assignment": null,
+        "requiredRoles": [
+          "ceo",
+          "board-operator"
+        ],
+        "requiredAuthority": null,
+        "overridden": false
+      }
+    ],
+    "assignmentOverrides": {},
+    "draft": false
+  },
+  {
+    "instanceId": "instance-4",
+    "workflowId": "hire-gate",
+    "title": "Hire QA Engineer for qa",
+    "status": "completed",
+    "stageId": "stage-hire",
+    "activeStepIds": [],
+    "blockedReason": null,
+    "paused": false,
+    "startedAtSim": 327,
+    "completedAtSim": 327,
+    "eventCount": 0,
+    "approval": {
+      "stepId": "step-hire-approval",
+      "status": "granted",
+      "requiredCount": 1,
+      "grantedBy": [
+        "ceo-alex"
+      ]
+    },
+    "goal": "No staffed seat and no staffed manager can carry testing: fill seat \"qa\" so the workflow proposed next has an executor.",
+    "correlationId": "ui-1794572762204-2",
+    "initiatedBy": "ceo-alex",
+    "stepStates": [
+      {
+        "stepId": "step-hire-approval",
+        "status": "done",
+        "taskId": null
+      }
+    ],
+    "steps": [
+      {
+        "stepId": "step-hire-approval",
+        "stageId": "stage-hire",
+        "stageName": "Root approval",
+        "name": "Approve the hiring request",
+        "description": null,
+        "kind": "approval",
+        "status": "done",
+        "taskId": null,
+        "assigneeEmployeeId": "ceo-alex",
+        "assigneePositionId": "ceo",
+        "capability": null,
+        "assignment": null,
+        "requiredRoles": [
+          "ceo",
+          "board-operator"
+        ],
+        "requiredAuthority": null,
+        "overridden": false
+      }
+    ],
+    "assignmentOverrides": {},
+    "draft": false
+  },
+  {
+    "instanceId": "res-brief-1",
+    "workflowId": "generated-res-brief-1",
+    "title": "自媒体 \"一鱼多吃\" 多模态内容一键生成看板",
+    "status": "completed",
+    "stageId": "stage-approve",
+    "activeStepIds": [],
+    "blockedReason": null,
+    "paused": false,
+    "startedAtSim": 328,
+    "completedAtSim": 330,
+    "eventCount": 0,
+    "approval": {
+      "stepId": "step-approve",
+      "status": "granted",
+      "requiredCount": 1,
+      "grantedBy": [
+        "ceo-alex"
+      ]
+    },
+    "goal": "基于一份原始素材自动生成多平台、多模态内容资产，支持可视化审核与微调，降低自媒体跨平台创作成本",
+    "correlationId": "ui-1794572762204-2",
+    "initiatedBy": "ceo-alex",
+    "stepStates": [
+      {
+        "stepId": "step-1",
+        "status": "done",
+        "taskId": "task-1"
+      },
+      {
+        "stepId": "step-approve",
+        "status": "done",
+        "taskId": null
+      }
+    ],
+    "steps": [
+      {
+        "stepId": "step-1",
+        "stageId": "stage-1",
+        "stageName": "Implementation",
+        "name": "Implementation",
+        "description": null,
+        "kind": "task",
+        "status": "done",
+        "taskId": "task-1",
+        "assigneeEmployeeId": "agent-engineer-hire",
+        "assigneePositionId": "agent-engineer",
+        "capability": "implementation",
+        "assignment": {
+          "kind": "position",
+          "positionId": "agent-engineer"
+        },
+        "requiredRoles": [],
+        "requiredAuthority": null,
+        "overridden": false
+      },
+      {
+        "stepId": "step-approve",
+        "stageId": "stage-approve",
+        "stageName": "Approval",
+        "name": "Approve generated delivery",
+        "description": null,
+        "kind": "approval",
+        "status": "done",
+        "taskId": null,
+        "assigneeEmployeeId": "ceo-alex",
+        "assigneePositionId": "ceo",
+        "capability": null,
+        "assignment": null,
+        "requiredRoles": [
+          "ceo"
+        ],
+        "requiredAuthority": null,
+        "overridden": false
+      }
+    ],
+    "assignmentOverrides": {},
+    "draft": false
+  },
+  {
+    "instanceId": "instance-5",
+    "workflowId": "generated-instance-5",
+    "title": "改进 Implementation 的交付物：让结论更扎实，补齐与目标之间的差距，然后重新提交。",
+    "status": "completed",
+    "stageId": "stage-approve",
+    "activeStepIds": [],
+    "blockedReason": null,
+    "paused": false,
+    "startedAtSim": 1192,
+    "completedAtSim": 1194,
+    "eventCount": 0,
+    "approval": {
+      "stepId": "step-approve",
+      "status": "granted",
+      "requiredCount": 1,
+      "grantedBy": [
+        "ceo-alex"
+      ]
+    },
+    "goal": "改进 Implementation 的交付物：让结论更扎实，补齐与目标之间的差距，然后重新提交。",
+    "correlationId": "ui-1794574914606-1",
+    "initiatedBy": "agent-engineer-hire",
+    "stepStates": [
+      {
+        "stepId": "step-1",
+        "status": "done",
+        "taskId": "task-2"
+      },
+      {
+        "stepId": "step-approve",
+        "status": "done",
+        "taskId": null
+      }
+    ],
+    "steps": [
+      {
+        "stepId": "step-1",
+        "stageId": "stage-1",
+        "stageName": "Implementation",
+        "name": "Implementation",
+        "description": null,
+        "kind": "task",
+        "status": "done",
+        "taskId": "task-2",
+        "assigneeEmployeeId": "ceo-alex",
+        "assigneePositionId": "ceo",
+        "capability": "implementation",
+        "assignment": {
+          "kind": "position",
+          "positionId": "ceo"
+        },
+        "requiredRoles": [],
+        "requiredAuthority": null,
+        "overridden": false
+      },
+      {
+        "stepId": "step-approve",
+        "stageId": "stage-approve",
+        "stageName": "Approval",
+        "name": "Approve generated delivery",
+        "description": null,
+        "kind": "approval",
+        "status": "done",
+        "taskId": null,
+        "assigneeEmployeeId": "ceo-alex",
+        "assigneePositionId": "ceo",
+        "capability": null,
+        "assignment": null,
+        "requiredRoles": [
+          "ceo"
+        ],
+        "requiredAuthority": null,
+        "overridden": false
+      }
+    ],
+    "assignmentOverrides": {},
+    "draft": false
+  },
+  {
+    "instanceId": "instance-6",
+    "workflowId": "generated-instance-6",
+    "title": "商业项目 \"赛博沙盘\" 模拟多角色对抗质询系统",
+    "status": "completed",
+    "stageId": "stage-approve",
+    "activeStepIds": [],
+    "blockedReason": null,
+    "paused": false,
+    "startedAtSim": 1540,
+    "completedAtSim": 1542,
+    "eventCount": 0,
+    "approval": {
+      "stepId": "step-approve",
+      "status": "granted",
+      "requiredCount": 1,
+      "grantedBy": [
+        "ceo-alex"
+      ]
+    },
+    "goal": "搭建沙盘模拟环境，支持多角色接入、对抗推演与质询答辩，输出推演记录与评估结论",
+    "correlationId": "ui-1794575263094-2",
+    "initiatedBy": "ceo-alex",
+    "stepStates": [
+      {
+        "stepId": "step-1",
+        "status": "done",
+        "taskId": "task-3"
+      },
+      {
+        "stepId": "step-approve",
+        "status": "done",
+        "taskId": null
+      }
+    ],
+    "steps": [
+      {
+        "stepId": "step-1",
+        "stageId": "stage-1",
+        "stageName": "Implementation",
+        "name": "Implementation",
+        "description": null,
+        "kind": "task",
+        "status": "done",
+        "taskId": "task-3",
+        "assigneeEmployeeId": "agent-engineer-hire",
+        "assigneePositionId": "agent-engineer",
+        "capability": "implementation",
+        "assignment": {
+          "kind": "position",
+          "positionId": "agent-engineer"
+        },
+        "requiredRoles": [],
+        "requiredAuthority": null,
+        "overridden": false
+      },
+      {
+        "stepId": "step-approve",
+        "stageId": "stage-approve",
+        "stageName": "Approval",
+        "name": "Approve generated delivery",
+        "description": null,
+        "kind": "approval",
+        "status": "done",
+        "taskId": null,
+        "assigneeEmployeeId": "ceo-alex",
+        "assigneePositionId": "ceo",
+        "capability": null,
+        "assignment": null,
+        "requiredRoles": [
+          "ceo"
+        ],
+        "requiredAuthority": null,
+        "overridden": false
+      }
+    ],
+    "assignmentOverrides": {},
+    "draft": false
+  },
+  {
+    "instanceId": "instance-7",
+    "workflowId": "generated-instance-7",
+    "title": "智能工单 SLA 履约监控看板",
+    "status": "completed",
+    "stageId": "stage-approve",
+    "activeStepIds": [],
+    "blockedReason": null,
+    "paused": false,
+    "startedAtSim": 3877,
+    "completedAtSim": 3958,
+    "eventCount": 0,
+    "approval": {
+      "stepId": "step-approve",
+      "status": "granted",
+      "requiredCount": 1,
+      "grantedBy": [
+        "ceo-alex"
+      ]
+    },
+    "goal": "实时追踪工单流转状态，自动识别 SLA 超时风险，输出告警与优化建议",
+    "correlationId": "ui-1794578006074-1",
+    "initiatedBy": "ceo-alex",
+    "stepStates": [
+      {
+        "stepId": "step-1",
+        "status": "done",
+        "taskId": "task-4"
+      },
+      {
+        "stepId": "step-2",
+        "status": "done",
+        "taskId": "task-5"
+      },
+      {
+        "stepId": "step-3",
+        "status": "done",
+        "taskId": "task-6"
+      },
+      {
+        "stepId": "step-4",
+        "status": "done",
+        "taskId": "task-7"
+      },
+      {
+        "stepId": "step-approve",
+        "status": "done",
+        "taskId": null
+      }
+    ],
+    "steps": [
+      {
+        "stepId": "step-1",
+        "stageId": "stage-1",
+        "stageName": "Product Requirement",
+        "name": "Product Requirement",
+        "description": null,
+        "kind": "task",
+        "status": "done",
+        "taskId": "task-4",
+        "assigneeEmployeeId": "business-analyst-hire",
+        "assigneePositionId": "business-analyst",
+        "capability": "product_requirement",
+        "assignment": {
+          "kind": "position",
+          "positionId": "business-analyst"
+        },
+        "requiredRoles": [],
+        "requiredAuthority": null,
+        "overridden": false
+      },
+      {
+        "stepId": "step-2",
+        "stageId": "stage-2",
+        "stageName": "Technical Design",
+        "name": "Technical Design",
+        "description": null,
+        "kind": "task",
+        "status": "done",
+        "taskId": "task-5",
+        "assigneeEmployeeId": "ai-researcher-hire",
+        "assigneePositionId": "ai-researcher",
+        "capability": "technical_design",
+        "assignment": {
+          "kind": "position",
+          "positionId": "ai-researcher"
+        },
+        "requiredRoles": [],
+        "requiredAuthority": null,
+        "overridden": false
+      },
+      {
+        "stepId": "step-3",
+        "stageId": "stage-3",
+        "stageName": "Implementation",
+        "name": "Implementation",
+        "description": null,
+        "kind": "task",
+        "status": "done",
+        "taskId": "task-6",
+        "assigneeEmployeeId": "agent-engineer-hire",
+        "assigneePositionId": "agent-engineer",
+        "capability": "implementation",
+        "assignment": {
+          "kind": "position",
+          "positionId": "agent-engineer"
+        },
+        "requiredRoles": [],
+        "requiredAuthority": null,
+        "overridden": false
+      },
+      {
+        "stepId": "step-4",
+        "stageId": "stage-4",
+        "stageName": "Testing",
+        "name": "Testing",
+        "description": null,
+        "kind": "task",
+        "status": "done",
+        "taskId": "task-7",
+        "assigneeEmployeeId": "qa-hire",
+        "assigneePositionId": "qa",
+        "capability": "testing",
+        "assignment": {
+          "kind": "position",
+          "positionId": "qa"
+        },
+        "requiredRoles": [],
+        "requiredAuthority": null,
+        "overridden": false
+      },
+      {
+        "stepId": "step-approve",
+        "stageId": "stage-approve",
+        "stageName": "Approval",
+        "name": "Approve generated delivery",
+        "description": null,
+        "kind": "approval",
+        "status": "done",
+        "taskId": null,
+        "assigneeEmployeeId": "ceo-alex",
+        "assigneePositionId": "ceo",
+        "capability": null,
+        "assignment": null,
+        "requiredRoles": [
+          "ceo"
+        ],
+        "requiredAuthority": null,
+        "overridden": false
+      }
+    ],
+    "assignmentOverrides": {},
+    "draft": false
+  },
+  {
+    "instanceId": "instance-8",
+    "workflowId": "hire-gate",
+    "title": "Hire Software Engineer for engineer",
+    "status": "completed",
+    "stageId": "stage-hire",
+    "activeStepIds": [],
+    "blockedReason": null,
+    "paused": false,
+    "startedAtSim": 6832,
+    "completedAtSim": 6300,
+    "eventCount": 0,
+    "approval": {
+      "stepId": "step-hire-approval",
+      "status": "granted",
+      "requiredCount": 1,
+      "grantedBy": [
+        "ceo-alex"
+      ]
+    },
+    "goal": "All implementation seats are vacant; nothing can deliver the game until a Software Engineer is staffed.",
+    "correlationId": "live-multi-demo-1",
+    "initiatedBy": "ceo-alex",
+    "stepStates": [
+      {
+        "stepId": "step-hire-approval",
+        "status": "done",
+        "taskId": null
+      }
+    ],
+    "steps": [
+      {
+        "stepId": "step-hire-approval",
+        "stageId": "stage-hire",
+        "stageName": "Root approval",
+        "name": "Approve the hiring request",
+        "description": null,
+        "kind": "approval",
+        "status": "done",
+        "taskId": null,
+        "assigneeEmployeeId": "ceo-alex",
+        "assigneePositionId": "ceo",
+        "capability": null,
+        "assignment": null,
+        "requiredRoles": [
+          "ceo",
+          "board-operator"
+        ],
+        "requiredAuthority": null,
+        "overridden": false
+      }
+    ],
+    "assignmentOverrides": {},
+    "draft": false
+  },
+  {
+    "instanceId": "res-ctrl-evt-33",
+    "workflowId": "generated-res-ctrl-evt-33",
+    "title": "Implement self-contained Snake game",
+    "status": "completed",
+    "stageId": "stage-approve",
+    "activeStepIds": [],
+    "blockedReason": null,
+    "paused": false,
+    "startedAtSim": 6981,
+    "completedAtSim": 7535,
+    "eventCount": 0,
+    "approval": {
+      "stepId": "step-approve",
+      "status": "granted",
+      "requiredCount": 1,
+      "grantedBy": [
+        "ceo-alex"
+      ]
+    },
+    "goal": "Build the single index.html Snake game per technical design and verify it against playable and score_persistence.",
+    "correlationId": "live-multi-demo-1",
+    "initiatedBy": "ceo-alex",
+    "stepStates": [
+      {
+        "stepId": "step-1",
+        "status": "done",
+        "taskId": "task-12"
+      },
+      {
+        "stepId": "step-2",
+        "status": "done",
+        "taskId": "task-13"
+      },
+      {
+        "stepId": "step-approve",
+        "status": "done",
+        "taskId": null
+      }
+    ],
+    "steps": [
+      {
+        "stepId": "step-1",
+        "stageId": "stage-1",
+        "stageName": "Implementation",
+        "name": "Implementation",
+        "description": null,
+        "kind": "task",
+        "status": "done",
+        "taskId": "task-12",
+        "assigneeEmployeeId": "agent-engineer-hire",
+        "assigneePositionId": "agent-engineer",
+        "capability": "implementation",
+        "assignment": {
+          "kind": "position",
+          "positionId": "agent-engineer"
+        },
+        "requiredRoles": [],
+        "requiredAuthority": null,
+        "overridden": false
+      },
+      {
+        "stepId": "step-2",
+        "stageId": "stage-2",
+        "stageName": "Testing",
+        "name": "Testing",
+        "description": null,
+        "kind": "task",
+        "status": "done",
+        "taskId": "task-13",
+        "assigneeEmployeeId": "qa-hire",
+        "assigneePositionId": "qa",
+        "capability": "testing",
+        "assignment": {
+          "kind": "position",
+          "positionId": "qa"
+        },
+        "requiredRoles": [],
+        "requiredAuthority": null,
+        "overridden": false
+      },
+      {
+        "stepId": "step-approve",
+        "stageId": "stage-approve",
+        "stageName": "Approval",
+        "name": "Approve generated delivery",
+        "description": null,
+        "kind": "approval",
+        "status": "done",
+        "taskId": null,
+        "assigneeEmployeeId": "ceo-alex",
+        "assigneePositionId": "ceo",
+        "capability": null,
+        "assignment": null,
+        "requiredRoles": [
+          "ceo"
+        ],
+        "requiredAuthority": null,
+        "overridden": false
+      }
+    ],
+    "assignmentOverrides": {},
+    "draft": false
+  },
+  {
+    "instanceId": "instance-10",
+    "workflowId": "generated-instance-10",
+    "title": "画布演示 · 3D 产品导览",
+    "status": "running",
+    "stageId": "stage-1",
+    "activeStepIds": [
+      "step-1"
+    ],
+    "blockedReason": null,
+    "paused": false,
+    "startedAtSim": 17737,
+    "completedAtSim": null,
+    "eventCount": 5,
+    "approval": null,
+    "goal": "交付一个包含可玩演示（playable）、设计说明（design-doc）和 3D 场景（3d-scene）的产品，按产品需求、技术设计、实现、测试四步编排；保持草稿等待人工确认，不创建独立任务。",
+    "correlationId": "canvas-draft-20261114015857",
+    "initiatedBy": "ceo-alex",
+    "stepStates": [
+      {
+        "stepId": "step-1",
+        "status": "active",
+        "taskId": "task-25"
+      }
+    ],
+    "steps": [
+      {
+        "stepId": "step-1",
+        "stageId": "stage-1",
+        "stageName": "Product Requirement",
+        "name": "Product Requirement",
+        "description": null,
+        "kind": "task",
+        "status": "active",
+        "taskId": "task-25",
+        "assigneeEmployeeId": "business-analyst-hire",
+        "assigneePositionId": "business-analyst",
+        "capability": "product_requirement",
+        "assignment": {
+          "kind": "position",
+          "positionId": "business-analyst"
+        },
+        "requiredRoles": [],
+        "requiredAuthority": null,
+        "overridden": false
+      },
+      {
+        "stepId": "step-2",
+        "stageId": "stage-2",
+        "stageName": "Technical Design",
+        "name": "Technical Design",
+        "description": null,
+        "kind": "task",
+        "status": "pending",
+        "taskId": null,
+        "assigneeEmployeeId": "ai-researcher-hire",
+        "assigneePositionId": "ai-researcher",
+        "capability": "technical_design",
+        "assignment": {
+          "kind": "position",
+          "positionId": "ai-researcher"
+        },
+        "requiredRoles": [],
+        "requiredAuthority": null,
+        "overridden": false
+      },
+      {
+        "stepId": "step-3",
+        "stageId": "stage-3",
+        "stageName": "Implementation",
+        "name": "Implementation",
+        "description": null,
+        "kind": "task",
+        "status": "pending",
+        "taskId": null,
+        "assigneeEmployeeId": "agent-engineer-hire",
+        "assigneePositionId": "agent-engineer",
+        "capability": "implementation",
+        "assignment": {
+          "kind": "position",
+          "positionId": "agent-engineer"
+        },
+        "requiredRoles": [],
+        "requiredAuthority": null,
+        "overridden": false
+      },
+      {
+        "stepId": "step-4",
+        "stageId": "stage-4",
+        "stageName": "Testing",
+        "name": "Testing",
+        "description": null,
+        "kind": "task",
+        "status": "pending",
+        "taskId": null,
+        "assigneeEmployeeId": "qa-hire",
+        "assigneePositionId": "qa",
+        "capability": "testing",
+        "assignment": {
+          "kind": "position",
+          "positionId": "qa"
+        },
+        "requiredRoles": [],
+        "requiredAuthority": null,
+        "overridden": false
+      },
+      {
+        "stepId": "step-approve",
+        "stageId": "stage-approve",
+        "stageName": "Approval",
+        "name": "Approve generated delivery",
+        "description": null,
+        "kind": "approval",
+        "status": "pending",
+        "taskId": null,
+        "assigneeEmployeeId": "ceo-alex",
+        "assigneePositionId": "ceo",
+        "capability": null,
+        "assignment": null,
+        "requiredRoles": [
+          "ceo"
+        ],
+        "requiredAuthority": null,
+        "overridden": false
+      }
+    ],
+    "assignmentOverrides": {},
+    "draft": false
+  }
+]

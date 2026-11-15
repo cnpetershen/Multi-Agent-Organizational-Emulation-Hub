@@ -15,3 +15,5 @@
 .task-intake p{margin:0;max-width:780px;color:var(--ink-soft);font-size:12px;line-height:1.55}
 .task-intake .link{flex:0 0 auto;white-space:nowrap}
 @media(max-width:700px){.task-intake{margin:12px 14px 0;align-items:stretch;flex-direction:column}.task-intake .link{align-self:flex-start}}
+.task-facts .task-owner{display:flex;align-items:center;gap:6px;min-width:0}
+.task-facts .task-owner b{min-width:0}

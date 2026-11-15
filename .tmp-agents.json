@@ -1,0 +1,174 @@
+[
+  {
+    "employeeId": "ceo-alex",
+    "organizationId": "peter-ai-lab",
+    "name": "Alex",
+    "positionId": "ceo",
+    "departmentId": "null",
+    "managerEmployeeId": null,
+    "status": "defined",
+    "lifecycle": "active",
+    "kind": "agent",
+    "expertise": [
+      "strategy",
+      "org_design",
+      "capital_allocation"
+    ],
+    "runtime": {
+      "employeeId": "ceo-alex",
+      "version": 46,
+      "employment": "defined",
+      "presence": "idle",
+      "currentCycleId": null,
+      "focus": null,
+      "updatedAtSim": 17737,
+      "paused": false
+    },
+    "currentTaskId": null,
+    "currentWorkflowInstanceId": null,
+    "presence": "idle",
+    "paused": false
+  },
+  {
+    "employeeId": "agent-engineer-hire",
+    "organizationId": "peter-ai-lab",
+    "name": "Agent Engineer",
+    "positionId": "agent-engineer",
+    "departmentId": "research",
+    "managerEmployeeId": "ai-researcher-hire",
+    "status": "active",
+    "lifecycle": "active",
+    "kind": "agent",
+    "expertise": [
+      "implementation"
+    ],
+    "runtime": {
+      "employeeId": "agent-engineer-hire",
+      "version": 2,
+      "employment": "defined",
+      "presence": "idle",
+      "currentCycleId": null,
+      "focus": null,
+      "updatedAtSim": 16493,
+      "paused": false
+    },
+    "currentTaskId": null,
+    "currentWorkflowInstanceId": null,
+    "presence": "idle",
+    "paused": false
+  },
+  {
+    "employeeId": "ai-researcher-hire",
+    "organizationId": "peter-ai-lab",
+    "name": "AI Researcher",
+    "positionId": "ai-researcher",
+    "departmentId": "research",
+    "managerEmployeeId": "ceo-alex",
+    "status": "active",
+    "lifecycle": "active",
+    "kind": "agent",
+    "expertise": [
+      "technical_design"
+    ],
+    "runtime": {
+      "employeeId": "ai-researcher-hire",
+      "version": 2,
+      "employment": "defined",
+      "presence": "idle",
+      "currentCycleId": null,
+      "focus": null,
+      "updatedAtSim": 16493,
+      "paused": false
+    },
+    "currentTaskId": "task-10",
+    "currentWorkflowInstanceId": null,
+    "presence": "idle",
+    "paused": false
+  },
+  {
+    "employeeId": "business-analyst-hire",
+    "organizationId": "peter-ai-lab",
+    "name": "Business Analyst",
+    "positionId": "business-analyst",
+    "departmentId": "business",
+    "managerEmployeeId": null,
+    "status": "active",
+    "lifecycle": "active",
+    "kind": "agent",
+    "expertise": [
+      "product_requirement"
+    ],
+    "runtime": {
+      "employeeId": "business-analyst-hire",
+      "version": 4,
+      "employment": "defined",
+      "presence": "idle",
+      "currentCycleId": null,
+      "focus": null,
+      "updatedAtSim": 46888,
+      "paused": false
+    },
+    "currentTaskId": "task-25",
+    "currentWorkflowInstanceId": "instance-10",
+    "presence": "idle",
+    "paused": false
+  },
+  {
+    "employeeId": "qa-hire",
+    "organizationId": "peter-ai-lab",
+    "name": "QA Engineer",
+    "positionId": "qa",
+    "departmentId": "engineering",
+    "managerEmployeeId": null,
+    "status": "active",
+    "lifecycle": "active",
+    "kind": "agent",
+    "expertise": [
+      "testing"
+    ],
+    "runtime": {
+      "employeeId": "qa-hire",
+      "version": 2,
+      "employment": "defined",
+      "presence": "idle",
+      "currentCycleId": null,
+      "focus": null,
+      "updatedAtSim": 16493,
+      "paused": false
+    },
+    "currentTaskId": "task-15",
+    "currentWorkflowInstanceId": null,
+    "presence": "idle",
+    "paused": false
+  },
+  {
+    "employeeId": "engineer-hire",
+    "organizationId": "peter-ai-lab",
+    "name": "Software Engineer",
+    "positionId": "engineer",
+    "departmentId": "engineering",
+    "managerEmployeeId": null,
+    "status": "active",
+    "lifecycle": "active",
+    "kind": "agent",
+    "expertise": [
+      "javascript",
+      "svg",
+      "single-file web apps"
+    ],
+    "runtime": {
+      "employeeId": "engineer-hire",
+      "version": 2,
+      "employment": "defined",
+      "presence": "idle",
+      "currentCycleId": null,
+      "focus": null,
+      "updatedAtSim": 16512,
+      "paused": false
+    },
+    "currentTaskId": null,
+    "currentWorkflowInstanceId": null,
+    "presence": "idle",
+    "paused": false
+  }
+]

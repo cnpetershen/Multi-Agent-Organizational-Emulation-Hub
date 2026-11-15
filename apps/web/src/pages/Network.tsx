@@ -15,7 +15,7 @@ import {
   type LlmView,
   type Row,
 } from '../api';
-import { PageIntro, StatusPill } from '../components';
+import { AgentAvatar, PageIntro, StatusPill } from '../components';
 import { DocumentPreview } from '../components/DocumentPreview';
 import { HoloCore } from '../components/HoloCore';
 import type { ConsoleControl } from '../control';
@@ -51,15 +51,6 @@ import { deliverableKind } from '../results';
  * everything it gestures at is also printed in the header, the inspector and the delivery theatre,
  * so the page still reads with motion off, on a low-end machine, or in a screen reader.
  */
-
-function initialsOf(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word.slice(0, 1).toUpperCase())
-    .join('');
-}
 
 function percentOf(done: number, total: number): number {
   return total <= 0 ? 0 : Math.round((done / total) * 100);
@@ -106,7 +97,7 @@ function AgentNode({
       }}
       title={`${node.name} · ${node.positionTitle}`}
     >
-      <span className="net-avatar" data-working={node.working}>{initialsOf(node.name)}</span>
+      <AgentAvatar name={node.name} positionId={node.positionId} positionTitle={node.positionTitle} status={node.working ? 'working' : 'idle'} size="sm" />
       <span className="net-agent-copy">
         <b>{node.name}</b>
         <small>{node.positionTitle}</small>
@@ -274,7 +265,7 @@ function AgentInspector({
     <div className="net-inspector-body">
       <span className="network-kicker">{t('network.inspector.agent')}</span>
       <div className="net-inspector-head">
-        <span className="net-avatar large" data-working={node.working}>{initialsOf(node.name)}</span>
+        <AgentAvatar name={node.name} positionId={node.positionId} positionTitle={node.positionTitle} status={node.working ? 'working' : 'idle'} size="lg" />
         <div>
           <h3>{node.name}</h3>
           <p>{node.positionTitle}</p>

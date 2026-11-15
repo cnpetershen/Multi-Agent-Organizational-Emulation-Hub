@@ -10,11 +10,21 @@ import type { WorkflowDefinition, WorkflowInstance } from '@maoeh/workflow-engin
 import type { WorkflowCanvasStepView } from './types.js';
 
 import { agentLifecycleOf } from './agent-lifecycle.js';
+import { buildMessageLifecycles } from './collaboration/message-lifecycle.js';
+import type { MessageLifecycle } from './collaboration/message-lifecycle.js';
+import type { CollaborationEventDescriptor } from './collaboration/protocol.js';
+import { COLLABORATION_EVENT_PROTOCOL } from './collaboration/protocol.js';
+import { buildCollaborationTrace } from './collaboration/trace.js';
+import type { CollaborationTrace } from './collaboration/trace.js';
+import { TheaterStageTracker, buildTheaterEvents } from './collaboration/theater.js';
+import type { TheaterHistory, TheaterHistoryInput } from './collaboration/theater.js';
 import {
   CONTROL_TASK_DELETED,
   CONTROL_WORK_BRIEFED,
   CONTROL_WORKFLOW_DELETED,
 } from './events.js';
+import { auditLegacyWork } from './legacy-audit.js';
+import type { LegacyAuditReport } from './legacy-audit.js';
 import type {
   AgentActivity,
   AgentActivityEntry,
@@ -107,6 +117,39 @@ export interface ControlQuery {
    */
   getPendingApprovals(): readonly PendingApprovalView[];
   getControlState(): ControlState;
+  /**
+   * M3.1 collaboration protocol: the eleven mandated collaboration kinds, their concrete event
+   * types, their ownership and which trace fields apply. Static (no replay).
+   */
+  getCollaborationProtocol(): readonly CollaborationEventDescriptor[];
+  /**
+   * M3.1 collaboration trace: the whole log projected into who-said/handed-what-to-whom, grouped
+   * by session (`correlationId`), with causation pointers preserved and broken links reported.
+   */
+  getCollaborationTrace(): Promise<CollaborationTrace>;
+  /**
+   * M3.1 message lifecycle: sent (`MessageSent`) → received (delivery ledger) → processed
+   * (`MessageProcessed`), per recipient. Derived state only; no event is written by reading it.
+   */
+  getMessageLifecycle(): Promise<readonly MessageLifecycle[]>;
+  /**
+   * M3.0 legacy-work audit: fake/empty deliveries, unverified completions, broken chronology,
+   * orphaned submissions, stalled open work and dangling handoffs — with the legal repair path
+   * (cancel, or "a human must decide").
+   */
+  getLegacyWorkAudit(): Promise<LegacyAuditReport>;
+  /**
+   * M3.2 collaboration theater: one chronological page of the company's own events with their
+   * proven business stage (never a guessed one). `latestSeq` is the cursor a live SSE stream
+   * resumes from.
+   */
+  getTheaterHistory(input?: TheaterHistoryInput): Promise<TheaterHistory>;
+  /**
+   * M3.2 cursor read for the theater's SSE tail: events with `seq > afterSeq`, oldest-first.
+   * Unlike `getRecentEvents` nothing is held back (the caller filters); the hard cap keeps one
+   * poll cheap.
+   */
+  getEventPage(afterSeq: number, limit: number): Promise<readonly EventView[]>;
 }
 
 export interface ControlQueryOptions {
@@ -519,8 +562,13 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
   const workflowSummary = (
     instance: WorkflowInstance,
     eventCount: number,
-  ): WorkflowSummary =>
-    Object.freeze({
+  ): WorkflowSummary => {
+    const planningContext = instance.context['planning'];
+    const planning =
+      typeof planningContext === 'object' && planningContext !== null
+        ? (planningContext as Readonly<Record<string, unknown>>)
+        : null;
+    return Object.freeze({
       instanceId: instance.instanceId,
       workflowId: instance.workflowId,
       title: instance.title,
@@ -540,6 +588,12 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
       completedAtSim:
         instance.completedAtSim === null ? null : Number(instance.completedAtSim),
       eventCount,
+      planned: planning !== null,
+      planningOrchestrationId:
+        planning === null || typeof planning['orchestrationId'] !== 'string'
+          ? null
+          : planning['orchestrationId'],
+      executionPlan: instance.context['executionPlan'] !== undefined,
       approval:
         instance.approval === null
           ? null
@@ -550,6 +604,7 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
               grantedBy: Object.freeze([...instance.approval.grantedBy]),
             }),
     });
+  };
 
   const taskSummary = (task: Task, eventCount: number): TaskSummary =>
     Object.freeze({
@@ -682,9 +737,33 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
     return Object.freeze(briefEvents.map((event) => workBriefView(event, tasks, createdAt)));
   };
 
+  /**
+   * One company's whole log, oldest-first. The collaboration and legacy projections are pure
+   * functions over this, which keeps them honest: if a fact is not on the log it cannot appear in
+   * a trace, a lifecycle or an audit.
+   */
+  const companyEvents = async (): Promise<readonly OrgEvent[]> => {
+    const collected: OrgEvent[] = [];
+    for await (const event of eventStore.replay(1 as Seq, undefined, {
+      companyId: companyId as never,
+    })) {
+      collected.push(event);
+    }
+    return Object.freeze(collected);
+  };
+
+  const latestEventSeq = async (): Promise<number> => {
+    let latest = 0;
+    for await (const event of eventStore.replay(1 as Seq, undefined, {
+      companyId: companyId as never,
+    })) {
+      latest = Math.max(latest, Number(event.seq));
+    }
+    return latest;
+  };
+
   const query: ControlQuery = {
-    getSimulationState: simulationState,
-    getDepartments: departmentSummary,
+    getSimulationState: simulationState,    getDepartments: departmentSummary,
     getEmployees: employeeSummary,
 
     getAgents() {
@@ -895,6 +974,66 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
 
     getControlState() {
       return options.controlState();
+    },
+
+    getCollaborationProtocol() {
+      return COLLABORATION_EVENT_PROTOCOL;
+    },
+
+    async getCollaborationTrace() {
+      return buildCollaborationTrace(await companyEvents());
+    },
+
+    async getMessageLifecycle() {
+      const deliveries = simulation.messageDeliveries?.() ?? [];
+      return buildMessageLifecycles(await companyEvents(), deliveries);
+    },
+
+    async getLegacyWorkAudit() {
+      const events = await companyEvents();
+      return auditLegacyWork({
+        tasks: simulation.tasks(),
+        events,
+        organization: simulation.organization(),
+        simTime: simulation.snapshot().simTime,
+      });
+    },
+
+    async getTheaterHistory(input = {}) {
+      const limit = Math.min(Math.max(Math.trunc(input.limit ?? 200), 1), 500);
+      // The theater is collaboration, not telemetry: the tick marker and the per-cycle
+      // Runtime.* facts are held out (they are still on the log and still frame-able elsewhere).
+      // Removed work is kept: a replay must show what the company actually did.
+      const base = {
+        limit,
+        excludeEventTypePrefixes: ['System.', 'Runtime.'],
+        includeDeleted: true,
+      };
+      const events = await collectEvents(
+        input.correlationId === undefined ? base : { ...base, correlationId: input.correlationId },
+        false,
+      );
+      const seed = simulation
+        .tasks()
+        .map((task) => ({ taskId: task.taskId, capability: task.capability }));
+      return Object.freeze({
+        companyId,
+        latestSeq: await latestEventSeq(),
+        events: buildTheaterEvents(events, new TheaterStageTracker(seed)),
+      });
+    },
+
+    async getEventPage(afterSeq, limit) {
+      const max = Math.min(Math.max(Math.trunc(limit) || 100, 1), 500);
+      const after = Math.max(0, Math.trunc(afterSeq) || 0);
+      const events: OrgEvent[] = [];
+      for await (const event of eventStore.replay((after + 1) as Seq, undefined, {
+        companyId: companyId as never,
+      })) {
+        events.push(event);
+        if (events.length >= max) break;
+      }
+      return Object.freeze(events.map(toEventView));
     },
 
     async getOrganizationSnapshot() {

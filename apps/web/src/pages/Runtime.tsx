@@ -1,7 +1,7 @@
 import { parseApprovals, parseRows, parseSimulation, readNumber, readString, type Row, type SimulationView } from '../api';
 import { simulationCommand, type CommandContext } from '../commands';
 import type { ConsoleControl } from '../control';
-import { Avatar, Empty, EventLine, Panel, StatusPill, Submit, eventDetail } from '../components';
+import { AgentAvatar, avatarStatusOf, Empty, EventLine, Panel, StatusPill, Submit, eventDetail } from '../components';
 import { agentState, agentStateLabel, employeeName, isOpenApproval, positionTitle, stepProgress, taskById } from '../derive';
 import { useJson } from '../hooks';
 import { useI18n, type I18n } from '../i18n';
@@ -170,6 +170,8 @@ export function RuntimePage({ control }: { control: ConsoleControl }) {
       id: readString(agent['employeeId'], ''),
       name: readString(agent['name'], t('common.agentFallback')),
       position: positionTitle(snapshot.positions, readString(agent['positionId'], '')),
+      positionId: readString(agent['positionId'], ''),
+      stateKind: workState.kind,
       presenceLabel: presence === '' || presence === 'idle' || presence === 'unknown' ? '' : i18n.presence(presence),
       chip: agentStateLabel(workState, '', i18n),
       tone: workState.tone,
@@ -276,7 +278,7 @@ export function RuntimePage({ control }: { control: ConsoleControl }) {
             <div className="runtime-agents">
               {agentRows.map((agent) => (
                 <article className="runtime-agent" key={agent.id}>
-                  <Avatar name={agent.name} tone={agent.working ? 'green' : 'default'} />
+                  <AgentAvatar name={agent.name} positionId={agent.positionId} positionTitle={agent.position} status={avatarStatusOf(agent.stateKind)} />
                   <div className="runtime-agent-copy">
                     <div className="runtime-agent-top">
                       <b>{agent.name}</b>

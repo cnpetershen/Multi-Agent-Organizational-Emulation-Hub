@@ -634,6 +634,12 @@ export interface WorkflowSummary {
   readonly startedAtSim: number;
   readonly completedAtSim: number | null;
   readonly eventCount: number;
+  /** M3.4: a draft created by the planning sandbox/orchestrator, not a generic canvas draft. */
+  readonly planned?: boolean;
+  /** The M3.3 orchestration this instance came from, when planned. */
+  readonly planningOrchestrationId?: string | null;
+  /** M3.6: this instance is an execution of a confirmed plan; its approval belongs to the M3.6 workbench. */
+  readonly executionPlan?: boolean;
   readonly approval: {
     readonly stepId: string;
     readonly status: string;
@@ -1069,6 +1075,20 @@ export interface ControlSimulationPort {
   task(taskId: string): Task | null;
   workflows(): readonly WorkflowInstance[];
   workflow(instanceId: string): WorkflowInstance | null;
+  /**
+   * M3.1 (optional): the delivery ledger behind `Communication.MessageSent`.
+   *
+   * Being handed to a recipient's inbox is a runtime fact, not a domain state change, so it is not
+   * an event. The collaboration read model takes it from here when the runtime exposes it and
+   * otherwise reports the message as "sent, delivery not observed" — it never invents a delivery.
+   */
+  messageDeliveries?(): readonly {
+    readonly messageId: string;
+    readonly recipientId: string;
+    readonly channelId: string;
+    readonly deliveredAtSim: number;
+    readonly sourceEventId?: string;
+  }[];
   /**
    * Optional (M1.8): the workflow definition behind an instance, used by the canvas
    * projection. Implementations may omit it; consumers must handle its absence.

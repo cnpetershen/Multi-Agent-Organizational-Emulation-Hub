@@ -30,5 +30,6 @@
     ,"@maoeh/permission-system": "workspace:*"
     ,"@maoeh/workflow-engine": "workspace:*"
     ,"@maoeh/event-store": "workspace:*"
+    ,"@maoeh/event-system": "workspace:*"
   }
 }

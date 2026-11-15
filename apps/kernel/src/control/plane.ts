@@ -275,6 +275,19 @@ export function createKernelControlPlane(options: KernelControlPlaneOptions): Ke
     workflowDefinition(workflowId) {
       return simulation.definitions.get(workflowId);
     },
+    /**
+     * M3.1: the delivery ledger is the "received" half of a message's lifecycle. It is runtime
+     * read state (no event), so the read model reads it from the running communication service.
+     */
+    messageDeliveries() {
+      return simulation.communication.getDeliveries().map((record) => ({
+        messageId: record.messageId,
+        recipientId: String(record.recipientId),
+        channelId: record.channelId,
+        deliveredAtSim: Number(record.deliveredAtSim),
+        ...(record.sourceEventId === null ? {} : { sourceEventId: record.sourceEventId }),
+      }));
+    },
     tickDuration: simulation.config.tickDuration,
   };
 

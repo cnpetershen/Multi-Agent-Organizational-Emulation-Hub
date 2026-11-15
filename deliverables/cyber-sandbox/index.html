@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>赛博沙盘 · 多角色对抗质询</title>
+<style>
+:root{--bg:#0b1015;--panel:#111a22;--line:#263340;--ink:#e8eef4;--muted:#93a3b2;--green:#39b77b;--amber:#e7b05a;--red:#e27878;--blue:#6aa9e8}
+*{box-sizing:border-box}body{margin:0;font:14px/1.55 ui-sans-serif,system-ui,"Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink)}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 22px;border-bottom:1px solid var(--line)}
+h1{font-size:18px;margin:0}h1 small{color:var(--muted);font-size:12px;font-weight:400;margin-left:8px}
+main{display:grid;grid-template-columns:300px minmax(0,1fr) 300px;gap:16px;padding:16px 22px;max-width:1500px;margin:0 auto}
+section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+h2{font-size:13px;margin:0 0 10px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+label{display:grid;gap:4px;font-size:12px;color:var(--muted);margin-bottom:9px}
+input,textarea,select{width:100%;background:#0a1118;border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:8px;font:inherit}
+textarea{min-height:92px;resize:vertical}button{border:1px solid #2f6f52;background:#1e704b;color:#fff;border-radius:6px;padding:7px 11px;font:inherit;cursor:pointer}
+button.ghost{background:transparent;color:var(--muted);border-color:var(--line)}button:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:8px;flex-wrap:wrap}.grow{flex:1;min-width:0}
+.role{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--line);border-radius:7px;margin-bottom:7px;cursor:pointer}
+.role.active{border-color:var(--green);background:#0f2a20}.role b{font-size:12px}.role small{display:block;color:var(--muted);font-size:10px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--blue)}.dot.c{background:var(--red)}.dot.d{background:var(--amber)}.dot.e{background:var(--green)}
+#messages{display:grid;gap:8px;min-height:240px;max-height:420px;overflow:auto;padding-right:4px}
+.msg{border:1px solid var(--line);border-left:3px solid var(--blue);border-radius:7px;padding:8px 10px;background:#0d151d}
+.msg.c{border-left-color:var(--red)}.msg.d{border-left-color:var(--amber)}.msg.e{border-left-color:var(--green)}
+.msg .meta{display:flex;gap:8px;color:var(--muted);font-size:10px;margin-bottom:3px}.msg p{margin:0;white-space:pre-wrap}
+#transcript{font:11px ui-monospace,Consolas,monospace;color:var(--muted);max-height:170px;overflow:auto;white-space:pre-wrap}
+table{width:100%;border-collapse:collapse;font-size:11px}th,td{text-align:left;padding:5px 4px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:500}
+.badge{font-size:10px;padding:2px 7px;border-radius:99px;background:#243444;color:#a9bccb}.badge.live{background:#1e3d2d;color:#8fe0b5}
+.muted{color:var(--muted)}.hint{font-size:11px;color:var(--muted);margin:6px 0 0}
+@media(max-width:1050px){main{grid-template-columns:1fr}.setup{display:grid;grid-template-columns:1fr 1fr;gap:10px}}
+@media(max-width:650px){header{align-items:flex-start;flex-direction:column}main{padding:12px}.setup{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>赛博沙盘 <small>多角色对抗 · 质询答辩 · 过程留存 · 评估记录</small></h1>
+  <span id="status" class="badge">未开始</span>
+</header>
+<main>
+  <section>
+    <h2>推演设置</h2>
+    <div class="setup">
+      <label>推演主题<input id="scenario" value="商业方案对抗质询"></label>
+      <label>回合数<select id="rounds"><option>2</option><option selected>3</option><option>4</option><option>5</option></select></label>
+    </div>
+    <h2>参与角色</h2>
+    <div id="roles"></div>
+    <div class="row" style="margin-top:10px">
+      <button id="start">开始推演</button>
+      <button id="reset" class="ghost">清空</button>
+    </div>
+    <p class="hint">每个角色轮流发言。质询方提出问题，答辩方回应，评审记录裁决；所有消息自动留存。</p>
+  </section>
+
+  <section>
+    <h2><span>实时对抗</span><span id="roundMeta" class="muted">第 0 / 3 回合</span></h2>
+    <div id="messages"><p class="muted">开始推演后，消息会出现在这里。</p></div>
+    <div class="row" style="margin-top:10px">
+      <select id="type" style="max-width:110px">
+        <option value="statement">陈述</option><option value="challenge">质询</option>
+        <option value="defense">答辩</option><option value="verdict">裁决</option>
+      </select>
+      <textarea id="draft" class="grow" rows="2" placeholder="输入当前角色的发言…"></textarea>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button id="send">发送</button>
+      <button id="next" class="ghost">下一位</button>
+      <button id="finish" class="ghost">结束并评估</button>
+    </div>
+    <p class="hint" id="turnHint">先开始推演。</p>
+  </section>
+
+  <section>
+    <h2>评估记录</h2>
+    <div id="evaluation"><p class="muted">结束推演后生成。</p></div>
+    <h2 style="margin-top:14px">过程留存</h2>
+    <pre id="transcript">暂无记录</pre>
+    <div class="row" style="margin-top:8px">
+      <button id="export" class="ghost">导出 JSON</button>
+    </div>
+  </section>
+</main>
+<script>
+const ROLES=[
+  {id:'proposer',name:'提案方',desc:'提出方案与论据',cls:''},
+  {id:'challenger',name:'质询方',desc:'挑战假设与证据',cls:'c'},
+  {id:'defender',name:'答辩方',desc:'回应质询与补证',cls:'d'},
+  {id:'evaluator',name:'评审',desc:'裁决并记录结论',cls:'e'}
+];
+const KEY='maoeh-cyber-sandbox-v1';
+const $=(id)=>document.getElementById(id);
+let state=load();
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.roles)return s}catch(e){}return {scenario:'商业方案对抗质询',rounds:3,round:0,current:0,started:false,messages:[],finished:false}}
+function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+function roleById(id){return ROLES.find(r=>r.id===id)||ROLES[0]}
+function renderRoles(){
+  $('roles').innerHTML='';
+  ROLES.forEach((r,i)=>{
+    const b=document.createElement('div');b.className='role'+(state.started&&state.current===i?' active':'');
+    b.innerHTML='<span class="dot '+r.cls+'"></span><span><b>'+esc(r.name)+'</b><small>'+esc(r.desc)+'</small></span>';
+    b.addEventListener('click',()=>{state.current=i;save();render()});
+    $('roles').appendChild(b);
+  });
+}
+function esc(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function renderMessages(){
+  if(state.messages.length===0){$('messages').innerHTML='<p class="muted">开始推演后，消息会出现在这里。</p>';return}
+  $('messages').innerHTML=state.messages.map(m=>{
+    const r=roleById(m.role);
+    return '<article class="msg '+r.cls+'"><div class="meta"><b>'+esc(r.name)+'</b><span>'+esc(m.type)+'</span><span>R'+m.round+'</span><span>'+esc(m.at)+'</span></div><p>'+esc(m.text)+'</p></article>';
+  }).join('');
+  $('messages').scrollTop=$('messages').scrollHeight;
+}
+function render(){
+  renderRoles();renderMessages();
+  $('scenario').value=state.scenario;$('rounds').value=String(state.rounds);
+  $('status').textContent=state.finished?'已结束':state.started?'进行中':'未开始';
+  $('status').className='badge'+(state.started&&!state.finished?' live':'');
+  $('roundMeta').textContent='第 '+state.round+' / '+state.rounds+' 回合';
+  $('turnHint').textContent=state.started?(state.finished?'推演已结束，可导出记录。':'当前发言：'+ROLES[state.current].name):'先开始推演。';
+  $('send').disabled=!state.started||state.finished;$('next').disabled=!state.started||state.finished;$('finish').disabled=!state.started||state.finished;$('export').disabled=state.messages.length===0;
+  $('transcript').textContent=state.messages.length?state.messages.map(m=>'[R'+m.round+' '+m.at+'] '+roleById(m.role).name+' ('+m.type+'): '+m.text).join('\n'):'暂无记录';
+  renderEvaluation();
+}
+function renderEvaluation(){
+  if(!state.finished||state.messages.length===0){$('evaluation').innerHTML='<p class="muted">结束推演后生成。</p>';return}
+  const rows=ROLES.map(r=>{
+    const mine=state.messages.filter(m=>m.role===r.id);
+    const challenges=mine.filter(m=>m.type==='challenge').length;
+    const defenses=mine.filter(m=>m.type==='defense').length;
+    const verdicts=mine.filter(m=>m.type==='verdict').length;
+    const evidence=mine.filter(m=>/证据|数据|因为|来源|指标|evidence|data/i.test(m.text)).length;
+    const score=mine.length+challenges*2+defenses*2+verdicts*3+evidence*2;
+    return {r,mine:mine.length,challenges,defenses,verdicts,evidence,score};
+  });
+  $('evaluation').innerHTML='<table><thead><tr><th>角色</th><th>发言</th><th>质询</th><th>答辩</th><th>裁决</th><th>评分</th></tr></thead><tbody>'+
+    rows.map(x=>'<tr><td>'+esc(x.r.name)+'</td><td>'+x.mine+'</td><td>'+x.challenges+'</td><td>'+x.defenses+'</td><td>'+x.verdicts+'</td><td><b>'+x.score+'</b></td></tr>').join('')+
+    '</tbody></table><p class="hint">评分=发言数+质询×2+答辩×2+裁决×3+证据关键词×2。</p>';
+}
+$('scenario').addEventListener('input',e=>{state.scenario=e.target.value;save()});
+$('rounds').addEventListener('change',e=>{state.rounds=Number(e.target.value);save();render()});
+$('start').addEventListener('click',()=>{state.started=true;state.finished=false;state.round=1;state.current=0;state.messages=[];save();render()});
+$('reset').addEventListener('click',()=>{if(!confirm('清空本次推演？'))return;localStorage.removeItem(KEY);state=load();render()});
+$('send').addEventListener('click',()=>{
+  const text=$('draft').value.trim();if(!state.started||state.finished||!text)return;
+  state.messages.push({role:ROLES[state.current].id,type:$('type').value,text,round:state.round,at:new Date().toLocaleTimeString()});
+  $('draft').value='';state.current=(state.current+1)%ROLES.length;save();render();
+});
+$('next').addEventListener('click',()=>{if(!state.started||state.finished)return;state.current=(state.current+1)%ROLES.length;save();render()});
+$('finish').addEventListener('click',()=>{if(!state.started)return;state.finished=true;save();render()});
+$('export').addEventListener('click',()=>{
+  const data={scenario:state.scenario,rounds:state.rounds,generatedAt:new Date().toISOString(),messages:state.messages,evaluation:state.messages.length?ROLES.map(r=>({role:r.id,count:state.messages.filter(m=>m.role===r.id).length})):[]};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='cyber-sandbox-record.json';a.click();URL.revokeObjectURL(a.href);
+});
+render();
+</script>
+</body>
+</html>

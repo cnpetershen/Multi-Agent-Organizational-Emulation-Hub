@@ -13,6 +13,11 @@ import type {
   WorkflowStage,
   WorkflowStep,
 } from './workflow-types.js';
+import {
+  EXECUTION_PLAN_CONTEXT_KEY,
+  generateExecutionPlanWorkflowDefinition,
+  parseExecutionPlanSnapshot,
+} from './execution-plan-workflow.js';
 
 /**
  * Capability → generated workflow — how a CEO mandate becomes tracked, stage-gated work
@@ -223,7 +228,8 @@ function approvalStep(name: string, roles: readonly string[]): WorkflowStep {
  * Sequential stage-per-capability graph, no cycles by construction:
  *
  *   cap stage 1 → cap stage 2 → … → approval stage → complete
- *        └ rejected → fail            └ denied → fail
+ *        ├ rejected → fail            └ denied → fail
+ *        └ failed   → fail
  *
  * `verification: null` means the task's own completion verdict is the step's verdict —
  * generated work is tracked and gated, its outputs are checked by the human observer, not
@@ -260,6 +266,16 @@ export function generateWorkflowDefinition(
           fromStepId: stepId,
           when: { kind: 'task_status', status: 'rejected' },
           to: { kind: 'fail', reason: `${stageId}_rejected` },
+        },
+        {
+          // A failed task is a different terminal fact than a rejected one; do not route it
+          // through the rejected branch. The step is spoken for: the instance aborts with the
+          // explicit stage reason, exactly as the rejected branch would, without touching
+          // rejected provenance and without an extra retry after `maxAttempts` is reached.
+          transitionId: `${stageId}__failed`,
+          fromStepId: stepId,
+          when: { kind: 'task_status', status: 'failed' },
+          to: { kind: 'fail', reason: `${stageId}_failed` },
         },
       ],
     });
@@ -352,6 +368,19 @@ export function regenerateWorkflowDefinition(
   instance: Pick<WorkflowInstance, 'instanceId' | 'title' | 'goal' | 'context'>,
   approvalRoles: readonly string[],
 ): WorkflowDefinition | null {
+  // M3.5 execution instances carry the human-confirmed plan snapshot in their started event.
+  // That snapshot is the durable fact; the definition is derived state and must be rebuilt from
+  // it after a restart instead of silently falling back to the M3.3 capability graph.
+  const executionPlan = parseExecutionPlanSnapshot(instance.context[EXECUTION_PLAN_CONTEXT_KEY]);
+  if (executionPlan !== null) {
+    return generateExecutionPlanWorkflowDefinition({
+      instanceId: instance.instanceId,
+      title: instance.title,
+      goal: instance.goal,
+      plan: executionPlan,
+      approvalRoles,
+    });
+  }
   const plan = parseCapabilityPlan(instance.context[CAPABILITY_PLAN_CONTEXT_KEY]);
   if (plan === null) return null;
   return generateWorkflowDefinition({

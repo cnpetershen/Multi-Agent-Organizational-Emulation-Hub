@@ -28,7 +28,8 @@ export function ApprovalsPage({ control }: { control: ConsoleControl }) {
   // A5: a hiring request is a `hire-gate` workflow instance; it gets its own card (role, reason,
   // requester, related tasks) and is kept out of the generic gate list so it never renders twice.
   const hiring = hiringRequests(workflows.data ?? [], briefs.data ?? []);
-  const gates = (workflows.data ?? []).filter(isOpenApproval).filter((workflow) => !isHiringGate(workflow));
+  const executionGates = (workflows.data ?? []).filter(isOpenApproval).filter((workflow) => workflow['executionPlan'] === true);
+  const gates = (workflows.data ?? []).filter(isOpenApproval).filter((workflow) => !isHiringGate(workflow)).filter((workflow) => workflow['executionPlan'] !== true);
   const pendingHires = hiring.filter((request) => request.status === 'pending').length;
   const decide = async (workflow: Row, decision: 'approve' | 'reject'): Promise<void> => {
     const instanceId = readString(workflow['instanceId'], '');
@@ -62,8 +63,11 @@ export function ApprovalsPage({ control }: { control: ConsoleControl }) {
     };
   });
   return <div className="stack">
-    <PageIntro eyebrow={t('approvals.eyebrow')} title={t('page.approvals.title')} description={t('approvals.description')} actions={<span className="page-count">{t('approvals.pageCount', { count: gates.length + pendingHires })}</span>} />
+    <PageIntro eyebrow={t('approvals.eyebrow')} title={t('page.approvals.title')} description={t('approvals.description')} actions={<span className="page-count">{t('approvals.pageCount', { count: gates.length + pendingHires + executionGates.length })}</span>} />
     {control.held && <div className="decision-hold" role="status"><span className="decision-pulse" /><div><b>{t('approvals.hold.title')}</b><p>{t('approvals.hold.detail')}</p></div></div>}
+    {executionGates.length > 0 && <Panel title={t('approvals.executionPanel')} actions={<button type="button" className="primary" onClick={() => control.navigate('DeliveryApproval')}>{t('approvals.openExecutionApprovals')}</button>}>
+      <p className="muted">{t('approvals.executionPanelHint', { count: executionGates.length })}</p>
+    </Panel>}
     {hiring.length > 0 && <Panel title={t('hiring.approvals.panel')} actions={<span className="muted">{t('hiring.approvals.hint')}</span>}>
       <div className="approval-list">{hiring.map((request) => <HiringRequestCard key={request.instanceId} request={request} employees={control.snapshot.employees} positions={control.snapshot.positions} busy={busy === request.instanceId} onDecide={decideHire} />)}</div>
     </Panel>}

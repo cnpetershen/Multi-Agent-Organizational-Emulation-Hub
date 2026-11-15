@@ -40,6 +40,9 @@ export const PLAN_ACTION_BINDINGS: Readonly<Record<string, string>> = Object.fre
   RejectStep: 'workflow.approve',
   SendMessage: 'communication.sendMessage',
   RequestCollaboration: 'collaboration.request',
+  HandoffTask: 'tasks.handoffRequest',
+  AcceptHandoff: 'tasks.handoffAccept',
+  DeclineHandoff: 'tasks.handoffDecline',
   UpdatePresence: 'runtime.presenceChanged',
   RecommendHire: 'agents.create',
   Reflect: 'noop',
@@ -99,6 +102,41 @@ function readRecord(args: Readonly<Record<string, unknown>>, key: string): Recor
   const value = args[key];
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
   return { ...(value as Record<string, unknown>) };
+}
+
+/** Args that are protocol controls, not deliverable keys. */
+const DELIVERY_CONTROL_KEYS = new Set([
+  'taskId',
+  'summary',
+  'message',
+  'data',
+  'artifacts',
+  'name',
+  'content',
+  'contentOutline',
+  'sections',
+  'description',
+  'reasonRef',
+  'status',
+]);
+
+/**
+ * Live plans put deliverables directly on the args object, or inside an `artifacts` map, rather
+ * than under `data`. Folding those keys into the submission data preserves the same real
+ * content; it does not invent files. The implementation gate below still requires an actual
+ * runnable file key and the HTML check still rejects a prose description.
+ */
+function deliveryDataOf(
+  args: Readonly<Record<string, unknown>>,
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(args)) {
+    if (!DELIVERY_CONTROL_KEYS.has(key)) merged[key] = value;
+  }
+  const artifacts = readRecord(args, 'artifacts');
+  for (const [key, value] of Object.entries(artifacts)) merged[key] = value;
+  return { ...merged, ...data };
 }
 
 function readStringArray(
@@ -165,6 +203,12 @@ export function createKernelPlanExecutor(
     const simTime: SimTime = context.simTime;
     const args = step.args;
     const binding = PLAN_ACTION_BINDINGS[step.action];
+    /**
+     * M3.1 traceability: every task fact written by this step is caused by the event that woke
+     * the agent, so "why did this task move" is answerable from the log alone rather than only
+     * through the correlation id.
+     */
+    const trace = { causationId: context.causationId, traceId: context.traceId } as const;
 
     if (binding === undefined) {
       return {
@@ -284,6 +328,7 @@ export function createKernelPlanExecutor(
             ...(priority === undefined ? {} : { priority }),
             ...(dueAtSim === undefined ? {} : { dueAtSim }),
             ...(maxAttempts === undefined ? {} : { maxAttempts }),
+            ...trace,
           }),
         );
       }
@@ -298,7 +343,7 @@ export function createKernelPlanExecutor(
           return { ok: true, value: Object.freeze([]) as readonly OrgEvent[] };
         }
         return taskCommand(() =>
-          deps.tasks.accept({ taskId, actor, simTime }),
+          deps.tasks.accept({ taskId, actor, simTime, ...trace }),
         );
       }
 
@@ -314,14 +359,14 @@ export function createKernelPlanExecutor(
         // without asking the model to remember two commands in one plan.
         if (current !== null && current.status === 'assigned') {
           return taskCommand(() => {
-            const accepted = deps.tasks.accept({ taskId, actor, simTime });
+            const accepted = deps.tasks.accept({ taskId, actor, simTime, ...trace });
             if (!accepted.ok) return accepted;
-            const started = deps.tasks.start({ taskId, actor, simTime });
+            const started = deps.tasks.start({ taskId, actor, simTime, ...trace });
             if (!started.ok) return started;
             return { ok: true, value: { ...started.value, events: [...accepted.value.events, ...started.value.events] } };
           });
         }
-        return taskCommand(() => deps.tasks.start({ taskId, actor, simTime }));
+        return taskCommand(() => deps.tasks.start({ taskId, actor, simTime, ...trace }));
       }
 
       case 'tasks.submit': {
@@ -340,7 +385,15 @@ export function createKernelPlanExecutor(
         // materialize the outline into the deliverable rather than rejecting an otherwise valid
         // plan. `ProgressReport` carries `message` instead of `summary`; it is a progress note.
         let summary = readString(args, 'summary') ?? readString(args, 'message');
-        let data = readRecord(args, 'data');
+        let data = deliveryDataOf(args, readRecord(args, 'data'));
+        if (step.action === 'ProduceArtifact') {
+          const artifactName = readString(args, 'name');
+          const artifactContent = typeof args['content'] === 'string' ? args['content'] : '';
+          if (artifactName !== null && artifactContent !== '') {
+            data = { ...data, [artifactName]: artifactContent };
+            if (summary === null) summary = `Delivered ${artifactName}`;
+          }
+        }
         if (summary === null) {
           const artifactName = readString(args, 'name');
           let artifactContent = typeof args['content'] === 'string' ? args['content'] : '';
@@ -413,6 +466,7 @@ export function createKernelPlanExecutor(
               data,
               ...(artifacts.length === 0 ? {} : { artifacts }),
             },
+            ...trace,
           }),
         );
       }
@@ -420,21 +474,21 @@ export function createKernelPlanExecutor(
       case 'tasks.complete': {
         const taskId = requireTaskId(args);
         if (isFailure(taskId)) return { ok: false, error: taskId };
-        return taskCommand(() => deps.tasks.complete({ taskId, actor, simTime }));
+        return taskCommand(() => deps.tasks.complete({ taskId, actor, simTime, ...trace }));
       }
 
       case 'tasks.reject': {
         const taskId = requireTaskId(args);
         if (isFailure(taskId)) return { ok: false, error: taskId };
         const reason = readString(args, 'reason') ?? 'rejected by agent plan';
-        return taskCommand(() => deps.tasks.reject({ taskId, actor, simTime, reason }));
+        return taskCommand(() => deps.tasks.reject({ taskId, actor, simTime, reason, ...trace }));
       }
 
       case 'tasks.block': {
         const taskId = requireTaskId(args);
         if (isFailure(taskId)) return { ok: false, error: taskId };
         const reason = readString(args, 'reason') ?? 'blocked by agent plan';
-        return taskCommand(() => deps.tasks.block({ taskId, actor, simTime, reason }));
+        return taskCommand(() => deps.tasks.block({ taskId, actor, simTime, reason, ...trace }));
       }
 
       case 'workflow.start': {
@@ -517,6 +571,7 @@ export function createKernelPlanExecutor(
             ),
           };
         }
+        const dedupeKey = readString(args, 'dedupeKey');
         const outcome = deps.communication.sendMessage({
           actor: context.actorContext,
           senderEmployeeId: context.actorContext.employeeId,
@@ -533,8 +588,14 @@ export function createKernelPlanExecutor(
           correlationId: context.correlationId as CorrelationId,
           causationId: context.causationId,
           ...(context.traceId === null ? {} : { traceId: context.traceId }),
+          ...(dedupeKey === null ? {} : { dedupeKey }),
         });
         if (!outcome.ok) return { ok: false, error: toPlanFailure(outcome.error) };
+        // A deduplicated send hands back the *original* event, which is already on the log:
+        // returning it as this step's output would append the same fact twice.
+        if (outcome.value.duplicate) {
+          return { ok: true, value: Object.freeze([]) as readonly OrgEvent[] };
+        }
         return { ok: true, value: Object.freeze([outcome.value.event]) };
       }
 
@@ -572,6 +633,80 @@ export function createKernelPlanExecutor(
         });
         if (!outcome.ok) return { ok: false, error: toPlanFailure(outcome.error) };
         return { ok: true, value: Object.freeze([outcome.value.event]) };
+      }
+
+      case 'tasks.handoffRequest': {
+        const taskId = requireTaskId(args);
+        if (isFailure(taskId)) return { ok: false, error: taskId };
+        const toAgentId = readString(args, 'toAgentId');
+        const reason = readString(args, 'reason');
+        if (toAgentId === null || reason === null) {
+          return {
+            ok: false,
+            error: planFailure(
+              'invalid_args',
+              'args',
+              'toAgentId and reason are required to hand a task to a colleague',
+            ),
+          };
+        }
+        const note = readString(args, 'note');
+        return taskCommand(() =>
+          deps.tasks.requestHandoff({
+            taskId,
+            actor,
+            simTime,
+            toEmployeeId: toAgentId as EmployeeId,
+            reason,
+            ...(note === null ? {} : { note }),
+            causationId: context.causationId,
+            traceId: context.traceId,
+          }),
+        );
+      }
+
+      case 'tasks.handoffAccept': {
+        const taskId = requireTaskId(args);
+        if (isFailure(taskId)) return { ok: false, error: taskId };
+        const handoffId = readString(args, 'handoffId');
+        return taskCommand(() =>
+          deps.tasks.acceptHandoff({
+            taskId,
+            actor,
+            simTime,
+            ...(handoffId === null ? {} : { handoffId }),
+            causationId: context.causationId,
+            traceId: context.traceId,
+          }),
+        );
+      }
+
+      case 'tasks.handoffDecline': {
+        const taskId = requireTaskId(args);
+        if (isFailure(taskId)) return { ok: false, error: taskId };
+        const handoffId = readString(args, 'handoffId');
+        const reason = readString(args, 'reason');
+        if (reason === null) {
+          return {
+            ok: false,
+            error: planFailure(
+              'invalid_args',
+              'args.reason',
+              'declining a handoff requires a reason the sender can act on',
+            ),
+          };
+        }
+        return taskCommand(() =>
+          deps.tasks.declineHandoff({
+            taskId,
+            actor,
+            simTime,
+            reason,
+            ...(handoffId === null ? {} : { handoffId }),
+            causationId: context.causationId,
+            traceId: context.traceId,
+          }),
+        );
       }
 
       case 'agents.create': {

@@ -77,6 +77,9 @@ export interface AssignmentInstance {
   readonly steps: readonly AssignmentStep[];
   readonly assignmentOverrides: Readonly<Record<string, string>>;
   readonly draft: boolean;
+  /** M3.4: this draft came from the requirements/orchestration sandbox. */
+  readonly planned?: boolean;
+  readonly planningOrchestrationId?: string | null;
   /** The instance's open (or last decided) approval gate, when the read model reports one. */
   readonly approval?: AssignmentApproval | null;
   /** M2: the definition's transitions. Absent on older read models; the graph then falls back. */
@@ -294,6 +297,9 @@ export function parseAssignmentInstance(row: Row): AssignmentInstance | null {
     steps,
     assignmentOverrides: overridesOf(row['assignmentOverrides']),
     draft: readBoolean(row['draft'], false),
+    planned: readBoolean(row['planned'], false),
+    planningOrchestrationId:
+      typeof row['planningOrchestrationId'] === 'string' ? row['planningOrchestrationId'] : null,
     approval: parseAssignmentApproval(row['approval']),
     transitions,
     paused: readBoolean(row['paused'], false),

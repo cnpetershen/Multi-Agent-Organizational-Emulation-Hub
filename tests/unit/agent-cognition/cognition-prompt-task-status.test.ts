@@ -17,9 +17,14 @@ import { testContext, testStateView } from '../../helpers/cognition-fixtures';
  */
 describe('task state machine: the legal commands of a status', () => {
   it('is the machine the task service enforces', () => {
-    expect(allowedTaskCommands('accepted')).toEqual(['start', 'reject', 'cancel']);
+    // M3.1: `handoff` is legal while the work is open — an accepted task can still be transferred
+    // to a named colleague, which is the whole point of a handoff before execution finishes.
+    expect(allowedTaskCommands('accepted')).toEqual(['start', 'reject', 'handoff', 'cancel']);
     expect(allowedTaskCommands('started')).toContain('submit');
+    expect(allowedTaskCommands('started')).toContain('handoff');
     expect(allowedTaskCommands('completed')).toEqual([]);
+    // A submitted task waits for settlement; transferring it would move work nobody can verify.
+    expect(allowedTaskCommands('submitted')).not.toContain('handoff');
   });
 });
 

@@ -6,11 +6,17 @@ export type Page =
   | 'Network'
   | 'Agents'
   | 'Deliverables'
+  | 'Planning'
+  | 'PlanCanvas'
   | 'Tasks'
   | 'Workflows'
   | 'Canvas'
   | 'Approvals'
+  | 'DeliveryApproval'
+  | 'Promotion'
+  | 'Publication'
   | 'Communications'
+  | 'Theater'
   | 'Runtime'
   | 'Events';
 
@@ -19,11 +25,17 @@ export const PAGES: readonly Page[] = [
   'Network',
   'Agents',
   'Deliverables',
+  'Planning',
+  'PlanCanvas',
   'Tasks',
   'Workflows',
   'Canvas',
   'Approvals',
+  'DeliveryApproval',
+  'Promotion',
+  'Publication',
   'Communications',
+  'Theater',
   'Runtime',
   'Events',
 ];

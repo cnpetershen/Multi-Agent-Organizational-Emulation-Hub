@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { parseRows, parseTaskRecord, parseWorkBriefs, readString } from '../api';
 import { instructAgent, taskReassign, type CommandContext } from '../commands';
-import { Avatar, Empty, LoadError, PageIntro, Panel, StatusPill } from '../components';
+import { AgentAvatar, Empty, LoadError, PageIntro, Panel, StatusPill } from '../components';
 import { DeliveryPackage } from '../components/DeliveryPackage';
 import { ResultApprovalPanel } from '../components/ResultApproval';
 import { DocumentPreview } from '../components/DocumentPreview';
@@ -703,7 +703,7 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
               {roles.map((role: Contribution) => (
                 <article className="role-card" key={`${role.roleTitle}|${role.personName}`}>
                   <div className="role-head">
-                    <Avatar name={role.personName === '' ? role.roleTitle : role.personName} tone="default" />
+                    <AgentAvatar name={role.personName} positionTitle={role.roleTitle} />
                     <div>
                       <b>{role.roleTitle === '' ? t('common.unassigned') : role.roleTitle}</b>
                       <span>{role.personName}</span>

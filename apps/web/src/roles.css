@@ -1,0 +1,177 @@
+/* ==========================================================================
+   Role marks — the avatar in front of every agent.
+
+   One badge system for the whole console. The glyph says what the seat does
+   (code, shield, palette, megaphone…); the tone says which discipline it
+   belongs to, with gold reserved for leadership. The same vocabulary is used
+   on the light console pages and on the two dark decks (Network, Assignment
+   studio), so an agent is recognized the same way wherever they appear.
+
+   The mark never carries state by repainting itself: a status dot is added on
+   the corner instead, which keeps "on duty" from erasing the role colour.
+   ========================================================================== */
+
+.agent-avatar {
+  --avatar-size: 34px;
+  --avatar-glyph: 20px;
+  /* Neutral defaults, so a badge rendered without a known seat still reads as a person. */
+  --role-ink: #5c6a78;
+  --role-soft: #eef1f4;
+  --role-line: #dde3e9;
+  --role-ink-dark: #b6c2cf;
+  --role-soft-dark: rgba(92, 106, 120, 0.28);
+  --role-line-dark: rgba(182, 194, 207, 0.3);
+  position: relative;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: var(--avatar-size);
+  height: var(--avatar-size);
+  border: 1px solid var(--role-line);
+  border-radius: 50%;
+  background: var(--role-soft);
+  color: var(--role-ink);
+  line-height: 0;
+  vertical-align: middle;
+  user-select: none;
+}
+
+.agent-avatar > svg {
+  display: block;
+  width: var(--avatar-glyph);
+  height: var(--avatar-glyph);
+}
+
+.agent-avatar[data-size='xs'] { --avatar-size: 20px; --avatar-glyph: 13px; }
+.agent-avatar[data-size='sm'] { --avatar-size: 26px; --avatar-glyph: 16px; }
+.agent-avatar[data-size='md'] { --avatar-size: 34px; --avatar-glyph: 20px; }
+.agent-avatar[data-size='lg'] { --avatar-size: 46px; --avatar-glyph: 27px; }
+
+/* --- Families -------------------------------------------------------------- */
+
+.agent-avatar[data-family='executive'] {
+  --role-ink: #8a5a00; --role-soft: #fdf2da; --role-line: #eeddb4;
+  --role-ink-dark: #f2c46a; --role-soft-dark: rgba(242, 196, 106, 0.15); --role-line-dark: rgba(242, 196, 106, 0.36);
+}
+
+.agent-avatar[data-family='engineering'] {
+  --role-ink: #2f4bc0; --role-soft: #eaefff; --role-line: #d5defb;
+  --role-ink-dark: #9db3ff; --role-soft-dark: rgba(63, 92, 220, 0.22); --role-line-dark: rgba(157, 179, 255, 0.38);
+}
+
+.agent-avatar[data-family='quality'] {
+  --role-ink: #0b6b5e; --role-soft: #e0f4ef; --role-line: #c3e7de;
+  --role-ink-dark: #6cd8c4; --role-soft-dark: rgba(11, 107, 94, 0.26); --role-line-dark: rgba(108, 216, 196, 0.38);
+}
+
+.agent-avatar[data-family='design'] {
+  --role-ink: #a32a72; --role-soft: #fce9f4; --role-line: #f1cfe3;
+  --role-ink-dark: #f39acb; --role-soft-dark: rgba(163, 42, 114, 0.24); --role-line-dark: rgba(243, 154, 203, 0.38);
+}
+
+.agent-avatar[data-family='product'] {
+  --role-ink: #6d3bbd; --role-soft: #f1ebfe; --role-line: #e0d4f8;
+  --role-ink-dark: #c2a4ff; --role-soft-dark: rgba(109, 59, 189, 0.22); --role-line-dark: rgba(194, 164, 255, 0.38);
+}
+
+.agent-avatar[data-family='research'] {
+  --role-ink: #0d5f8a; --role-soft: #e3f2fa; --role-line: #c8e4f2;
+  --role-ink-dark: #79c9ef; --role-soft-dark: rgba(13, 95, 138, 0.26); --role-line-dark: rgba(121, 201, 239, 0.38);
+}
+
+.agent-avatar[data-family='marketing'] {
+  --role-ink: #a8451a; --role-soft: #fdeee4; --role-line: #f6d8c5;
+  --role-ink-dark: #f0a582; --role-soft-dark: rgba(168, 69, 26, 0.24); --role-line-dark: rgba(240, 165, 130, 0.38);
+}
+
+.agent-avatar[data-family='business'] {
+  --role-ink: #2c6b3f; --role-soft: #e8f4ea; --role-line: #cfe6d4;
+  --role-ink-dark: #93d4a5; --role-soft-dark: rgba(44, 107, 63, 0.26); --role-line-dark: rgba(147, 212, 165, 0.38);
+}
+
+.agent-avatar[data-family='operations'] {
+  --role-ink: #47566a; --role-soft: #edf0f4; --role-line: #dbe1e8;
+  --role-ink-dark: #aab9c9; --role-soft-dark: rgba(71, 86, 106, 0.32); --role-line-dark: rgba(170, 185, 201, 0.34);
+}
+
+.agent-avatar[data-family='people'] {
+  --role-ink: #a3354a; --role-soft: #fbe9ec; --role-line: #f2d3d9;
+  --role-ink-dark: #f09aa8; --role-soft-dark: rgba(163, 53, 74, 0.24); --role-line-dark: rgba(240, 154, 168, 0.38);
+}
+
+.agent-avatar[data-family='finance'] {
+  --role-ink: #4d6a12; --role-soft: #f0f4dd; --role-line: #dde5bf;
+  --role-ink-dark: #d8d17a; --role-soft-dark: rgba(77, 106, 18, 0.26); --role-line-dark: rgba(216, 209, 122, 0.38);
+}
+
+.agent-avatar[data-family='general'] {
+  --role-ink: #5c6a78; --role-soft: #eef1f4; --role-line: #dde3e9;
+  --role-ink-dark: #b6c2cf; --role-soft-dark: rgba(92, 106, 120, 0.28); --role-line-dark: rgba(182, 194, 207, 0.3);
+}
+
+/* --- State ----------------------------------------------------------------- */
+
+.agent-avatar::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  box-sizing: content-box;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--surface, #fff);
+  border-radius: 50%;
+  background: #2c8b5b;
+  opacity: 0;
+}
+
+.agent-avatar[data-status='working']::after { opacity: 1; }
+.agent-avatar[data-status='paused']::after { opacity: 1; background: #c98a2b; }
+.agent-avatar[data-size='xs']::after { display: none; }
+
+/* A vacant seat keeps its role colour but reads hollow: nobody wears this badge yet. */
+.agent-avatar[data-status='vacant'] {
+  border-style: dashed;
+  background: transparent;
+}
+
+.agent-avatar[data-status='vacant'] > svg { opacity: 0.72; }
+
+.agent-avatar[data-status='archived'] {
+  opacity: 0.55;
+  filter: saturate(0.6);
+}
+
+/* A person holding the seat, as opposed to an AI employee: a small amber pin, never a repaint. */
+.agent-avatar[data-kind='human']::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: -1px;
+  box-sizing: content-box;
+  width: 6px;
+  height: 6px;
+  border: 2px solid var(--surface, #fff);
+  border-radius: 50%;
+  background: #c98a2b;
+}
+
+/* --- Dark decks (Network, Assignment studio) -------------------------------- */
+
+.network-deck .agent-avatar,
+.assignment-studio .agent-avatar {
+  --role-ink: var(--role-ink-dark);
+  --role-soft: var(--role-soft-dark);
+  --role-line: var(--role-line-dark);
+  --surface: #0b1219;
+}
+
+.network-deck .agent-avatar[data-status='working'],
+.assignment-studio .agent-avatar[data-status='working'] {
+  box-shadow: 0 0 0 3px rgba(105, 192, 146, 0.12), 0 0 16px rgba(105, 192, 146, 0.22);
+}
+
+.network-deck .agent-avatar[data-status='vacant'],
+.assignment-studio .agent-avatar[data-status='vacant'] {
+  background: transparent;
+}

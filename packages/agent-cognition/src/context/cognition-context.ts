@@ -57,6 +57,12 @@ export interface AssignedTaskView {
    * passes the legal set in; the prompt renders it; cognition never has to encode the machine.
    */
   readonly allowedCommands?: readonly string[];
+  /**
+   * The confirmed workflow around this step: prior completed steps and the evidence keys they
+   * produced. Without it a downstream step (QA, research) blocks waiting for a second canvas
+   * confirmation even though its assignment only exists after confirmation.
+   */
+  readonly workflowContext?: string;
 }
 
 /** One seat that provides a capability — enough for a planner to see who can do the work. */

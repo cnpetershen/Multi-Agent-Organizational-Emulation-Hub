@@ -532,13 +532,21 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
       // was archived between the human confirmation and this activation), the step falls back
       // to the live capability resolution instead of blocking; the override stays visible on
       // the log and in `context.assignmentOverrides` for audit.
+      // A plan-derived step names a concrete employee: that assignment is the plan's authority,
+      // not a suggestion to be re-resolved through the seat. Overrides remain the mechanism for
+      // position/capability templates.
+      const directEmployee =
+        step.assignment.kind === 'employee' ? graph.getEmployee(step.assignment.employeeId) : null;
       const overrideId = ctx.overrides[step.stepId];
-      const pinned =
-        typeof overrideId === 'string' &&
-        overrideId !== '' &&
-        step.assignment.kind !== 'employee'
-          ? graph.getEmployee(overrideId as EmployeeId)
-          : null;
+      const overridden =
+        directEmployee !== null
+          ? null
+          : typeof overrideId === 'string' &&
+              overrideId !== '' &&
+              step.assignment.kind !== 'employee'
+            ? graph.getEmployee(overrideId as EmployeeId)
+            : null;
+      const pinned = directEmployee ?? overridden;
       const pinnedExecutable =
         pinned !== null && isExecutableEmployment(pinned.status) ? pinned : null;
       const seat =
@@ -546,7 +554,10 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
           ? pinnedExecutable.positionId
           : step.assignment.kind === 'position'
             ? step.assignment.positionId
-            : assignmentSeat(step, step.assignment);
+            : step.assignment.kind === 'employee'
+              ? (graph.getEmployee(step.assignment.employeeId)?.positionId ??
+                assignmentSeat(step, step.assignment))
+              : assignmentSeat(step, step.assignment);
       if (typeof seat !== 'string') return { ok: false, error: seat };
       const created = tasks.create({
         actor: engine,

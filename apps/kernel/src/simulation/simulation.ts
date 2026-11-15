@@ -21,6 +21,8 @@ import {
   createInMemoryMessageStore,
   isChannelOpenedEvent,
   isCollaborationRequestedEvent,
+  isMessageProcessedEvent,
+  isMessageSentEvent,
   registerCommunicationEvents,
 } from '@maoeh/agent-communication';
 import type { EventRegistry } from '@maoeh/event-system';
@@ -104,6 +106,10 @@ export const DEFAULT_AGENT_POLICY: PermissionPolicy = {
     // org-domain threshold lives here (unmet ⇒ `NEEDS_APPROVAL`, escalating to the manager).
     { subject: { kind: 'any' }, action: 'ControlAgent', resource: 'position:*', minAuthority: { domain: 'org', level: 3 } },
     { subject: { kind: 'any' }, action: 'SendMessage', resource: 'channel:*' },
+    // M3.1 collaboration handoff: asking a colleague to take work, and answering such a request.
+    // The domain still decides who may ask (creator/executor) and which named employee may answer;
+    // this grant is only the right to use the primitive at all, like every other task action.
+    { subject: { kind: 'any' }, action: 'HandoffTask', resource: 'task:*' },
     { subject: { kind: 'any' }, action: 'UpdatePresence', resource: 'runtime:*' },
   ],
   denies: [],
@@ -265,6 +271,7 @@ export async function createSimulation(
   let instanceSeq = 0;
   let correlationSeq = 0;
   let collaborationSeq = 0;
+  let handoffSeq = 0;
   let cursor = 0;
   let lastTickMarker: OrgEvent | null = null;
   let lastTickResult: SimulationTickResult | null = null;
@@ -278,6 +285,7 @@ export async function createSimulation(
   const nextInstanceId = (): string => `instance-${String((instanceSeq += 1))}`;
   const nextCorrelationId = (): string => `corr-sim-${String((correlationSeq += 1))}`;
   const nextCollaborationId = (): string => `collab-${String((collaborationSeq += 1))}`;
+  const nextHandoffId = (): string => `handoff-${String((handoffSeq += 1))}`;
 
   const taskStore: TaskStore = createInMemoryTaskStore();
   const tasks = createTaskService({
@@ -287,6 +295,7 @@ export async function createSimulation(
     store: taskStore,
     eventIdGenerator: nextEventId,
     taskIdGenerator: nextTaskId,
+    handoffIdGenerator: nextHandoffId,
   });
 
   const definitionStore = createInMemoryWorkflowDefinitionStore(options.workflowDefinitions);
@@ -841,6 +850,9 @@ export async function createSimulation(
     agents,
     eligibilityDeps,
     wakeupSource,
+    stallHeartbeats: new Map(),
+    stallBootstrapped: false,
+    taskContinuations: new Map(),
     createAgent: materializeAgent,
     cursor: () => cursor,
     nextEventId,
@@ -911,6 +923,34 @@ export async function createSimulation(
   };
 
   /**
+   * M3.1: messages, their delivery ledger and their processing state are derived state too. A
+   * restarted kernel that forgot them could neither trace an in-flight message nor honour a
+   * sender's dedupe key, and the delivery ledger would report "nothing was ever delivered". The
+   * projection is idempotent and writes no events; channels are projected before this so a
+   * delivery can resolve its channel.
+   */
+  const projectMessages = (events: readonly OrgEvent[]): void => {
+    for (const event of events) {
+      if (!isMessageSentEvent(event.type)) continue;
+      communication.restoreMessage(event);
+    }
+  };
+
+  const projectDeliveries = (events: readonly OrgEvent[]): void => {
+    for (const event of events) {
+      if (!isMessageSentEvent(event.type)) continue;
+      communication.deliverFromEvent(event);
+    }
+  };
+
+  const projectMessageProcessing = (events: readonly OrgEvent[]): void => {
+    for (const event of events) {
+      if (!isMessageProcessedEvent(event.type)) continue;
+      communication.restoreProcessing(event);
+    }
+  };
+
+  /**
    * Company formation. A fresh company is not a mute company: it boots with one company-wide
    * channel, opened through the existing `Comm.openChannel` primitive and recorded as
    * `Communication.ChannelOpened`, so agents can `SendMessage` without an out-of-band setup step
@@ -969,6 +1009,11 @@ export async function createSimulation(
       if (collaborationId !== null) {
         const value = numericSuffix(collaborationId, 'collab-');
         if (value !== null && value > collaborationSeq) collaborationSeq = value;
+      }
+      const handoffId = readString(event.payload, 'handoffId');
+      if (handoffId !== null) {
+        const value = numericSuffix(handoffId, 'handoff-');
+        if (value !== null && value > handoffSeq) handoffSeq = value;
       }
       const cycleId = readString(event.payload, 'cycleId');
       if (cycleId !== null) {
@@ -1037,6 +1082,9 @@ export async function createSimulation(
       stateStore.commit(replayed, 0);
     }
     projectChannels(events);
+    projectMessages(events);
+    projectDeliveries(events);
+    projectMessageProcessing(events);
     projectCollaborations(events);
     // M1.3: agents born / archived at runtime are facts on the log, so a replay restores them
     // before the tick markers decide the cursor.

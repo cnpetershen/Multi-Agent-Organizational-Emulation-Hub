@@ -1,0 +1,603 @@
+[
+  {
+    "seq": 47328,
+    "eventId": "evt-47262",
+    "type": "Runtime.CycleFinished",
+    "occurredAtSim": 46888,
+    "actorKind": "employee",
+    "actorId": "business-analyst-hire",
+    "subjectType": "employee",
+    "subjectId": "business-analyst-hire",
+    "correlationId": "canvas-draft-20261114015857",
+    "causationId": "evt-47258",
+    "payload": {
+      "cycleId": "cycle-68",
+      "employeeId": "business-analyst-hire",
+      "sourceEventId": "evt-47258",
+      "outcome": "failed",
+      "actionCount": 1,
+      "goal": "Deliver the Product Requirement step for workflow '画布演示 · 3D 产品导览': a requirement definition covering playable demo, design-doc and 3d-scene, orchestrated through product requirement, technical design, implementation and testing, with the draft held for human confirmation.",
+      "failureCode": "invalid_transition"
+    }
+  },
+  {
+    "seq": 47327,
+    "eventId": "evt-47261",
+    "type": "Task.Accepted",
+    "occurredAtSim": 46888,
+    "actorKind": "employee",
+    "actorId": "business-analyst-hire",
+    "subjectType": "task",
+    "subjectId": "task-25",
+    "correlationId": "canvas-draft-20261114015857",
+    "causationId": null,
+    "payload": {
+      "taskId": "task-25",
+      "employeeId": "business-analyst-hire",
+      "attempt": 1
+    }
+  },
+  {
+    "seq": 47326,
+    "eventId": "evt-47260",
+    "type": "Runtime.CycleStarted",
+    "occurredAtSim": 46888,
+    "actorKind": "employee",
+    "actorId": "business-analyst-hire",
+    "subjectType": "employee",
+    "subjectId": "business-analyst-hire",
+    "correlationId": "canvas-draft-20261114015857",
+    "causationId": "evt-47258",
+    "payload": {
+      "cycleId": "cycle-68",
+      "employeeId": "business-analyst-hire",
+      "sourceEventId": "evt-47258",
+      "reason": "EVENT"
+    }
+  },
+  {
+    "seq": 47325,
+    "eventId": "ctrl-evt-67",
+    "type": "Control.WorkflowInstanceConfirmed",
+    "occurredAtSim": 46886,
+    "actorKind": "human",
+    "actorId": "ceo-alex",
+    "subjectType": "workflow_instance",
+    "subjectId": "instance-10",
+    "correlationId": "ui-1794622252114-1",
+    "causationId": "ui-1794622252114-1",
+    "payload": {
+      "commandId": "ui-1794622252114-1",
+      "operatorId": "ceo-alex",
+      "reason": "draft confirmed from the orchestration canvas",
+      "instanceId": "instance-10"
+    }
+  },
+  {
+    "seq": 47324,
+    "eventId": "evt-47259",
+    "type": "Workflow.StepEntered",
+    "occurredAtSim": 46886,
+    "actorKind": "system",
+    "actorId": "workflow-engine",
+    "subjectType": "workflow",
+    "subjectId": "instance-10",
+    "correlationId": "canvas-draft-20261114015857",
+    "causationId": null,
+    "payload": {
+      "instanceId": "instance-10",
+      "stageId": "stage-1",
+      "stepId": "step-1",
+      "kind": "task",
+      "taskId": "task-25",
+      "assigneePositionId": "business-analyst",
+      "assigneeEmployeeId": "business-analyst-hire"
+    }
+  },
+  {
+    "seq": 47323,
+    "eventId": "evt-47258",
+    "type": "Task.Assigned",
+    "occurredAtSim": 46886,
+    "actorKind": "system",
+    "actorId": "workflow-engine",
+    "subjectType": "task",
+    "subjectId": "task-25",
+    "correlationId": "canvas-draft-20261114015857",
+    "causationId": null,
+    "payload": {
+      "taskId": "task-25",
+      "assignment": {
+        "kind": "position",
+        "positionId": "business-analyst",
+        "targetEmployeeId": null,
+        "assigneeEmployeeId": "business-analyst-hire",
+        "actingEmployeeId": null
+      },
+      "attempt": 1,
+      "reason": null,
+      "title": "Product Requirement",
+      "goal": "Complete step \"Product Requirement\" of workflow \"画布演示 · 3D 产品导览\": 交付一个包含可玩演示（playable）、设计说明（design-doc）和 3D 场景（3d-scene）的产品，按产品需求、技术设计、实现、测试四步编排；保持草稿等待人工确认，不创建独立任务。",
+      "capability": "product_requirement"
+    }
+  },
+  {
+    "seq": 47322,
+    "eventId": "evt-47257",
+    "type": "Task.Created",
+    "occurredAtSim": 46886,
+    "actorKind": "system",
+    "actorId": "workflow-engine",
+    "subjectType": "task",
+    "subjectId": "task-25",
+    "correlationId": "canvas-draft-20261114015857",
+    "causationId": null,
+    "payload": {
+      "taskId": "task-25",
+      "title": "Product Requirement",
+      "goal": "Complete step \"Product Requirement\" of workflow \"画布演示 · 3D 产品导览\": 交付一个包含可玩演示（playable）、设计说明（design-doc）和 3D 场景（3d-scene）的产品，按产品需求、技术设计、实现、测试四步编排；保持草稿等待人工确认，不创建独立任务。",
+      "detail": null,
+      "workflowInstanceId": "instance-10",
+      "workflowStepId": "step-1",
+      "assignment": {
+        "kind": "position",
+        "positionId": "business-analyst",
+        "targetEmployeeId": null,
+        "assigneeEmployeeId": null,
+        "actingEmployeeId": null
+      },
+      "createdByKind": "system",
+      "createdById": null,
+      "priority": 5,
+      "attempt": 1,
+      "maxAttempts": 1,
+      "requiredSkills": [],
+      "verification": null,
+      "outputs": [],
+      "dueAtSim": null,
+      "capability": "product_requirement"
+    }
+  },
+  {
+    "seq": 47321,
+    "eventId": "evt-47256",
+    "type": "Workflow.DraftConfirmed",
+    "occurredAtSim": 46886,
+    "actorKind": "employee",
+    "actorId": "ceo-alex",
+    "subjectType": "workflow",
+    "subjectId": "instance-10",
+    "correlationId": "canvas-draft-20261114015857",
+    "causationId": null,
+    "payload": {
+      "instanceId": "instance-10",
+      "confirmedBy": "ceo-alex",
+      "reason": "draft confirmed from the orchestration canvas"
+    }
+  },
+  {
+    "seq": 18168,
+    "eventId": "evt-18103",
+    "type": "Workflow.InstanceStarted",
+    "occurredAtSim": 17737,
+    "actorKind": "employee",
+    "actorId": "ceo-alex",
+    "subjectType": "workflow",
+    "subjectId": "instance-10",
+    "correlationId": "canvas-draft-20261114015857",
+    "causationId": null,
+    "payload": {
+      "instanceId": "instance-10",
+      "workflowId": "generated-instance-10",
+      "version": 1,
+      "title": "画布演示 · 3D 产品导览",
+      "goal": "交付一个包含可玩演示（playable）、设计说明（design-doc）和 3D 场景（3d-scene）的产品，按产品需求、技术设计、实现、测试四步编排；保持草稿等待人工确认，不创建独立任务。",
+      "context": {
+        "capabilityPlan": {
+          "capabilities": [
+            "product_requirement",
+            "technical_design",
+            "implementation",
+            "testing"
+          ],
+          "assignments": [
+            {
+              "capability": "product_requirement",
+              "matchedPositionId": "business-analyst",
+              "positionId": "business-analyst",
+              "escalated": false
+            },
+            {
+              "capability": "technical_design",
+              "matchedPositionId": "ai-researcher",
+              "positionId": "ai-researcher",
+              "escalated": false
+            },
+            {
+              "capability": "implementation",
+              "matchedPositionId": "agent-engineer",
+              "positionId": "agent-engineer",
+              "escalated": false
+            },
+            {
+              "capability": "testing",
+              "matchedPositionId": "qa",
+              "positionId": "qa",
+              "escalated": false
+            }
+          ]
+        },
+        "draft": true
+      },
+      "initiatedBy": "ceo-alex",
+      "entryStageId": "stage-1"
+    }
+  },
+  {
+    "seq": 16926,
+    "eventId": "evt-16867",
+    "type": "Runtime.CycleFinished",
+    "occurredAtSim": 16512,
+    "actorKind": "employee",
+    "actorId": "business-analyst-hire",
+    "subjectType": "employee",
+    "subjectId": "business-analyst-hire",
+    "correlationId": "demo-brief-20261114013812",
+    "causationId": "evt-16862",
+    "payload": {
+      "cycleId": "cycle-65",
+      "employeeId": "business-analyst-hire",
+      "sourceEventId": "evt-16862",
+      "outcome": "failed",
+      "actionCount": 1,
+      "goal": "Deliver a 3D product tour design document satisfying the `design-doc` verification key for task-24.",
+      "failureCode": "invalid_transition"
+    }
+  },
+  {
+    "seq": 16924,
+    "eventId": "evt-16865",
+    "type": "Runtime.CycleStarted",
+    "occurredAtSim": 16512,
+    "actorKind": "employee",
+    "actorId": "business-analyst-hire",
+    "subjectType": "employee",
+    "subjectId": "business-analyst-hire",
+    "correlationId": "demo-brief-20261114013812",
+    "causationId": "evt-16862",
+    "payload": {
+      "cycleId": "cycle-65",
+      "employeeId": "business-analyst-hire",
+      "sourceEventId": "evt-16862",
+      "reason": "EVENT"
+    }
+  },
+  {
+    "seq": 11005,
+    "eventId": "evt-10953",
+    "type": "Runtime.CycleFinished",
+    "occurredAtSim": 10630,
+    "actorKind": "employee",
+    "actorId": "business-analyst-hire",
+    "subjectType": "employee",
+    "subjectId": "business-analyst-hire",
+    "correlationId": "ui-1794585501277-1",
+    "causationId": "evt-10944",
+    "payload": {
+      "cycleId": "cycle-59",
+      "employeeId": "business-analyst-hire",
+      "sourceEventId": "evt-10944",
+      "outcome": "failed",
+      "actionCount": 2,
+      "goal": "Deliver the cyber sandbox requirement and acceptance specification for task-19, with a concrete endpoint contract and cyber-sandbox acceptance statement that satisfy the verifier keys.",
+      "failureCode": "invalid_args"
+    }
+  },
+  {
+    "seq": 11002,
+    "eventId": "evt-10950",
+    "type": "Runtime.CycleStarted",
+    "occurredAtSim": 10630,
+    "actorKind": "employee",
+    "actorId": "business-analyst-hire",
+    "subjectType": "employee",
+    "subjectId": "business-analyst-hire",
+    "correlationId": "ui-1794585501277-1",
+    "causationId": "evt-10944",
+    "payload": {
+      "cycleId": "cycle-59",
+      "employeeId": "business-analyst-hire",
+      "sourceEventId": "evt-10944",
+      "reason": "EVENT"
+    }
+  },
+  {
+    "seq": 4083,
+    "eventId": "evt-4063",
+    "type": "Task.Completed",
+    "occurredAtSim": 3954,
+    "actorKind": "system",
+    "actorId": "workflow-engine",
+    "subjectType": "task",
+    "subjectId": "task-4",
+    "correlationId": "ui-1794578006074-1",
+    "causationId": null,
+    "payload": {
+      "taskId": "task-4",
+      "employeeId": "business-analyst-hire",
+      "verification": null,
+      "result": {
+        "taskId": "task-4",
+        "producedBy": "business-analyst-hire",
+        "summary": "Wrote the brief for \"实时追踪工单流转状态，自动识别 SLA 超时风险，输出告警与优化建议\".",
+        "data": {
+          "name": "Product Requirement",
+          "outline": [
+            "context",
+            "approach",
+            "open questions"
+          ],
+          "content": "# Product Requirement\n\n实时追踪工单流转状态，自动识别 SLA 超时风险，输出告警与优化建议\n\n- Context: what the instruction asks for, and why it matters now.\n- Approach: the smallest end-to-end slice that answers it.\n- Open questions: what must be decided before work starts.",
+          "files": [
+            {
+              "path": "product-requirement.md",
+              "language": "markdown",
+              "content": "# Product Requirement\n\n实时追踪工单流转状态，自动识别 SLA 超时风险，输出告警与优化建议\n\n- Context: what the instruction asks for, and why it matters now.\n- Approach: the smallest end-to-end slice that answers it.\n- Open questions: what must be decided before work starts."
+            }
+          ]
+        },
+        "artifacts": [
+          "product-requirement.md"
+        ]
+      }
+    }
+  },
+  {
+    "seq": 4082,
+    "eventId": "evt-4062",
+    "type": "Runtime.CycleFinished",
+    "occurredAtSim": 3954,
+    "actorKind": "employee",
+    "actorId": "business-analyst-hire",
+    "subjectType": "employee",
+    "subjectId": "business-analyst-hire",
+    "correlationId": "ui-1794578006074-1",
+    "causationId": "evt-4056",
+    "payload": {
+      "cycleId": "cycle-12",
+      "employeeId": "business-analyst-hire",
+      "sourceEventId": "evt-4056",
+      "outcome": "acted",
+      "actionCount": 3,
+      "goal": "task-4 is submitted with a verifiable result",
+      "failureCode": null
+    }
+  },
+  {
+    "seq": 4081,
+    "eventId": "evt-4061",
+    "type": "Task.ProgressReported",
+    "occurredAtSim": 3954,
+    "actorKind": "employee",
+    "actorId": "business-analyst-hire",
+    "subjectType": "task",
+    "subjectId": "task-4",
+    "correlationId": "ui-1794578006074-1",
+    "causationId": null,
+    "payload": {
+      "taskId": "task-4",
+      "employeeId": "business-analyst-hire",
+      "phase": "submitted",
+      "summary": "Wrote the brief for \"实时追踪工单流转状态，自动识别 SLA 超时风险，输出告警与优化建议\".",
+      "result": {
+        "taskId": "task-4",
+        "producedBy": "business-analyst-hire",
+        "summary": "Wrote the brief for \"实时追踪工单流转状态，自动识别 SLA 超时风险，输出告警与优化建议\".",
+        "data": {
+          "name": "Product Requirement",
+          "outline": [
+            "context",
+            "approach",
+            "open questions"
+          ],
+          "content": "# Product Requirement\n\n实时追踪工单流转状态，自动识别 SLA 超时风险，输出告警与优化建议\n\n- Context: what the instruction asks for, and why it matters now.\n- Approach: the smallest end-to-end slice that answers it.\n- Open questions: what must be decided before work starts.",
+          "files": [
+            {
+              "path": "product-requirement.md",
+              "language": "markdown",
+              "content": "# Product Requirement\n\n实时追踪工单流转状态，自动识别 SLA 超时风险，输出告警与优化建议\n\n- Context: what the instruction asks for, and why it matters now.\n- Approach: the smallest end-to-end slice that answers it.\n- Open questions: what must be decided before work starts."
+            }
+          ]
+        },
+        "artifacts": [
+          "product-requirement.md"
+        ]
+      },
+      "review": null
+    }
+  },
+  {
+    "seq": 4080,
+    "eventId": "evt-4060",
+    "type": "Task.Started",
+    "occurredAtSim": 3954,
+    "actorKind": "employee",
+    "actorId": "business-analyst-hire",
+    "subjectType": "task",
+    "subjectId": "task-4",
+    "correlationId": "ui-1794578006074-1",
+    "causationId": null,
+    "payload": {
+      "taskId": "task-4",
+      "employeeId": "business-analyst-hire",
+      "attempt": 1,
+      "reason": null
+    }
+  },
+  {
+    "seq": 4079,
+    "eventId": "evt-4059",
+    "type": "Task.Accepted",
+    "occurredAtSim": 3954,
+    "actorKind": "employee",
+    "actorId": "business-analyst-hire",
+    "subjectType": "task",
+    "subjectId": "task-4",
+    "correlationId": "ui-1794578006074-1",
+    "causationId": null,
+    "payload": {
+      "taskId": "task-4",
+      "employeeId": "business-analyst-hire",
+      "attempt": 1
+    }
+  },
+  {
+    "seq": 4078,
+    "eventId": "evt-4058",
+    "type": "Runtime.CycleStarted",
+    "occurredAtSim": 3954,
+    "actorKind": "employee",
+    "actorId": "business-analyst-hire",
+    "subjectType": "employee",
+    "subjectId": "business-analyst-hire",
+    "correlationId": "ui-1794578006074-1",
+    "causationId": "evt-4056",
+    "payload": {
+      "cycleId": "cycle-12",
+      "employeeId": "business-analyst-hire",
+      "sourceEventId": "evt-4056",
+      "reason": "EVENT"
+    }
+  },
+  {
+    "seq": 4076,
+    "eventId": "evt-4057",
+    "type": "Workflow.StepEntered",
+    "occurredAtSim": 3949,
+    "actorKind": "system",
+    "actorId": "workflow-engine",
+    "subjectType": "workflow",
+    "subjectId": "instance-7",
+    "correlationId": "ui-1794578006074-1",
+    "causationId": null,
+    "payload": {
+      "instanceId": "instance-7",
+      "stageId": "stage-1",
+      "stepId": "step-1",
+      "kind": "task",
+      "taskId": "task-4",
+      "assigneePositionId": "business-analyst",
+      "assigneeEmployeeId": "business-analyst-hire"
+    }
+  },
+  {
+    "seq": 4075,
+    "eventId": "evt-4056",
+    "type": "Task.Assigned",
+    "occurredAtSim": 3949,
+    "actorKind": "system",
+    "actorId": "workflow-engine",
+    "subjectType": "task",
+    "subjectId": "task-4",
+    "correlationId": "ui-1794578006074-1",
+    "causationId": null,
+    "payload": {
+      "taskId": "task-4",
+      "assignment": {
+        "kind": "position",
+        "positionId": "business-analyst",
+        "targetEmployeeId": null,
+        "assigneeEmployeeId": "business-analyst-hire",
+        "actingEmployeeId": null
+      },
+      "attempt": 1,
+      "reason": null,
+      "title": "Product Requirement",
+      "goal": "Complete step \"Product Requirement\" of workflow \"智能工单 SLA 履约监控看板\": 实时追踪工单流转状态，自动识别 SLA 超时风险，输出告警与优化建议",
+      "capability": "product_requirement"
+    }
+  },
+  {
+    "seq": 380,
+    "eventId": "evt-369",
+    "type": "Control.AgentCreated",
+    "occurredAtSim": 328,
+    "actorKind": "employee",
+    "actorId": "ceo-alex",
+    "subjectType": "employee",
+    "subjectId": "business-analyst-hire",
+    "correlationId": "ui-1794572762204-2",
+    "causationId": "evt-354",
+    "payload": {
+      "commandId": "hire-business-analyst-hire",
+      "operatorId": "ceo-alex",
+      "reason": "No staffed seat and no staffed manager can carry product_requirement: fill seat \"business-analyst\" so the workflow proposed next has an executor.",
+      "agentId": "business-analyst-hire",
+      "name": "Business Analyst",
+      "positionId": "business-analyst",
+      "employeeNo": null,
+      "responsibilities": [
+        "Carry the product_requirement work this seat declares for the organization"
+      ],
+      "traits": [],
+      "expertise": [
+        "product_requirement"
+      ],
+      "cognitionProfileId": "exec-strategic",
+      "templateEmployeeId": null,
+      "definitionSource": "ceo-alex",
+      "status": "active"
+    }
+  },
+  {
+    "seq": 341,
+    "eventId": "evt-340",
+    "type": "Workflow.InstanceStarted",
+    "occurredAtSim": 327,
+    "actorKind": "employee",
+    "actorId": "ceo-alex",
+    "subjectType": "workflow",
+    "subjectId": "instance-3",
+    "correlationId": "ui-1794572762204-2",
+    "causationId": null,
+    "payload": {
+      "instanceId": "instance-3",
+      "workflowId": "hire-gate",
+      "version": 1,
+      "title": "Hire Business Analyst for business-analyst",
+      "goal": "No staffed seat and no staffed manager can carry product_requirement: fill seat \"business-analyst\" so the workflow proposed next has an executor.",
+      "context": {
+        "hire": {
+          "positionId": "business-analyst",
+          "employeeId": "business-analyst-hire",
+          "name": "Business Analyst",
+          "responsibilities": [
+            "Carry the product_requirement work this seat declares for the organization"
+          ],
+          "traits": [],
+          "expertise": [
+            "product_requirement"
+          ],
+          "reason": "No staffed seat and no staffed manager can carry product_requirement: fill seat \"business-analyst\" so the workflow proposed next has an executor.",
+          "employeeNo": null,
+          "cognitionProfileId": null,
+          "templateEmployeeId": null
+        },
+        "originalTaskId": "hire-task-brief-1",
+        "proposal": {
+          "capabilities": [
+            "product_requirement",
+            "technical_design",
+            "implementation",
+            "testing"
+          ],
+          "title": "自媒体 \"一鱼多吃\" 多模态内容一键生成看板",
+          "goal": "基于一份原始素材自动生成多平台、多模态内容资产，支持可视化审核与微调，降低自媒体跨平台创作成本"
+        },
+        "briefRef": "brief-1"
+      },
+      "initiatedBy": "ceo-alex",
+      "entryStageId": "stage-hire"
+    }
+  }
+]

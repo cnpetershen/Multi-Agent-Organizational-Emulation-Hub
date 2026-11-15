@@ -130,6 +130,18 @@ export {
   regenerateWorkflowDefinition,
 } from './workflow-generation.js';
 export type {
+  ExecutionPlanSnapshot,
+  ExecutionPlanSnapshotNode,
+  GenerateExecutionPlanWorkflowInput,
+} from './execution-plan-workflow.js';
+export {
+  EXECUTION_PLAN_CONTEXT_KEY,
+  executionPlanContext,
+  generateExecutionPlanWorkflowDefinition,
+  parseExecutionPlanSnapshot,
+  regenerateExecutionPlanWorkflowDefinition,
+} from './execution-plan-workflow.js';
+export type {
   WorkflowAdvanceInput,
   WorkflowApproveInput,
   WorkflowConfirmInput,

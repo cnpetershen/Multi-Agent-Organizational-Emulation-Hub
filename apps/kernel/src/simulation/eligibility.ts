@@ -192,12 +192,57 @@ function eligibleAgentsForEvent(
     if (taskId !== null) {
       const task = deps.tasks.get(taskId);
       if (task !== null && task.status === 'blocked') return [];
+      // M3.1: an accepted handoff emits `Task.Assigned` and the receiver may finish the work in
+      // the very same turn. Re-waking them on the next tick for a submitted/completed task would
+      // be a turn with nothing to do.
+      if (
+        task !== null &&
+        (task.status === 'submitted' || task.status === 'completed' || task.status === 'cancelled')
+      ) {
+        return [];
+      }
     }
     return [
       {
         employeeId: assignee as EmployeeId,
         triggerKind: 'task',
         refId: taskId,
+      },
+    ];
+  }
+
+  /**
+   * M3.1 collaboration handoff. The receiver is woken by the request (that is where they decide),
+   * and the sender is woken by every answer: accepted (the task moved), declined (the sender must
+   * keep or re-route it) and completed (the result they were waiting for). A completed handoff is
+   * the "result feedback" half of the handoff contract, not decoration.
+   */
+  if (event.type === 'Task.HandoffRequested') {
+    const toAgentId = readString(payload, 'toEmployeeId');
+    if (toAgentId === null) return [];
+    if (!runnableEmployees(deps).includes(toAgentId as EmployeeId)) return [];
+    return [
+      {
+        employeeId: toAgentId as EmployeeId,
+        triggerKind: 'task',
+        refId: readString(payload, 'handoffId'),
+      },
+    ];
+  }
+
+  if (
+    event.type === 'Task.HandoffAccepted' ||
+    event.type === 'Task.HandoffDeclined' ||
+    event.type === 'Task.HandoffCompleted'
+  ) {
+    const fromAgentId = readString(payload, 'fromEmployeeId');
+    if (fromAgentId === null) return [];
+    if (!runnableEmployees(deps).includes(fromAgentId as EmployeeId)) return [];
+    return [
+      {
+        employeeId: fromAgentId as EmployeeId,
+        triggerKind: 'task',
+        refId: readString(payload, 'handoffId'),
       },
     ];
   }

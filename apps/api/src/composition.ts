@@ -19,6 +19,9 @@ import { createSandboxService } from './sandbox-session.js';
 import { sandboxPage } from './sandbox-page.js';
 import { deterministicCognitionText } from './deterministic-cognition.js';
 import { createOwnershipStore, type CreateCompanyInput, type OwnershipResult, type OwnershipStore } from './ownership-store.js';
+import { createPlanningService } from './planning-service.js';
+import { createPlanningStore } from './planning-store.js';
+import { serveTheaterStream, type TheaterStreamSource } from './theater-stream.js';
 import { deliveryFilesFromData, productNameOf } from './preview-plan.js';
 import { PreviewRuntime, type ArtifactFile, type PreviewRecipe } from './preview-runtime.js';
 import { translateDocument } from './translation.js';
@@ -456,6 +459,8 @@ export interface StartApiServerOptions {
   readonly requirePlanConfirmation?: boolean;
   /** M2: forwarded to `createComposedRuntime`; isolated e2e runs pass a temp directory. */
   readonly sandboxStateDir?: string;
+  /** M3.3: requirement/orchestration drafts; isolated runs pass a temp directory. */
+  readonly planningDir?: string;
 }
 
 export async function startApiServer(
@@ -591,6 +596,42 @@ export async function startApiServer(
     list: (limit) => sandboxService.list(limit),
     get: (sessionId) => sandboxService.get(sessionId),
   };
+  /**
+   * M3.3 · requirements + orchestration. The store is company-scoped and durable; every runtime
+   * lookup is a getter so a company switch never writes one company's requirement into another.
+   * The analyzer borrows the serving gateway (so `/api/llm` counts it) and fails loudly in live
+   * mode rather than falling back to a made-up plan.
+   */
+  const planningDir = options.planningDir ?? join(defaultStateDir(), 'planning');
+  const planningService = createPlanningService({
+    store: createPlanningStore(planningDir),
+    runtime: () => {
+      const organization = runtime.simulation.organization;
+      return {
+        companyId: String(runtime.organizationId),
+        organization,
+        simulation: runtime.simulation,
+        simTime: Number(runtime.simulation.scheduler.clock.simTime),
+      };
+    },
+    analyzer: {
+      gateway: { generate: (input) => runtime.gateway.generate(input) },
+      provenance: () => runtime.api.llm?.().mode ?? 'mock',
+      provider: () => runtime.api.llm?.().provider ?? null,
+      model: () => runtime.api.llm?.().model ?? null,
+      actorContext: () => {
+        const operator = runtime.simulation.organization.employees[0];
+        if (operator === undefined) throw new Error('the company has no operator seat');
+        return runtime.simulation.identity.actorContext(operator.id, 'corr-planning' as never);
+      },
+    },
+    sandbox: (sessionId) => sandboxApi.get(sessionId),
+    publicationDir: join(planningDir, 'publications'),
+    operatorId: () => {
+      const operator = runtime.simulation.organization.employees[0];
+      return operator === undefined ? 'operator' : String(operator.id);
+    },
+  });
   const api: ApiRuntime = {
     // Follows the active runtime, like every other read: a company switch changes the company
     // the sandbox-brief route accepts a session for.
@@ -599,6 +640,7 @@ export async function startApiServer(
     get query() { return runtime.api.query; },
     content: forwardedContent,
     sandbox: sandboxApi,
+    planning: planningService,
     tick: async () => {
       const tick = runtime.api.tick;
       return tick === undefined ? { error: 'tick is unavailable' } : await tick();
@@ -616,9 +658,39 @@ export async function startApiServer(
     translate: (input) => translateDocument(input),
   };
   const handler = createApiHandler(api);
+  /**
+   * M3.2 · the theater's SSE source follows the *current* runtime like every other read: a
+   * company switch changes what the next poll sees, and the stream ends itself with a `reset`
+   * frame instead of mixing two companies' events under one cursor.
+   */
+  const theaterSource: TheaterStreamSource = {
+    companyId: () => String(runtime.api.companyId ?? runtime.organizationId),
+    latestSeq: async () => (await runtime.api.query.getTheaterHistory({ limit: 1 })).latestSeq,
+    page: (afterSeq, limit) => runtime.api.query.getEventPage(afterSeq, limit),
+    prime: async () => (await runtime.api.query.getRecentEvents({ limit: 300 })).slice().reverse(),
+    stageSeeds: () =>
+      runtime.simulation.tasks.all().map((task) => ({
+        taskId: task.taskId,
+        capability: task.capability,
+      })),
+  };
   const server = createServer(async (request: IncomingMessage, response: ServerResponse) => {
+    const url = `http://${request.headers.host ?? 'localhost'}${request.url ?? '/'}`;
+    // SSE cannot pass through the buffered Request → Response adapter: a never-ending body would
+    // never resolve `arrayBuffer()`. It is handled here, before the body is read, and writes to
+    // the Node response directly — still behind the company-switch gate.
+    if (new URL(url).pathname === '/api/theater/stream') {
+      try {
+        await gate;
+        await serveTheaterStream(request, response, theaterSource);
+      } catch {
+        if (!response.headersSent) response.statusCode = 500;
+        if (!response.writableEnded) response.end();
+      }
+      return;
+    }
     const chunks: Buffer[] = []; for await (const chunk of request) chunks.push(Buffer.from(chunk));
-    const url = `http://${request.headers.host ?? 'localhost'}${request.url ?? '/'}`; const body = Buffer.concat(chunks);
+    const body = Buffer.concat(chunks);
     const apiRequest = new Request(url, { method: request.method ?? 'GET', headers: request.headers as Record<string, string>, ...(body.length === 0 || request.method === 'GET' || request.method === 'HEAD' ? {} : { body }) });
     await gate;
     const apiResponse = await handler(apiRequest); response.statusCode = apiResponse.status; apiResponse.headers.forEach((value, key) => response.setHeader(key, value)); response.end(Buffer.from(await apiResponse.arrayBuffer()));

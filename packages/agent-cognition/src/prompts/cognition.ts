@@ -153,6 +153,24 @@ function renderCommunication(context: CognitionContext): string | null {
   ].join('\n');
 }
 
+/** The single segue every open-task line ends with: the one legal move the agent should emit next. */
+function nextTaskAction(status: string): string {
+  switch (status) {
+    case 'assigned':
+      return 'AcceptTask';
+    case 'accepted':
+      return 'StartTask';
+    case 'started':
+      return 'SubmitReport or ProduceArtifact';
+    case 'blocked':
+      return 'none (blocked — the workflow must clear the block)';
+    case 'submitted':
+      return 'wait for review';
+    default:
+      return 'none';
+  }
+}
+
 export function buildCognitionPrompt(context: CognitionContext): string {
   const { state, inputEvent, simTime } = context;
   const agenda = state.agenda
@@ -168,11 +186,11 @@ export function buildCognitionPrompt(context: CognitionContext): string {
           '## Your open tasks (you are the assignee; do not re-accept an accepted task)',
           ...openTasks.map(
             (task, index) =>
-              `${index + 1}. taskId=${task.taskId} | status=${task.status} | title=${task.title}\n   goal: ${task.goal}${
+              `${index + 1}. taskId=${task.taskId} | status=${task.status} | next=${nextTaskAction(task.status)} | title=${task.title}\n   goal: ${task.goal}${
                 task.allowedCommands === undefined || task.allowedCommands.length === 0
                   ? ''
                   : `\n   legal commands in this status: ${task.allowedCommands.join(', ')}`
-              }`,
+              }${task.workflowContext === undefined ? '' : `\n   workflow: ${task.workflowContext}`}`,
           ),
           // The machine is rendered per task, so the same rule holds for a task that is already
           // started and for one that is not — no hardcoded status list in the prompt.
@@ -189,8 +207,20 @@ export function buildCognitionPrompt(context: CognitionContext): string {
     `Current cycle: ${state.currentCycleId ?? '(none)'}`,
     `State version: ${state.version}`,
     ...openTaskLines,
+    '## Task execution protocol (tasks are a state machine)',
+    '- A task you own moves: `assigned` → `AcceptTask` → `accepted` → `StartTask` → `started` → `SubmitReport` or `ProduceArtifact`.',
+    '- Every open task below carries `next=<ACTION>` — that is the move your plan should emit unless the situation clearly requires otherwise.',
+    '- Do not AcceptTask an already accepted task — that is an invalid transition and wastes a cycle. Do not report or submit before StartTask.',
+    '- If a step is refused with `invalid_transition`, re-read the task status from "Your open tasks" before retrying; if refused with `invalid_args`, fix the args, never the same call.',
+    '- A workflow step with a `workflow:` context line already exists after the human confirmed the canvas. Do not BlockTask waiting for a second canvas confirmation; use the listed prior evidence keys and verify the actual deliverable.',
+    '## Collaboration handoff (a real transfer of work)',
+    '- `HandoffTask` asks one named colleague to take over one of your tasks: args are the `taskId`, the colleague\'s employee id as `toAgentId`, and a `reason` (add `note` for context). This is for work that belongs to another seat, or that you genuinely cannot finish — not for making someone else\'s acceptance pass for your own delivery.',
+    '- A handoff is recorded and the receiver decides. Nothing moves until they accept: on acceptance the task is reassigned to them, they execute it, and the task result stays on the same `taskId`, so the sender can read the outcome from `Task.HandoffCompleted`.',
+    '- When the input event is `Task.HandoffRequested` addressed to you, answer it in this cycle: `AcceptHandoff` (with the taskId, optionally the handoffId) if you can do the work — then start and deliver it — or `DeclineHandoff` with a `reason` if you cannot. Do not ignore a handoff request addressed to you, and do not accept work you cannot deliver.',
     '## Non-negotiable submission rule',
     'When you use SubmitReport: the `data` object you send back MUST contain EVERY one of this task’s `requiredOutputKeys`, spelled exactly as listed — no synonyms, no aliases, no missing keys. Each value must be `true` (or a string when the key asks for a string, like a `qa_report`). This is how the deterministic verifier closes the task.',
+    'SubmitReport args MUST be shaped with `taskId`, `summary` and a `data` object: `{"data": {...}}`; do not put deliverable fields at the top level.',
+    'For an implementation capability, `data` MUST contain a real runnable file such as `"index.html": "<!doctype html>..."` (or a real `.js/.ts/.py` file). A description, a boolean, or a summary is not a deliverable. `ProduceArtifact` args carry `taskId`, `name` and `content` — the content must be the complete file, not an outline.',
     ...((state.assignedTasks ?? []).flatMap((task) =>
       task.verificationKeys && task.verificationKeys.length > 0
         ? [`For task ${task.taskId}: required verification keys are ${task.verificationKeys.join(', ')}`]

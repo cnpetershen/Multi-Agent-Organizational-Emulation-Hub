@@ -16,6 +16,7 @@ import {
 import { PreviewUnavailableError, UnknownPreviewTaskError, type PreviewStatus } from './preview-runtime.js';
 import { TranslationError, type TranslationInput } from './translation.js';
 import type { CreateCompanyInput, OwnershipResult } from './ownership-store.js';
+import { PlanningError, type PlanningService } from './planning-service.js';
 
 export interface LlmObservation {
   readonly callCount: number;
@@ -94,6 +95,8 @@ export interface ApiRuntime {
   readonly content?: ContentStudioApi;
   /** 赛博沙盘: real multi-role adversarial sessions in an isolated runtime. */
   readonly sandbox?: SandboxApi;
+  /** M3.3: requirements sandbox + orchestration drafts (planning only; never starts work). */
+  readonly planning?: PlanningService;
 }
 let runtime: ApiRuntime | null = null;
 export function configureApiRuntime(next: ApiRuntime): void { runtime = next; }
@@ -117,6 +120,26 @@ export async function handleApiRequest(request: Request, apiRuntime: ApiRuntime 
     }
     if (path === '/sandbox' || path.startsWith('/sandbox/')) return await sandboxRoute(path, request, apiRuntime);
     if (request.method === 'POST' && path === '/translate') return await translateRoute(request, apiRuntime);
+    // M3.3: requirements sandbox + orchestration drafts. Planning is its own state machine and
+    // must not fall through the generic GET/POST dispatch (it has PUT and nested POST verbs).
+    if (
+      path === '/requirements' ||
+      path.startsWith('/requirements/') ||
+      path === '/orchestrations' ||
+      path.startsWith('/orchestrations/') ||
+      path === '/plans' ||
+      path.startsWith('/plans/') ||
+      path === '/executions' ||
+      path.startsWith('/executions/') ||
+      path === '/execution-approvals' ||
+      path.startsWith('/execution-approvals/') ||
+      path === '/promotions' ||
+      path.startsWith('/promotions/') ||
+      path === '/publications' ||
+      path.startsWith('/publications/')
+    ) {
+      return await planningRoute(path, request, apiRuntime);
+    }
     if (request.method === 'GET') return await queryRoute(path, url.searchParams, apiRuntime);
     if (request.method === 'POST' && path === '/command') return json(await apiRuntime.control.execute((await request.json()) as ControlCommand));
     if (request.method === 'POST' && path === '/tick') { if (apiRuntime.tick === undefined) return json({ error: 'tick is unavailable' }, 409); return json(await apiRuntime.tick()); }
@@ -556,6 +579,235 @@ async function ownershipCommand(path: string, request: Request, api: ApiRuntime)
 /** How the query string says yes: `?flag=1` or `?flag=true`. */
 const truthy = (value: string | null): boolean => value === '1' || value === 'true';
 
+/** M3.3 planning is one read/write surface with nested verbs; map its failures to HTTP once. */
+async function planningRoute(
+  path: string,
+  request: Request,
+  api: ApiRuntime,
+): Promise<Response> {
+  const planning = api.planning;
+  if (planning === undefined) {
+    return json({ error: 'planning_unavailable', message: 'this runtime has no planning service' }, 501);
+  }
+  const method = (request.method ?? 'GET').toUpperCase();
+  const segment = (index: number): string | null => {
+    const parts = path.split('/').filter((part) => part !== '');
+    const value = parts[index];
+    if (value === undefined) return null;
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return null;
+    }
+  };
+  const body = async (): Promise<unknown> => {
+    try {
+      return await request.json();
+    } catch {
+      throw new PlanningError('invalid_input', 'request body must be JSON');
+    }
+  };
+  try {
+    if (path === '/requirements' && method === 'GET') {
+      return json({ requirements: await planning.listRequirements() });
+    }
+    if (path === '/requirements/analyze' && method === 'POST') {
+      return json(await planning.analyze(await body()));
+    }
+    const requirementId = segment(1);
+    if (path.startsWith('/requirements/') && requirementId !== null) {
+      if (path === `/requirements/${String(requirementId)}` && method === 'GET') {
+        const record = await planning.getRequirement(requirementId);
+        return record === null ? json({ error: 'not_found', message: 'unknown requirement' }, 404) : json(record);
+      }
+      if (path === `/requirements/${String(requirementId)}` && method === 'PUT') {
+        return json(await planning.updateRequirement(requirementId, await body()));
+      }
+      if (path === `/requirements/${String(requirementId)}/confirm` && method === 'POST') {
+        return json(await planning.confirmRequirement(requirementId, await body()));
+      }
+    }
+    if (path === '/orchestrations' && method === 'GET') {
+      return json({ orchestrations: await planning.listOrchestrations() });
+    }
+    if (path === '/orchestrations' && method === 'POST') {
+      return json(await planning.orchestrate(await body()));
+    }
+    const orchestrationId = segment(1);
+    if (path.startsWith('/orchestrations/') && orchestrationId !== null && method === 'GET') {
+      const draft = await planning.getOrchestration(orchestrationId);
+      return json(draft);
+    }
+    // M3.4: the editable execution plan and its human confirmation.
+    if (path === '/plans' && method === 'GET') {
+      return json({ plans: await planning.listPlans() });
+    }
+    if (path === '/plans' && method === 'POST') {
+      return json(await planning.createPlan(await body()));
+    }
+    const planId = segment(1);
+    if (path.startsWith('/plans/') && planId !== null) {
+      if (path === `/plans/${String(planId)}` && method === 'GET') {
+        const record = await planning.getPlan(planId);
+        return record === null ? json({ error: 'not_found', message: 'unknown plan' }, 404) : json(record);
+      }
+      if (path === `/plans/${String(planId)}` && method === 'PUT') {
+        return json(await planning.updatePlan(planId, await body()));
+      }
+      if (path === `/plans/${String(planId)}/confirm` && method === 'POST') {
+        return json(await planning.confirmPlan(planId, await body()));
+      }
+      if (path === `/plans/${String(planId)}/start` && method === 'POST') {
+        return json(await planning.startExecution(planId, await body()));
+      }
+      if (path === `/plans/${String(planId)}/confirmed` && method === 'GET') {
+        const confirmed = await planning.getConfirmedPlan(planId);
+        return confirmed === null
+          ? json({ error: 'not_found', message: 'this plan has no confirmed version' }, 404)
+          : json(confirmed);
+      }
+    }
+    if (path === '/executions' && method === 'GET') {
+      return json({ executions: await planning.listExecutions() });
+    }
+    const executionId = segment(1);
+    if (path.startsWith('/executions/') && executionId !== null && method === 'GET') {
+      const execution = await planning.getExecution(executionId);
+      return execution === null
+        ? json({ error: 'not_found', message: 'unknown execution' }, 404)
+        : json(execution);
+    }
+    // M3.6: human approval of real execution deliveries.
+    if (path === '/execution-approvals' && method === 'GET') {
+      return json(await planning.listExecutionApprovals());
+    }
+    const approvalExecutionId = segment(1);
+    if (path.startsWith('/execution-approvals/') && approvalExecutionId !== null) {
+      if (
+        path === `/execution-approvals/${String(approvalExecutionId)}` &&
+        method === 'GET'
+      ) {
+        const review = await planning.getExecutionReview(approvalExecutionId);
+        return review === null
+          ? json({ error: 'not_found', message: 'unknown execution' }, 404)
+          : json(review);
+      }
+      if (
+        path === `/execution-approvals/${String(approvalExecutionId)}/decide` &&
+        method === 'POST'
+      ) {
+        return json(await planning.decideExecution(approvalExecutionId, await body()));
+      }
+    }
+    // M3.7: promotion plans derived only from an approved execution.
+    if (path === '/promotions' && method === 'GET') {
+      return json({ promotions: await planning.listPromotions() });
+    }
+    if (path === '/promotions' && method === 'POST') {
+      return json(await planning.createPromotion(await body()));
+    }
+    const promotionId = segment(1);
+    if (path.startsWith('/promotions/') && promotionId !== null) {
+      if (path === `/promotions/${String(promotionId)}` && method === 'GET') {
+        const record = await planning.getPromotion(promotionId);
+        return record === null
+          ? json({ error: 'not_found', message: 'unknown promotion' }, 404)
+          : json(record);
+      }
+      if (path === `/promotions/${String(promotionId)}` && method === 'PUT') {
+        return json(await planning.updatePromotion(promotionId, await body()));
+      }
+      if (path === `/promotions/${String(promotionId)}/confirm` && method === 'POST') {
+        return json(await planning.confirmPromotion(promotionId, await body()));
+      }
+      if (path === `/promotions/${String(promotionId)}/confirmed` && method === 'GET') {
+        const confirmed = await planning.getConfirmedPromotion(promotionId);
+        return confirmed === null
+          ? json({ error: 'not_found', message: 'this promotion has no confirmed version' }, 404)
+          : json({ ...confirmed, promotionVersion: confirmed.version });
+      }
+    }
+    // M3.8: only a confirmed promotion can seed a local publication.
+    if (path === '/publications' && method === 'GET') {
+      return json({ publications: await planning.listPublications() });
+    }
+    if (path === '/publications' && method === 'POST') {
+      return json(await planning.createPublication(await body()));
+    }
+    const publicationId = segment(1);
+    if (path.startsWith('/publications/') && publicationId !== null) {
+      if (path === `/publications/${String(publicationId)}` && method === 'GET') {
+        const record = await planning.getPublication(publicationId);
+        return record === null
+          ? json({ error: 'not_found', message: 'unknown publication' }, 404)
+          : json(record);
+      }
+      if (path === `/publications/${String(publicationId)}` && method === 'PUT') {
+        return json(await planning.updatePublication(publicationId, await body()));
+      }
+      if (path === `/publications/${String(publicationId)}/preflight` && method === 'GET') {
+        return json({ checks: await planning.getPublicationPreflight(publicationId) });
+      }
+      if (path === `/publications/${String(publicationId)}/confirm` && method === 'POST') {
+        return json(await planning.confirmPublication(publicationId, await body()));
+      }
+      if (path === `/publications/${String(publicationId)}/publish` && method === 'POST') {
+        return json(await planning.publishPublication(publicationId, await body()));
+      }
+      if (path === `/publications/${String(publicationId)}/page` && method === 'GET') {
+        const page = await planning.getPublicationPage(publicationId);
+        if (page === null) {
+          return json({ error: 'not_found', message: 'this publication has no published local page yet' }, 404);
+        }
+        return new Response(page.html, {
+          status: 200,
+          headers: {
+            'content-type': 'text/html; charset=utf-8',
+            'cache-control': 'no-store',
+          },
+        });
+      }
+    }
+    return json({ error: 'Not found' }, 404);
+  } catch (error) {
+    if (error instanceof PlanningError) {
+      const status =
+        error.code === 'not_found'
+          ? 404
+          : error.code === 'version_conflict' ||
+              error.code === 'not_confirmed' ||
+              error.code === 'approval_not_open' ||
+              error.code === 'approval_already_decided' ||
+              error.code === 'approval_stale'
+            ? 409
+            : error.code === 'provider_failed' || error.code === 'promotion_generation_failed'
+              ? 502
+              : error.code === 'publication_unavailable'
+                ? 501
+                : error.code === 'publication_not_ready' || error.code === 'publication_busy'
+                  ? 409
+                  : error.code === 'invalid_input'
+                    ? 400
+                    : 422;
+      return json(
+        { error: error.code, message: error.message, ...(error.details === undefined ? {} : { details: error.details }) },
+        status,
+      );
+    }
+    const code =
+      typeof error === 'object' && error !== null && 'code' in error
+        ? String((error as { readonly code?: unknown }).code)
+        : '';
+    if (code === 'provider_failed' || code === 'invalid_response' || code === 'sandbox_not_ready') {
+      return json(
+        { error: code, message: error instanceof Error ? error.message : 'planning failed' },
+        code === 'provider_failed' ? 502 : 422,
+      );
+    }
+    return json({ error: 'planning_failed', message: error instanceof Error ? error.message : 'planning failed' }, 500);
+  }
+}
+
 async function queryRoute(path: string, params: URLSearchParams, api: ApiRuntime): Promise<Response> {
   const q = api.query; const limit = Number(params.get('limit')) > 0 ? Number(params.get('limit')) : 100;
   // Read one agent (M1.3 Agent Management): the by-id counterpart of the roster list. Archived
@@ -597,7 +849,27 @@ async function queryRoute(path: string, params: URLSearchParams, api: ApiRuntime
     // log records as removed is held back too; `?includeDeleted=1` reads that history again.
     case '/events': return json(await q.getRecentEvents({ limit, ...(params.get('prefix') ? { eventTypePrefix: params.get('prefix')! } : {}), ...(truthy(params.get('includeDeleted')) ? { includeDeleted: true } : {}) } satisfies EventStreamFilter));
     case '/llm': return json(api.llm?.() ?? { callCount: 0 });
-    case '/communications': return json(await q.getRecentEvents({ limit, eventTypePrefix: 'Communication.' })); case '/runtime': return json(q.getControlState()); default: return json({ error: 'Not found' }, 404);
+    case '/communications': return json(await q.getRecentEvents({ limit, eventTypePrefix: 'Communication.' })); case '/runtime': return json(q.getControlState());
+    // M3.1 collaboration: the protocol descriptor (static), the trace and the message lifecycle.
+    // Three reads rather than one blob, because a page may need only one and the protocol is the
+    // contract every other consumer validates against.
+    case '/collaboration/protocol': return json({ kinds: q.getCollaborationProtocol() });
+    case '/collaboration/trace': return json(await q.getCollaborationTrace());
+    case '/collaboration/messages': return json({ messages: await q.getMessageLifecycle() });
+    // M3.0 legacy-work audit: read-only; repairs are proposed, never applied by a GET.
+    case '/legacy-audit': return json(await q.getLegacyWorkAudit());
+    // M3.2 theater history: a window of the company's own events with the business stage each
+    // one actually proves. The SSE tail (`/theater/stream`) seeds from this and resumes by seq.
+    // `correlationId` narrows the window to one work session for replay.
+    case '/theater/history': {
+      const correlationId = params.get('correlationId');
+      const requested = Number(params.get('limit') ?? '200');
+      return json(await q.getTheaterHistory({
+        limit: Number.isFinite(requested) ? requested : 200,
+        ...(correlationId === null || correlationId === '' ? {} : { correlationId }),
+      }));
+    }
+    default: return json({ error: 'Not found' }, 404);
   }
 }
 /**

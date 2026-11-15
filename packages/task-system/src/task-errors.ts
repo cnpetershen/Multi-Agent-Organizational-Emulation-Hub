@@ -25,6 +25,10 @@ export type TaskErrorCode =
   | 'invalid_result'
   | 'self_verification_forbidden'
   | 'verification_not_applicable'
+  | 'handoff_not_recipient'
+  | 'handoff_not_open'
+  | 'handoff_pending'
+  | 'handoff_already_accepted'
   | 'event_contract_violation';
 
 export type TaskDenial = Extract<AuthzDecision, { readonly allow: false }>;

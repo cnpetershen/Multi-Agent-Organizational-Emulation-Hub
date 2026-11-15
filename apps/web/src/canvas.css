@@ -297,26 +297,6 @@
 
 .assignment-agent:active { cursor: grabbing; }
 
-.assignment-avatar {
-  flex: 0 0 auto;
-  display: inline-grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: linear-gradient(145deg, rgba(103, 212, 232, 0.24), rgba(37, 133, 90, 0.36));
-  color: #d9fff0;
-  font-size: 9.5px;
-  font-weight: 800;
-}
-
-.assignment-avatar[data-kind="human"] {
-  background: linear-gradient(145deg, rgba(233, 173, 97, 0.35), rgba(120, 70, 20, 0.5));
-}
-
-.assignment-avatar.small { width: 22px; height: 22px; font-size: 7.5px; }
-
 .assignment-agent-body {
   display: grid;
   gap: 1px;
@@ -800,7 +780,7 @@
 .assignment-assignee-card > div { display: grid; gap: 1px; min-width: 0; }
 .assignment-assignee-card b { color: var(--a-ink); font-size: 10.5px; }
 .assignment-assignee-card small { color: var(--a-muted); font-size: 9px; }
-.assignment-assignee-card span:not(.assignment-avatar):not(.assignment-badge) {
+.assignment-assignee-card span:not(.agent-avatar):not(.assignment-badge) {
   color: var(--a-faint);
   font-size: 8px;
   overflow: hidden;

@@ -85,6 +85,7 @@ export interface NetworkAgentNode extends NetworkPoint {
   readonly kind: 'agent';
   readonly id: string;
   readonly name: string;
+  readonly positionId: string;
   readonly positionTitle: string;
   readonly departmentId: string;
   readonly departmentName: string;
@@ -315,6 +316,7 @@ export function buildNetworkModel(input: NetworkInput): NetworkModel {
       kind: 'agent',
       id,
       name: textOf(employee['name']) || id,
+      positionId: textOf(employee['positionId']),
       positionTitle: positionTitle(snapshot.positions, textOf(employee['positionId'])),
       departmentId,
       departmentName: departmentNameById.get(departmentId) ?? '',

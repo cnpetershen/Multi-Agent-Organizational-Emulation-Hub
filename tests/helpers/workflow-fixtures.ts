@@ -67,6 +67,8 @@ export const workflowTestPolicy: PermissionPolicy = {
     { subject: { kind: 'any' }, action: 'RejectTask', resource: 'task:*' },
     { subject: { kind: 'any' }, action: 'BlockTask', resource: 'task:*' },
     { subject: { kind: 'any' }, action: 'ReviewProposal', resource: 'task:*' },
+    // M3.1 collaboration handoff: request + the receiver's accept/decline share this grant.
+    { subject: { kind: 'any' }, action: 'HandoffTask', resource: 'task:*' },
   ],
   denies: [],
 };

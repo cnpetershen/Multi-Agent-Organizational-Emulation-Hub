@@ -1,0 +1,129 @@
+{
+  "instanceId": "instance-10",
+  "workflowId": "generated-instance-10",
+  "title": "画布演示 · 3D 产品导览",
+  "status": "running",
+  "stageId": "stage-1",
+  "activeStepIds": [
+    "step-1"
+  ],
+  "blockedReason": null,
+  "paused": false,
+  "startedAtSim": 17737,
+  "completedAtSim": null,
+  "eventCount": 5,
+  "approval": null,
+  "goal": "交付一个包含可玩演示（playable）、设计说明（design-doc）和 3D 场景（3d-scene）的产品，按产品需求、技术设计、实现、测试四步编排；保持草稿等待人工确认，不创建独立任务。",
+  "correlationId": "canvas-draft-20261114015857",
+  "initiatedBy": "ceo-alex",
+  "stepStates": [
+    {
+      "stepId": "step-1",
+      "status": "active",
+      "taskId": "task-25"
+    }
+  ],
+  "steps": [
+    {
+      "stepId": "step-1",
+      "stageId": "stage-1",
+      "stageName": "Product Requirement",
+      "name": "Product Requirement",
+      "description": null,
+      "kind": "task",
+      "status": "active",
+      "taskId": "task-25",
+      "assigneeEmployeeId": "business-analyst-hire",
+      "assigneePositionId": "business-analyst",
+      "capability": "product_requirement",
+      "assignment": {
+        "kind": "position",
+        "positionId": "business-analyst"
+      },
+      "requiredRoles": [],
+      "requiredAuthority": null,
+      "overridden": false
+    },
+    {
+      "stepId": "step-2",
+      "stageId": "stage-2",
+      "stageName": "Technical Design",
+      "name": "Technical Design",
+      "description": null,
+      "kind": "task",
+      "status": "pending",
+      "taskId": null,
+      "assigneeEmployeeId": "ai-researcher-hire",
+      "assigneePositionId": "ai-researcher",
+      "capability": "technical_design",
+      "assignment": {
+        "kind": "position",
+        "positionId": "ai-researcher"
+      },
+      "requiredRoles": [],
+      "requiredAuthority": null,
+      "overridden": false
+    },
+    {
+      "stepId": "step-3",
+      "stageId": "stage-3",
+      "stageName": "Implementation",
+      "name": "Implementation",
+      "description": null,
+      "kind": "task",
+      "status": "pending",
+      "taskId": null,
+      "assigneeEmployeeId": "agent-engineer-hire",
+      "assigneePositionId": "agent-engineer",
+      "capability": "implementation",
+      "assignment": {
+        "kind": "position",
+        "positionId": "agent-engineer"
+      },
+      "requiredRoles": [],
+      "requiredAuthority": null,
+      "overridden": false
+    },
+    {
+      "stepId": "step-4",
+      "stageId": "stage-4",
+      "stageName": "Testing",
+      "name": "Testing",
+      "description": null,
+      "kind": "task",
+      "status": "pending",
+      "taskId": null,
+      "assigneeEmployeeId": "qa-hire",
+      "assigneePositionId": "qa",
+      "capability": "testing",
+      "assignment": {
+        "kind": "position",
+        "positionId": "qa"
+      },
+      "requiredRoles": [],
+      "requiredAuthority": null,
+      "overridden": false
+    },
+    {
+      "stepId": "step-approve",
+      "stageId": "stage-approve",
+      "stageName": "Approval",
+      "name": "Approve generated delivery",
+      "description": null,
+      "kind": "approval",
+      "status": "pending",
+      "taskId": null,
+      "assigneeEmployeeId": "ceo-alex",
+      "assigneePositionId": "ceo",
+      "capability": null,
+      "assignment": null,
+      "requiredRoles": [
+        "ceo"
+      ],
+      "requiredAuthority": null,
+      "overridden": false
+    }
+  ],
+  "assignmentOverrides": {},
+  "draft": false
+}

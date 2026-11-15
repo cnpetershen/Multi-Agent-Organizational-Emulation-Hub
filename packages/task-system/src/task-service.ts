@@ -34,6 +34,7 @@ import type {
   TaskAssignmentInput,
   TaskCommand,
   TaskDeleteOperation,
+  TaskHandoffOutcome,
   TaskOperation,
   TaskSubmissionInput,
   TaskReviewInput,
@@ -48,6 +49,10 @@ import { ALLOWED_TASK_COMMANDS as ALLOWED_COMMANDS, executorIdOf } from './task-
   TASK_CREATED,
   TASK_DELETED,
   TASK_FAILED,
+  TASK_HANDOFF_ACCEPTED,
+  TASK_HANDOFF_COMPLETED,
+  TASK_HANDOFF_DECLINED,
+  TASK_HANDOFF_REQUESTED,
   TASK_PROGRESS_REPORTED,
   TASK_REJECTED,
   TASK_STARTED,
@@ -71,9 +76,26 @@ export interface TaskServiceOptions {
   readonly store?: TaskStore;
   readonly eventIdGenerator: () => string;
   readonly taskIdGenerator: () => string;
+  /**
+   * M3.1: handoff ids are a task-system id family of their own. The kernel seeds this generator
+   * from the log so a restart cannot mint a duplicate `handoff-N`.
+   */
+  readonly handoffIdGenerator?: () => string;
 }
 
-export interface CreateTaskInput {
+/**
+ * Cause / trace carried by a command. Every event a task command writes inherits it, which is
+ * what lets a collaboration chain be walked backwards: `Task.HandoffAccepted` is caused by the
+ * `Task.HandoffRequested` that woke the receiver, the reassignment by the acceptance, the
+ * settlement by the `Task.Completed` it summarises. Optional: commands issued by a schedule or
+ * a replay legitimately have no direct cause event.
+ */
+interface CommandTrace {
+  readonly causationId?: string | null;
+  readonly traceId?: string | null;
+}
+
+export interface CreateTaskInput extends CommandTrace {
   readonly actor: CommandActor;
   readonly simTime: SimTime;
   readonly taskId?: string;
@@ -96,7 +118,7 @@ export interface CreateTaskInput {
   readonly dueAtSim?: SimTime | null;
 }
 
-export interface AssignTaskInput {
+export interface AssignTaskInput extends CommandTrace {
   readonly taskId: string;
   readonly actor: CommandActor;
   readonly simTime: SimTime;
@@ -114,7 +136,7 @@ export interface AssignTaskInput {
  * start → block chain as one domain act, so a caller can hold work without ever writing a task
  * directly (M1.4 acceptance 8 keeps the raw writes inside this package).
  */
-export interface HoldTaskInput {
+export interface HoldTaskInput extends CommandTrace {
   readonly actor: CommandActor;
   readonly simTime: SimTime;
   readonly taskId: string;
@@ -127,7 +149,7 @@ export interface HoldTaskInput {
   readonly reason: string;
 }
 
-export interface DispatchTaskInput {
+export interface DispatchTaskInput extends CommandTrace {
   readonly actor: CommandActor;
   readonly simTime: SimTime;
   /** The seat the work goes to. Dispatch granularity is the position, never an employee (ADR-014 P3). */
@@ -143,7 +165,7 @@ export interface DispatchTaskInput {
   readonly maxAttempts?: number;
 }
 
-export interface ActorTaskInput {
+export interface ActorTaskInput extends CommandTrace {
   readonly taskId: string;
   readonly actor: CommandActor;
   readonly simTime: SimTime;
@@ -167,6 +189,22 @@ export interface CompleteTaskInput extends ActorTaskInput {
 
 export interface ReviewTaskInput extends ActorTaskInput {
   readonly review: TaskReviewInput;
+}
+
+/** M3.1: ask a named colleague to take this task. The task does not move until they accept. */
+export interface RequestHandoffInput extends ActorTaskInput {
+  readonly toEmployeeId: EmployeeId;
+  readonly reason: string;
+  readonly note?: string | null;
+}
+
+/**
+ * The receiver's answer. `handoffId` is optional so a live plan that only knows the task can
+ * still answer the one open request; when it is given it must name that request.
+ */
+export interface HandoffResponseInput extends ActorTaskInput {
+  readonly handoffId?: string;
+  readonly reason?: string;
 }
 
 export interface TaskService {
@@ -198,6 +236,14 @@ export interface TaskService {
   cancel(input: ReasonTaskInput): Result<TaskOperation, TaskFailure>;
   review(input: ReviewTaskInput): Result<TaskOperation, TaskFailure>;
   /**
+   * M3.1 collaboration handoff: request a named colleague take the task, and the receiver's
+   * accept / decline. Acceptance emits `Task.Assigned` caused by the acceptance, so the runtime
+   * wakes the new executor exactly as it would after any other assignment.
+   */
+  requestHandoff(input: RequestHandoffInput): Result<TaskOperation, TaskFailure>;
+  acceptHandoff(input: HandoffResponseInput): Result<TaskOperation, TaskFailure>;
+  declineHandoff(input: HandoffResponseInput): Result<TaskOperation, TaskFailure>;
+  /**
    * Remove the record. Not a status change: the stream folds back to `null` and the store drops
    * the entry, so a recovery rebuilds nothing. Every status is deletable — an operator cleaning
    * up the workspace is not bound by the task state machine.
@@ -217,6 +263,9 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
   const store = options.store ?? createInMemoryTaskStore();
   const graph = createOrgGraph(organization);
   const companyId = organization.company.id;
+  let handoffSeq = 0;
+  const nextHandoffId =
+    options.handoffIdGenerator ?? (() => `handoff-${String((handoffSeq += 1))}`);
 
   const load = (taskId: string): Result<Task, TaskFailure> => {
     const task = store.get(taskId);
@@ -317,6 +366,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     taskId: string,
     actor: CommandActor,
     simTime: SimTime,
+    trace: CommandTrace = {},
   ): Result<OrgEvent, TaskFailure> => {
     const created = createOrgEvent(
       registry,
@@ -329,6 +379,8 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
         subjectType: 'task',
         subjectId: taskId,
         correlationId: commandCorrelationId(actor),
+        causationId: trace.causationId ?? null,
+        traceId: trace.traceId ?? null,
         payload,
       },
       { eventIdGenerator },
@@ -371,6 +423,61 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     }
     store.save(next);
     return { ok: true, value: next };
+  };
+
+  /**
+   * The handoff settlement event, emitted once per accepted handoff. `null` means "nothing to
+   * settle here": a task with no handoff, or one still waiting for the receiver's answer, has no
+   * result to record yet.
+   */
+  const settleHandoffIf = (
+    handoff: Task['handoff'],
+    input: {
+      readonly outcome: TaskHandoffOutcome;
+      readonly summary: string;
+      readonly resultSummary: string | null;
+      readonly artifactCount: number;
+      readonly actor: CommandActor;
+      readonly simTime: SimTime;
+      readonly causationId: string | null;
+      readonly traceId: string | null;
+      readonly taskId: string;
+    },
+  ): Result<OrgEvent | null, TaskFailure> => {
+    if (handoff === null || handoff.status !== 'accepted') {
+      return { ok: true, value: null };
+    }
+    return emit(
+      TASK_HANDOFF_COMPLETED,
+      {
+        handoffId: handoff.handoffId,
+        taskId: input.taskId,
+        fromEmployeeId: String(handoff.fromEmployeeId),
+        toEmployeeId: String(handoff.toEmployeeId),
+        outcome: input.outcome,
+        summary: input.summary,
+        resultSummary: input.resultSummary,
+        artifactCount: input.artifactCount,
+      },
+      input.taskId,
+      input.actor,
+      input.simTime,
+      { causationId: input.causationId, traceId: input.traceId },
+    );
+  };
+
+  /**
+   * A task whose accepted handoff no longer matches its executor: the work moved away from the
+   * receiver (manual reassignment), so the handoff must close rather than settle as if they had
+   * delivered it.
+   */
+  const strandedHandoffOf = (
+    task: Task,
+    nextAssignee: EmployeeId | null,
+  ): Task['handoff'] => {
+    const handoff = task.handoff;
+    if (handoff === null || handoff.status !== 'accepted') return null;
+    return handoff.toEmployeeId === nextAssignee ? null : handoff;
   };
 
   const create = (
@@ -482,6 +589,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       taskId,
       input.actor,
       input.simTime,
+      { causationId: input.causationId ?? null, traceId: input.traceId ?? null },
     );
     if (!created.ok) return created;
 
@@ -636,12 +744,33 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       task.taskId,
       input.actor,
       input.simTime,
+      { causationId: input.causationId ?? null, traceId: input.traceId ?? null },
     );
     if (!assigned.ok) return assigned;
 
-    const saved = applyAndSave(task, [assigned.value]);
+    const events: OrgEvent[] = [assigned.value];
+    // A manual reassignment of a task whose handoff was accepted ends that handoff: the receiver
+    // no longer holds the work, and the chain must say so instead of settling silently under a
+    // different executor later.
+    const settlement = settleHandoffIf(strandedHandoffOf(task, assigneeEmployeeId), {
+      outcome: 'reassigned',
+      summary: `handoff ${task.handoff?.handoffId ?? ''} closed: the task was reassigned to ${
+        assigneeEmployeeId ?? 'the position'
+      } before the handoff completed`,
+      resultSummary: null,
+      artifactCount: 0,
+      actor: input.actor,
+      simTime: input.simTime,
+      causationId: assigned.value.eventId,
+      traceId: input.traceId ?? null,
+      taskId: task.taskId,
+    });
+    if (!settlement.ok) return settlement;
+    if (settlement.value !== null) events.push(settlement.value);
+
+    const saved = applyAndSave(task, events);
     if (!saved.ok) return saved;
-    return { ok: true, value: { task: saved.value, events: [assigned.value] } };
+    return { ok: true, value: { task: saved.value, events } };
   };
 
   /**
@@ -775,6 +904,8 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       ...(input.priority === undefined ? {} : { priority: input.priority }),
       ...(input.dueAtSim === undefined ? {} : { dueAtSim: input.dueAtSim }),
       ...(input.maxAttempts === undefined ? {} : { maxAttempts: input.maxAttempts }),
+      ...(input.causationId === undefined ? {} : { causationId: input.causationId }),
+      ...(input.traceId === undefined ? {} : { traceId: input.traceId }),
     });
     if (!created.ok) return created;
 
@@ -784,6 +915,8 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       simTime: input.simTime,
       assignment: { kind: 'position', positionId: target.id },
       reason: `dispatched by ${commandActorId(input.actor)} to ${target.title}`,
+      causationId: created.value.events[0]?.eventId ?? null,
+      traceId: input.traceId ?? null,
     });
     if (!assigned.ok) {
       // Atomicity without transactions: callers persist events only on success, so the
@@ -808,6 +941,10 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     build: (
       task: Task,
     ) => Result<{ readonly type: string; readonly payload: unknown }, TaskFailure>,
+    settle?: (
+      task: Task,
+      terminal: OrgEvent,
+    ) => Result<OrgEvent | null, TaskFailure>,
   ): Result<TaskOperation, TaskFailure> => {
     const loaded = load(input.taskId);
     if (!loaded.ok) return loaded;
@@ -828,12 +965,20 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       task.taskId,
       input.actor,
       input.simTime,
+      { causationId: input.causationId ?? null, traceId: input.traceId ?? null },
     );
     if (!emitted.ok) return emitted;
 
-    const saved = applyAndSave(task, [emitted.value]);
+    const events: OrgEvent[] = [emitted.value];
+    if (settle !== undefined) {
+      const extra = settle(task, emitted.value);
+      if (!extra.ok) return extra;
+      if (extra.value !== null) events.push(extra.value);
+    }
+
+    const saved = applyAndSave(task, events);
     if (!saved.ok) return saved;
-    return { ok: true, value: { task: saved.value, events: [emitted.value] } };
+    return { ok: true, value: { task: saved.value, events } };
   };
 
   const accept = (input: ActorTaskInput): Result<TaskOperation, TaskFailure> =>
@@ -1030,7 +1175,21 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
           },
         },
       };
-    });
+    }, (task, terminal) =>
+      settleHandoffIf(task.handoff, {
+        outcome: 'completed',
+        summary: `handoff ${task.handoff?.handoffId ?? ''} completed: ${
+          task.handoff?.toEmployeeId ?? 'the receiver'
+        } delivered the task`,
+        resultSummary: task.result === null ? null : task.result.summary,
+        artifactCount: task.result === null ? 0 : task.result.artifacts.length,
+        actor: input.actor,
+        simTime: input.simTime,
+        causationId: terminal.eventId,
+        traceId: input.traceId ?? null,
+        taskId: task.taskId,
+      }),
+    );
 
   const reject = (input: ReasonTaskInput): Result<TaskOperation, TaskFailure> =>
     transition(input, 'reject', (task) => {
@@ -1057,7 +1216,19 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
           },
         },
       };
-    });
+    }, (task, terminal) =>
+      settleHandoffIf(task.handoff, {
+        outcome: 'rejected',
+        summary: `handoff ${task.handoff?.handoffId ?? ''} closed: the task was rejected (${input.reason})`,
+        resultSummary: null,
+        artifactCount: 0,
+        actor: input.actor,
+        simTime: input.simTime,
+        causationId: terminal.eventId,
+        traceId: input.traceId ?? null,
+        taskId: task.taskId,
+      }),
+    );
 
   const fail = (input: ReasonTaskInput): Result<TaskOperation, TaskFailure> =>
     transition(input, 'fail', (task) => {
@@ -1084,7 +1255,19 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
           },
         },
       };
-    });
+    }, (task, terminal) =>
+      settleHandoffIf(task.handoff, {
+        outcome: 'failed',
+        summary: `handoff ${task.handoff?.handoffId ?? ''} failed: ${input.reason}`,
+        resultSummary: null,
+        artifactCount: 0,
+        actor: input.actor,
+        simTime: input.simTime,
+        causationId: terminal.eventId,
+        traceId: input.traceId ?? null,
+        taskId: task.taskId,
+      }),
+    );
 
   const cancel = (input: ReasonTaskInput): Result<TaskOperation, TaskFailure> =>
     transition(input, 'cancel', (task) => {
@@ -1122,7 +1305,19 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
           },
         },
       };
-    });
+    }, (task, terminal) =>
+      settleHandoffIf(task.handoff, {
+        outcome: 'cancelled',
+        summary: `handoff ${task.handoff?.handoffId ?? ''} closed: the task was cancelled (${input.reason})`,
+        resultSummary: null,
+        artifactCount: 0,
+        actor: input.actor,
+        simTime: input.simTime,
+        causationId: terminal.eventId,
+        traceId: input.traceId ?? null,
+        taskId: task.taskId,
+      }),
+    );
 
   /**
    * Deletion is not a transition: `ALLOWED_COMMANDS` says nothing about it because an operator
@@ -1258,6 +1453,396 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       };
     });
 
+  /**
+   * M3.1 · ask a named colleague to take this task.
+   *
+   * The domain rules are the interesting part, because a handoff is a transfer of accountability:
+   * only the current executor or the task's creator may ask; the receiver must be a real,
+   * executable employee and cannot be the sender; the task must still be open; and a handoff that
+   * is already pending or accepted cannot be silently re-pointed at somebody else. Nothing about
+   * the task's assignment changes here — the receiver's acceptance is what moves it.
+   */
+  const requestHandoff = (input: RequestHandoffInput): Result<TaskOperation, TaskFailure> => {
+    const loaded = load(input.taskId);
+    if (!loaded.ok) return loaded;
+    const task = loaded.value;
+
+    const commandFailure = requireCommand(task, 'handoff');
+    if (commandFailure !== null) return { ok: false, error: commandFailure };
+
+    if (input.reason.trim() === '') {
+      return {
+        ok: false,
+        error: taskError('invalid_reason', 'reason', 'a handoff needs a reason the receiver can act on'),
+      };
+    }
+    if (input.reason.length > 500) {
+      return {
+        ok: false,
+        error: taskError('invalid_input', 'reason', 'handoff reason must be at most 500 characters'),
+      };
+    }
+    if (input.note !== undefined && input.note !== null && input.note.length > 2000) {
+      return {
+        ok: false,
+        error: taskError('invalid_input', 'note', 'handoff note must be at most 2000 characters'),
+      };
+    }
+
+    const actorFailure = validateActor(input.actor);
+    if (actorFailure !== null) return { ok: false, error: actorFailure };
+
+    const permissionFailure = authorize(input.actor, 'HandoffTask', task.taskId);
+    if (permissionFailure !== null) return { ok: false, error: permissionFailure };
+
+    const executor = executorIdOf(task);
+    if (input.actor.kind === 'employee') {
+      const employeeId = input.actor.context.employeeId;
+      if (task.createdById !== employeeId && executor !== employeeId) {
+        return {
+          ok: false,
+          error: taskError(
+            'not_task_owner',
+            'actor.employeeId',
+            `employee "${employeeId}" neither created task "${task.taskId}" nor executes it`,
+          ),
+        };
+      }
+    }
+    const fromEmployeeId =
+      executor ??
+      (input.actor.kind === 'employee' ? input.actor.context.employeeId : input.actor.actorId);
+
+    const recipient = graph.getEmployee(input.toEmployeeId);
+    if (recipient === null) {
+      return {
+        ok: false,
+        error: taskError(
+          'unknown_employee',
+          'toEmployeeId',
+          `employee "${input.toEmployeeId}" does not exist`,
+        ),
+      };
+    }
+    if (!isExecutableEmployment(recipient.status)) {
+      return {
+        ok: false,
+        error: taskError(
+          'employee_not_executable',
+          'toEmployeeId',
+          `employee "${input.toEmployeeId}" has employment status "${recipient.status}" and cannot take work`,
+        ),
+      };
+    }
+    if (String(recipient.id) === String(fromEmployeeId)) {
+      return {
+        ok: false,
+        error: taskError(
+          'invalid_input',
+          'toEmployeeId',
+          `cannot hand task "${task.taskId}" off to its current executor`,
+        ),
+      };
+    }
+    if (
+      input.actor.kind === 'employee' &&
+      String(input.toEmployeeId) === String(input.actor.context.employeeId)
+    ) {
+      return {
+        ok: false,
+        error: taskError(
+          'invalid_input',
+          'toEmployeeId',
+          'a handoff must name a colleague, not the requesting agent itself',
+        ),
+      };
+    }
+
+    const existing = task.handoff;
+    if (existing !== null && existing.status === 'requested') {
+      // Re-asking the same colleague is the same request: idempotent, no second event.
+      if (String(existing.toEmployeeId) === String(input.toEmployeeId)) {
+        return { ok: true, value: { task, events: [] } };
+      }
+      return {
+        ok: false,
+        error: taskError(
+          'handoff_pending',
+          'toEmployeeId',
+          `task "${task.taskId}" already waits on "${String(existing.toEmployeeId)}" for handoff "${existing.handoffId}"`,
+        ),
+      };
+    }
+    if (existing !== null && existing.status === 'accepted') {
+      return {
+        ok: false,
+        error: taskError(
+          'handoff_already_accepted',
+          'handoffId',
+          `handoff "${existing.handoffId}" was already accepted by "${String(existing.toEmployeeId)}"`,
+        ),
+      };
+    }
+
+    const handoffId = nextHandoffId();
+    const requested = emit(
+      TASK_HANDOFF_REQUESTED,
+      {
+        handoffId,
+        taskId: task.taskId,
+        fromEmployeeId: String(fromEmployeeId),
+        toEmployeeId: String(recipient.id),
+        fromStatus: task.status,
+        reason: input.reason,
+        note: input.note ?? null,
+        // The receiver's wake event is its briefing, exactly like Task.Assigned.
+        title: task.title,
+        goal: task.goal,
+        ...(task.verification === null || task.verification.requiredOutputKeys.length === 0
+          ? {}
+          : { requiredOutputKeys: [...task.verification.requiredOutputKeys] }),
+        ...(task.capability === null ? {} : { capability: task.capability }),
+      },
+      task.taskId,
+      input.actor,
+      input.simTime,
+      { causationId: input.causationId ?? null, traceId: input.traceId ?? null },
+    );
+    if (!requested.ok) return requested;
+
+    const saved = applyAndSave(task, [requested.value]);
+    if (!saved.ok) return saved;
+    return { ok: true, value: { task: saved.value, events: [requested.value] } };
+  };
+
+  /**
+   * The receiver takes the work. Acceptance is the moment the task moves: one
+   * `Task.HandoffAccepted` (the decision, caused by the request) followed by one `Task.Assigned`
+   * (the transfer, caused by the acceptance). The assignee is the recipient and `Attempt` is
+   * preserved — this is a change of hands, not a new try at the same work.
+   */
+  const acceptHandoff = (input: HandoffResponseInput): Result<TaskOperation, TaskFailure> => {
+    const loaded = load(input.taskId);
+    if (!loaded.ok) return loaded;
+    const task = loaded.value;
+    const handoff = task.handoff;
+
+    if (handoff === null || (input.handoffId !== undefined && input.handoffId !== handoff.handoffId)) {
+      return {
+        ok: false,
+        error: taskError(
+          'handoff_not_open',
+          'handoffId',
+          `task "${task.taskId}" has no open handoff${
+            input.handoffId === undefined ? '' : ` "${input.handoffId}"`
+          }`,
+        ),
+      };
+    }
+    if (input.actor.kind !== 'employee') {
+      return {
+        ok: false,
+        error: taskError('invalid_actor', 'actor', 'only the named employee can accept a handoff'),
+      };
+    }
+    if (String(input.actor.context.employeeId) !== String(handoff.toEmployeeId)) {
+      return {
+        ok: false,
+        error: taskError(
+          'handoff_not_recipient',
+          'actor.employeeId',
+          `handoff "${handoff.handoffId}" waits on "${String(handoff.toEmployeeId)}", not "${String(input.actor.context.employeeId)}"`,
+        ),
+      };
+    }
+    if (handoff.status === 'accepted') {
+      // A replayed/repeated acceptance is the same fact when it is already in force.
+      if (String(executorIdOf(task)) === String(handoff.toEmployeeId)) {
+        return { ok: true, value: { task, events: [] } };
+      }
+      return {
+        ok: false,
+        error: taskError(
+          'handoff_already_accepted',
+          'handoffId',
+          `handoff "${handoff.handoffId}" is already accepted and no longer moves the task`,
+        ),
+      };
+    }
+    if (handoff.status !== 'requested') {
+      return {
+        ok: false,
+        error: taskError(
+          'handoff_not_open',
+          'handoffId',
+          `handoff "${handoff.handoffId}" is ${handoff.status} and cannot be accepted`,
+        ),
+      };
+    }
+
+    const commandFailure = requireCommand(task, 'handoff');
+    if (commandFailure !== null) return { ok: false, error: commandFailure };
+
+    const actorFailure = validateActor(input.actor);
+    if (actorFailure !== null) return { ok: false, error: actorFailure };
+
+    const permissionFailure = authorize(input.actor, 'HandoffTask', task.taskId);
+    if (permissionFailure !== null) return { ok: false, error: permissionFailure };
+
+    const recipient = graph.getEmployee(handoff.toEmployeeId);
+    if (recipient === null || !isExecutableEmployment(recipient.status)) {
+      return {
+        ok: false,
+        error: taskError(
+          'employee_not_executable',
+          'toEmployeeId',
+          `employee "${String(handoff.toEmployeeId)}" can no longer take the task`,
+        ),
+      };
+    }
+
+    const trace = {
+      causationId: input.causationId ?? handoff.sourceEventId,
+      traceId: input.traceId ?? null,
+    };
+    const accepted = emit(
+      TASK_HANDOFF_ACCEPTED,
+      {
+        handoffId: handoff.handoffId,
+        taskId: task.taskId,
+        fromEmployeeId: String(handoff.fromEmployeeId),
+        toEmployeeId: String(handoff.toEmployeeId),
+        previousStatus: task.status,
+      },
+      task.taskId,
+      input.actor,
+      input.simTime,
+      trace,
+    );
+    if (!accepted.ok) return accepted;
+
+    const assigned = emit(
+      TASK_ASSIGNED,
+      {
+        taskId: task.taskId,
+        assignment: {
+          kind: 'employee',
+          positionId: recipient.positionId,
+          targetEmployeeId: recipient.id,
+          assigneeEmployeeId: recipient.id,
+          actingEmployeeId: null,
+        },
+        attempt: task.attempt,
+        reason: `handoff ${handoff.handoffId} accepted from ${String(handoff.fromEmployeeId)}`,
+        title: task.title,
+        goal: task.goal,
+        ...(task.verification === null || task.verification.requiredOutputKeys.length === 0
+          ? {}
+          : { requiredOutputKeys: [...task.verification.requiredOutputKeys] }),
+        ...(task.capability === null ? {} : { capability: task.capability }),
+      },
+      task.taskId,
+      input.actor,
+      input.simTime,
+      { causationId: accepted.value.eventId, traceId: input.traceId ?? null },
+    );
+    if (!assigned.ok) return assigned;
+
+    const saved = applyAndSave(task, [accepted.value, assigned.value]);
+    if (!saved.ok) return saved;
+    return {
+      ok: true,
+      value: { task: saved.value, events: [accepted.value, assigned.value] },
+    };
+  };
+
+  /**
+   * The receiver refuses. The task stays with its sender and the refusal is a fact with a reason,
+   * so a sender (or an operator) can hand it to somebody else instead of guessing why nothing
+   * happened. Declining does not retry by itself: retrying is a new, explicit request.
+   */
+  const declineHandoff = (input: HandoffResponseInput): Result<TaskOperation, TaskFailure> => {
+    const loaded = load(input.taskId);
+    if (!loaded.ok) return loaded;
+    const task = loaded.value;
+    const handoff = task.handoff;
+
+    if (handoff === null || (input.handoffId !== undefined && input.handoffId !== handoff.handoffId)) {
+      return {
+        ok: false,
+        error: taskError(
+          'handoff_not_open',
+          'handoffId',
+          `task "${task.taskId}" has no open handoff`,
+        ),
+      };
+    }
+    if (input.actor.kind !== 'employee') {
+      return {
+        ok: false,
+        error: taskError('invalid_actor', 'actor', 'only the named employee can decline a handoff'),
+      };
+    }
+    if (String(input.actor.context.employeeId) !== String(handoff.toEmployeeId)) {
+      return {
+        ok: false,
+        error: taskError(
+          'handoff_not_recipient',
+          'actor.employeeId',
+          `handoff "${handoff.handoffId}" waits on "${String(handoff.toEmployeeId)}", not "${String(input.actor.context.employeeId)}"`,
+        ),
+      };
+    }
+    if (handoff.status === 'declined') {
+      // A repeated decline is the same decision, already on the log: a retried turn must not
+      // produce a second `Task.HandoffDeclined` (the first reason stands).
+      return { ok: true, value: { task, events: [] } };
+    }
+    if (handoff.status !== 'requested') {
+      return {
+        ok: false,
+        error: taskError(
+          'handoff_not_open',
+          'handoffId',
+          `handoff "${handoff.handoffId}" is ${handoff.status} and cannot be declined`,
+        ),
+      };
+    }
+    const reason = (input.reason ?? '').trim();
+    if (reason === '') {
+      return {
+        ok: false,
+        error: taskError('invalid_reason', 'reason', 'a declined handoff needs a reason'),
+      };
+    }
+
+    const actorFailure = validateActor(input.actor);
+    if (actorFailure !== null) return { ok: false, error: actorFailure };
+
+    const permissionFailure = authorize(input.actor, 'HandoffTask', task.taskId);
+    if (permissionFailure !== null) return { ok: false, error: permissionFailure };
+
+    const declined = emit(
+      TASK_HANDOFF_DECLINED,
+      {
+        handoffId: handoff.handoffId,
+        taskId: task.taskId,
+        fromEmployeeId: String(handoff.fromEmployeeId),
+        toEmployeeId: String(handoff.toEmployeeId),
+        reason,
+      },
+      task.taskId,
+      input.actor,
+      input.simTime,
+      { causationId: input.causationId ?? handoff.sourceEventId, traceId: input.traceId ?? null },
+    );
+    if (!declined.ok) return declined;
+
+    const saved = applyAndSave(task, [declined.value]);
+    if (!saved.ok) return saved;
+    return { ok: true, value: { task: saved.value, events: [declined.value] } };
+  };
+
   return {
     get: (taskId) => store.get(taskId),
     all: () => store.all(),
@@ -1265,6 +1850,9 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     assign,
     dispatch,
     holdForApproval,
+    requestHandoff,
+    acceptHandoff,
+    declineHandoff,
     accept,
     start,
     report,

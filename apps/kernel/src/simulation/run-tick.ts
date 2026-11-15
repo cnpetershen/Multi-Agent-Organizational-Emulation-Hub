@@ -37,6 +37,15 @@ import type {
 import { HIRING_WORKFLOW_ID, evaluateVerification } from '@maoeh/workflow-engine';
 
 import { SYSTEM_SIM_CLOCK_TICKED } from './events.js';
+import {
+  MAX_TASK_CONTINUATIONS,
+  noteTaskActivity,
+  noteTaskHeartbeat,
+  stalledTasks,
+  tasksAwaitingContinuation,
+  STALL_THRESHOLD_TICKS,
+  type TaskHeartbeat,
+} from './stall.js';
 import { communicationViewOf } from './communication-view.js';
 import type { EligibilityDeps } from './eligibility.js';
 import { eligibleAgentsFor, refersToDeletedWork } from './eligibility.js';
@@ -81,6 +90,17 @@ export interface SimulationCore {
   readonly turnContext: RuntimeTurnContext;
   readonly agents: ReadonlyMap<EmployeeId, AgentBundle>;
   readonly eligibilityDeps: EligibilityDeps;
+  /**
+   * Stall watchdog bookkeeping: taskId -> last observed activity, including the phase that
+   * produced it. Kept in memory like `retryCounts`; rebuilt empty at boot and seeded from the
+   * event log on the first tick, which is what makes a pre-existing stall detectable without
+   * treating an old-but-recently-active task as stale.
+   */
+  readonly stallHeartbeats: Map<string, TaskHeartbeat>;
+  /** True once the first tick has seeded `stallHeartbeats` from the durable event log. */
+  stallBootstrapped: boolean;
+  /** Per-task count of scheduling continuations; capped so a model loop cannot spin forever. */
+  readonly taskContinuations: Map<string, number>;
   /**
    * Wakeup id -> the event that caused it. The scheduler only stores a `sourceEventId`, and a
    * wakeup may be dispatched on a later tick than the event that produced it (deferred work for
@@ -137,6 +157,7 @@ function assignedTasksOf(
         verificationKeys === undefined || verificationKeys === null
           ? []
           : [...verificationKeys];
+      const workflowContext = workflowContextOf(core, task);
       const base: AssignedTaskView = {
         taskId: task.taskId,
         title: task.title,
@@ -145,13 +166,126 @@ function assignedTasksOf(
         // The task state machine's own answer to "what may I do next" — see the view's comment.
         allowedCommands: [...allowedTaskCommands(task.status)],
         ...(keys.length === 0 ? {} : { verificationKeys: keys }),
+        ...(workflowContext === undefined ? {} : { workflowContext }),
       };
       return base;
     });
 }
 
-function payloadOf(event: OrgEvent): Readonly<Record<string, unknown>> {
-  return typeof event.payload === 'object' && event.payload !== null
+/**
+ * A workflow step only exists after the canvas confirmed the draft; downstream agents otherwise
+ * cannot tell that from a bare Task.Assigned event and may block waiting for a confirmation that
+ * already happened. Include the confirmed status plus prior completed steps and evidence keys.
+ */
+function workflowContextOf(core: SimulationCore, task: Task): string | undefined {
+  const instanceId = task.workflowInstanceId;
+  if (instanceId === null) return undefined;
+  const instance = core.instances.get(instanceId);
+  if (instance === null) return undefined;
+  const completed = core.tasks
+    .all()
+    .filter(
+      (sibling) =>
+        sibling.workflowInstanceId === instanceId &&
+        sibling.taskId !== task.taskId &&
+        sibling.status === 'completed',
+    );
+  const evidenceKeys = [
+    ...new Set(
+      completed.flatMap((sibling) =>
+        sibling.result === null ? [] : Object.keys(sibling.result.data),
+      ),
+    ),
+  ].slice(0, 8);
+  const steps = completed.map((sibling) => sibling.title).slice(0, 6);
+  return `instance ${instanceId} is confirmed (${String(instance.status)}); completed steps: ${
+    steps.length === 0 ? '(none yet)' : steps.join(', ')
+  }; evidence keys: ${evidenceKeys.length === 0 ? '(none yet)' : evidenceKeys.join(', ')}`;
+}
+
+function openTaskIdsOf(assigned: readonly AssignedTaskView[]): readonly string[] {
+  return assigned
+    .filter((task) => task.status === 'accepted' || task.status === 'started')
+    .map((task) => task.taskId);
+}
+
+function pausedWorkflowIdsOf(core: SimulationCore): ReadonlySet<string> {
+  return new Set(
+    core.instances
+      .all()
+      .filter(
+        (instance) =>
+          String(instance.status) === 'paused' ||
+          (String(instance.status) === 'blocked' &&
+            instance.blockedReason !== null &&
+            instance.blockedReason.kind === 'manual'),
+      )
+      .map((instance) => instance.instanceId),
+  );
+}
+
+/** A task that starts, finishes or fails has no need for a continuation count any more. */
+function clearContinuationCounts(core: SimulationCore, events: readonly OrgEvent[]): void {
+  for (const event of events) {
+    if (event.subjectType !== 'task' || event.subjectId === null) continue;
+    if (
+      event.type === 'Task.Assigned' ||
+      event.type === 'Task.Started' ||
+      event.type === 'Task.ProgressReported' ||
+      event.type === 'Task.Completed' ||
+      event.type === 'Task.Rejected' ||
+      event.type === 'Task.Failed' ||
+      event.type === 'Task.Cancelled'
+    ) {
+      core.taskContinuations.delete(event.subjectId);
+    }
+  }
+}
+
+/**
+ * Wake an assignee after an AcceptTask-only cycle. This is a scheduler fact, not an auto-start:
+ * the next turn is a real model turn whose prompt shows `status=accepted | next=StartTask`.
+ * The cap prevents a model that keeps doing nothing from spinning forever; after it the
+ * watchdog still fails/rejects the step, so nothing is marked complete by this path.
+ */
+function scheduleTaskContinuation(
+  core: SimulationCore,
+  employeeId: EmployeeId,
+  simTime: SimTime,
+  cycleEvents: readonly OrgEvent[],
+  wakeupReason: string,
+): void {
+  const acceptedEvent = cycleEvents.some(
+    (event) => event.type === 'Task.Accepted' || event.type === 'Task.Started',
+  );
+  if (!acceptedEvent && wakeupReason !== 'TURN') return;
+  const paused = pausedWorkflowIdsOf(core);
+  const waiting = tasksAwaitingContinuation(
+    core.tasks.all(),
+    employeeId,
+    core.config.companyId,
+    paused,
+  );
+  for (const task of waiting) {
+    const count = core.taskContinuations.get(task.taskId) ?? 0;
+    if (count >= MAX_TASK_CONTINUATIONS) continue;
+    core.taskContinuations.set(task.taskId, count + 1);
+    core.scheduler.enqueue({
+      companyId: core.config.companyId,
+      agentId: employeeId,
+      reason: 'TURN',
+      trigger: {
+        kind: 'task',
+        eventTypeId: 'Task.Accepted',
+        refId: `${task.taskId}:continuation:${String(count + 1)}`,
+      },
+      sourceEventId: null,
+      scheduledAtSim: (Number(simTime) + 1) as SimTime,
+    });
+  }
+}
+
+function payloadOf(event: OrgEvent): Readonly<Record<string, unknown>> {  return typeof event.payload === 'object' && event.payload !== null
     ? (event.payload as Readonly<Record<string, unknown>>)
     : {};
 }
@@ -319,6 +453,10 @@ function settleStandaloneTask(
     actor: systemActor('kernel-reactor', event.correlationId),
     simTime,
     verification: task.verification,
+    // M3.1: the completion is caused by the submission it judges, so a handoff's settlement
+    // (`Task.HandoffCompleted`) can be walked back to the delivered result.
+    causationId: event.eventId,
+    traceId: event.traceId,
   });
   if (!completed.ok) return { kind: 'failed' };
   return { kind: 'settled', events: completed.value.events };
@@ -687,6 +825,14 @@ export async function runSimulationTick(
   const simTime: SimTime = scheduler.tick();
   const tickNumber = scheduler.clock.currentTick;
 
+  // On boot the heartbeat map is empty. Seed it from the durable log before the first watchdog
+  // decision: an old task with a recent Task.* event must not be treated as stale merely because
+  // the process was restarted, while a task whose last event is genuinely old remains actionable.
+  if (!core.stallBootstrapped) {
+    noteTaskActivity(core.stallHeartbeats, await readAllEvents(core.eventStore));
+    core.stallBootstrapped = true;
+  }
+
   const inputEvents = await readEventsAfter(core.eventStore, cursorBefore);
   const inputById = new Map<string, OrgEvent>(inputEvents.map((event) => [event.eventId, event]));
 
@@ -745,6 +891,12 @@ export async function runSimulationTick(
 
   const turns: AgentTurnRecord[] = [];
   const cycleEvents: OrgEvent[] = [];
+  /**
+   * M3.1 message lifecycle: a recipient that ran a turn on a `Communication.MessageSent` has
+   * processed it — unless the turn is going to be retried, in which case the message is still
+   * pending. Emitted once per (message, recipient) by the communication service itself.
+   */
+  const messageProcessingEvents: OrgEvent[] = [];
   let dispatchLimit = 0;
 
   /**
@@ -810,7 +962,10 @@ export async function runSimulationTick(
       }
       const employeeId = wakeup.agentId;
       const eventId = sourceEvent.eventId;
-      if (core.turnContext.isProcessed(employeeId, eventId)) {
+      // A TURN continuation exists precisely because the prior turn already consumed the task
+      // event; it is a synthetic follow-up, not a replay, so the processed-event guard must not
+      // suppress it (otherwise two continuations scheduled in the same tick would collapse).
+      if (wakeup.reason !== 'TURN' && core.turnContext.isProcessed(employeeId, eventId)) {
         settleWakeup(wakeup.wakeupId, 'completed');
         continue;
       }
@@ -863,6 +1018,20 @@ export async function runSimulationTick(
       }
 
       const stateBefore = core.stateStore.load(employeeId);
+      const assignedTasks = assignedTasksOf(core, employeeId);
+      const openTaskIds = openTaskIdsOf(assignedTasks);
+      // Explicit heartbeat: a live model can spend a long turn reasoning before it emits its
+      // first Task.* event. That turn is real work, not a stall.
+      noteTaskHeartbeat(core.stallHeartbeats, openTaskIds, simTime, 'inference');
+      const basePlanExecutor = core.planExecutorFactory(budget);
+      const planExecutor: PlanExecutor = {
+        async execute(step, context) {
+          noteTaskHeartbeat(core.stallHeartbeats, openTaskIds, simTime, 'tool');
+          const result = await basePlanExecutor.execute(step, context);
+          noteTaskHeartbeat(core.stallHeartbeats, openTaskIds, simTime, 'tool');
+          return result;
+        },
+      };
       // Read once per cycle: the prompt must describe the conversation the agent can act on, and
       // an agent in no channel gets no `communication` at all (the prompt then renders nothing).
       const communicationView = communicationViewOf(core.communication, employeeId);
@@ -881,7 +1050,7 @@ export async function runSimulationTick(
         definition: bundle.definition,
         profile: bundle.profile,
         organization: organizationSnapshotView(core.organization, employeeId),
-        assignedTasks: assignedTasksOf(core, employeeId),
+        assignedTasks,
         ...(communicationView === undefined ? {} : { communication: communicationView }),
         workCatalog: workCatalogView(
           {
@@ -893,7 +1062,7 @@ export async function runSimulationTick(
           },
           actorContext,
         ),
-        planExecutor: core.planExecutorFactory(budget),
+        planExecutor,
         maxLlmCalls: budget.remainingLlmCalls,
         maxEmittedEvents: Math.max(2, config.budget.maxEvents - budget.usage.events),
       });
@@ -940,6 +1109,11 @@ export async function runSimulationTick(
         continue;
       }
 
+      noteTaskActivity(core.stallHeartbeats, cycle.emittedEvents);
+      noteTaskHeartbeat(core.stallHeartbeats, openTaskIds, simTime, 'idle');
+      clearContinuationCounts(core, cycle.emittedEvents);
+      scheduleTaskContinuation(core, employeeId, simTime, cycle.emittedEvents, wakeup.reason);
+
       const retryableFailure =
         cycle.retryable &&
         cycle.failure !== null &&
@@ -969,6 +1143,31 @@ export async function runSimulationTick(
         core.resetRetry(employeeId, eventId);
       }
 
+      // A message is "processed" once the recipient's turn on it has settled (no retry pending).
+      // The outcome is the turn's own: a failed non-retryable turn is a real processing failure
+      // and is recorded as one, rather than silently leaving the message at "delivered".
+      if (sourceEvent.type === REACTOR_MESSAGE_EVENT && !willRetry) {
+        const messagePayload = payloadOf(sourceEvent);
+        const messageId = readString(messagePayload, 'messageId');
+        const recipients = messagePayload['recipientIds'];
+        const isRecipient =
+          Array.isArray(recipients) && recipients.includes(String(employeeId));
+        if (messageId !== null && isRecipient) {
+          const processed = core.communication.markProcessed({
+            messageId,
+            recipientId: employeeId,
+            outcome: cycle.status === 'failed' ? 'failed' : 'handled',
+            simTime,
+            correlationId: sourceEvent.correlationId as CorrelationId,
+            causationId: sourceEvent.eventId,
+            traceId: sourceEvent.traceId,
+          });
+          if (processed.ok && processed.value !== null) {
+            messageProcessingEvents.push(processed.value.event);
+          }
+        }
+      }
+
       turns.push({
         wakeupId: wakeup.wakeupId,
         cycleId: cycle.cycleId,
@@ -985,6 +1184,42 @@ export async function runSimulationTick(
     }
   }
 
+  // --- stall watchdog -------------------------------------------------------
+  // An open task that saw no activity for STALL_THRESHOLD_TICKS is acted on here: started
+  // tasks are failed (legal transition, the executor's own terminal act), accepted-but-never
+  // started tasks are rejected (the closest transition the state machine permits). The task
+  // events produced are consumed by the reactor in this tick, so the workflow settles the
+  // step instead of leaving it active forever.
+  noteTaskActivity(core.stallHeartbeats, [...inputEvents, ...cycleEvents]);
+  const pausedWorkflowIds = pausedWorkflowIdsOf(core);
+  const stallActions = stalledTasks(
+    core.tasks.all(),
+    core.stallHeartbeats,
+    String(config.companyId),
+    simTime,
+    STALL_THRESHOLD_TICKS,
+    { pausedWorkflowIds },
+  );
+  const stallEvents: OrgEvent[] = [];
+  let stallFailures = 0;
+  for (const action of stallActions) {
+    if (!budget.tryTask()) {
+      stallFailures += 1;
+      break;
+    }
+    const actor = systemActor('kernel-watchdog', `corr-stall-${String(simTime)}-${action.taskId}`);
+    const outcome =
+      action.action === 'reject'
+        ? core.tasks.reject({ taskId: action.taskId, actor, simTime, reason: action.reason })
+        : core.tasks.fail({ taskId: action.taskId, actor, simTime, reason: action.reason });
+    if (!outcome.ok) {
+      stallFailures += 1;
+      continue;
+    }
+    noteTaskActivity(core.stallHeartbeats, outcome.value.events);
+    stallEvents.push(...outcome.value.events);
+  }
+
   for (const wakeup of scheduler.queue()) {
     if (wakeup.status !== 'pending' || wakeup.reason !== 'RETRY') continue;
     scheduler.cancel(wakeup.wakeupId);
@@ -995,7 +1230,7 @@ export async function runSimulationTick(
     core.resetRetry(wakeup.agentId, wakeup.sourceEventId ?? '');
   }
 
-  const reactor = runReactor(core, budget, simTime, cycleEvents);
+  const reactor = runReactor(core, budget, simTime, [...cycleEvents, ...stallEvents]);
   // A4: a hiring decision arrives as an event — appended by the console (seen as an input event
   // on a later tick) or voted by an agent in this tick's cycle events. The pass applies it
   // deterministically; it is idempotent, so re-read batches and replays never double-apply.
@@ -1005,16 +1240,22 @@ export async function runSimulationTick(
   // event). It is idempotent, so re-seeing a message never duplicates a delivery record.
   const deliveryFailures = runCommunicationDelivery(core, [...inputEvents, ...cycleEvents]);
 
-  const batch: OrgEvent[] = [...cycleEvents, ...reactor.events, ...hiring.events];
+  const batch: OrgEvent[] = [
+    ...cycleEvents,
+    ...stallEvents,
+    ...reactor.events,
+    ...hiring.events,
+    ...messageProcessingEvents,
+  ];
   const cursor = cursorBefore + inputEvents.length;
 
   const budgetExceeded = budget.exceeded.length > 0;
   const turnFailures = turns.filter((turn) => turn.status === 'failed').length;
   const status: SimulationTickStatus = budgetExceeded
     ? 'budget_exceeded'
-    : turnFailures > 0 || reactor.failures > 0 || hiring.failures > 0 || deliveryFailures > 0
+    : turnFailures > 0 || stallFailures > 0 || reactor.failures > 0 || hiring.failures > 0 || deliveryFailures > 0
       ? 'partial_failure'
-      : enqueuedCount === 0 && turns.length === 0 && reactor.events.length === 0 && hiring.events.length === 0
+      : enqueuedCount === 0 && turns.length === 0 && reactor.events.length === 0 && hiring.events.length === 0 && messageProcessingEvents.length === 0
         ? 'idle'
         : 'ok';
 
