@@ -9,7 +9,7 @@ import { enterConsole } from './gate.mjs';
 const root = path.resolve(import.meta.dirname, '..', '..');
 const apiPort = 3201;
 const cdpPort = 9445;
-const pages = ['Overview', 'Agents', 'Deliverables', 'Tasks', 'Workflows', 'Approvals', 'Communications', 'Runtime', 'Events'];
+const pages = ['Overview', 'Network', 'Agents', 'Deliverables', 'Tasks', 'Workflows', 'Canvas', 'Approvals', 'Communications', 'Runtime', 'Events'];
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const findEdge = () => ['C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe', 'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'].find((candidate) => existsSync(candidate));
 const edgePath = findEdge();
@@ -135,7 +135,7 @@ try {
       if (parsed.errors.length > 0) throw new Error(`${page} browser errors at ${String(width)}px: ${String(parsed.errors)}`);
       if (parsed.failure !== null || parsed.boundary !== null) throw new Error(`${page} rendered an error at ${String(width)}px`);
     }
-    console.log(`[edge] ${String(width)}px: 9 pages clean, no horizontal overflow, no React/console errors`);
+    console.log(`[edge] ${String(width)}px: 11 pages clean, no horizontal overflow, no React/console errors`);
   }
 } finally {
   if (cdp !== undefined) cdp.close();

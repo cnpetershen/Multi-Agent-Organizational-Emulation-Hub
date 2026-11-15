@@ -51,6 +51,23 @@ export interface AssignmentApproval {
   readonly grantedBy: readonly string[];
 }
 
+/** M2: one real workflow transition, as `/api/workflows` projects it from the definition. */
+export interface AssignmentTransition {
+  readonly transitionId: string;
+  readonly fromStepId: string;
+  readonly when: {
+    readonly kind: string;
+    readonly status?: string;
+    readonly decision?: string;
+  };
+  readonly to: {
+    readonly kind: string;
+    readonly stepId?: string | null;
+    readonly stageId?: string;
+    readonly reason?: string | null;
+  };
+}
+
 export interface AssignmentInstance {
   readonly instanceId: string;
   readonly title: string;
@@ -60,8 +77,15 @@ export interface AssignmentInstance {
   readonly steps: readonly AssignmentStep[];
   readonly assignmentOverrides: Readonly<Record<string, string>>;
   readonly draft: boolean;
+  /** M3.4: this draft came from the requirements/orchestration sandbox. */
+  readonly planned?: boolean;
+  readonly planningOrchestrationId?: string | null;
   /** The instance's open (or last decided) approval gate, when the read model reports one. */
   readonly approval?: AssignmentApproval | null;
+  /** M2: the definition's transitions. Absent on older read models; the graph then falls back. */
+  readonly transitions?: readonly AssignmentTransition[];
+  /** True only for a manual block (`Workflow.InstanceBlocked` kind=manual), not an approval gate. */
+  readonly paused?: boolean;
 }
 
 export interface AssignmentEmployee {
@@ -129,6 +153,10 @@ export interface AssignmentEdge {
   readonly tone: AssignmentTone;
   readonly active: boolean;
   readonly crossesStage: boolean;
+  /** `task:rejected` / `approval:denied` / `always` — what the edge actually represents. */
+  readonly condition?: string | null;
+  /** True when the transition goes back up the board (a loop), so the line can be drawn aside. */
+  readonly feedback?: boolean;
 }
 
 export interface AssignmentStageBand {
@@ -218,6 +246,38 @@ export function parseAssignmentApproval(value: unknown): AssignmentApproval | nu
   };
 }
 
+/** M2: one transition row, or `null` when it names no source step / no target kind. */
+export function parseAssignmentTransition(value: unknown): AssignmentTransition | null {
+  if (!isRecord(value)) return null;
+  const fromStepId = readString(value['fromStepId'], '');
+  if (fromStepId === '') return null;
+  const when = isRecord(value['when']) ? value['when'] : {};
+  const to = isRecord(value['to']) ? value['to'] : {};
+  const toKind = readString(to['kind'], '');
+  if (toKind === '') return null;
+  const whenKind = readString(when['kind'], 'always');
+  const status = optionalString(when['status']);
+  const decision = optionalString(when['decision']);
+  const stepId = optionalString(to['stepId']);
+  const stageId = optionalString(to['stageId']);
+  const reason = optionalString(to['reason']);
+  return {
+    transitionId: readString(value['transitionId'], `${fromStepId}->${toKind}`),
+    fromStepId,
+    when: {
+      kind: whenKind,
+      ...(status === null ? {} : { status }),
+      ...(decision === null ? {} : { decision }),
+    },
+    to: {
+      kind: toKind,
+      ...(stepId === null ? {} : { stepId }),
+      ...(stageId === null ? {} : { stageId }),
+      ...(reason === null ? {} : { reason }),
+    },
+  };
+}
+
 export function parseAssignmentInstance(row: Row): AssignmentInstance | null {
   const instanceId = readString(row['instanceId'], '');
   if (instanceId === '') return null;
@@ -225,6 +285,9 @@ export function parseAssignmentInstance(row: Row): AssignmentInstance | null {
     .map(parseAssignmentStep)
     .filter((step): step is AssignmentStep => step !== null);
   if (steps.length === 0) return null;
+  const transitions = (Array.isArray(row['transitions']) ? row['transitions'] : [])
+    .map(parseAssignmentTransition)
+    .filter((transition): transition is AssignmentTransition => transition !== null);
   return {
     instanceId,
     title: readString(row['title'], instanceId),
@@ -234,7 +297,12 @@ export function parseAssignmentInstance(row: Row): AssignmentInstance | null {
     steps,
     assignmentOverrides: overridesOf(row['assignmentOverrides']),
     draft: readBoolean(row['draft'], false),
+    planned: readBoolean(row['planned'], false),
+    planningOrchestrationId:
+      typeof row['planningOrchestrationId'] === 'string' ? row['planningOrchestrationId'] : null,
     approval: parseAssignmentApproval(row['approval']),
+    transitions,
+    paused: readBoolean(row['paused'], false),
   };
 }
 
@@ -427,9 +495,30 @@ export function isAdjustableStep(step: AssignmentStep): boolean {
   return step.kind === 'task' && step.status === 'pending';
 }
 
-export function edgePath(fromY: number, toY: number): string {
-  const bend = 34;
+export function edgePath(fromY: number, toY: number, bend = 34): string {
   return `M ${ASSIGNMENT_NODE_CENTER_X} ${fromY} C ${ASSIGNMENT_NODE_CENTER_X + bend} ${fromY + 22}, ${ASSIGNMENT_NODE_CENTER_X + bend} ${toY - 22}, ${ASSIGNMENT_NODE_CENTER_X} ${toY}`;
+}
+
+/** A transition that goes back up the board (a loop) is drawn beside the spine, not through it. */
+export function loopEdgePath(fromY: number, toY: number, variant = 0): string {
+  const side = variant % 2 === 0 ? 1 : -1;
+  const reach = 120 + Math.floor(variant / 2) * 32;
+  const x = ASSIGNMENT_NODE_CENTER_X + side * reach;
+  return `M ${ASSIGNMENT_NODE_CENTER_X} ${fromY} C ${x} ${fromY + 30}, ${x} ${toY - 30}, ${ASSIGNMENT_NODE_CENTER_X} ${toY}`;
+}
+
+function conditionOf(when: AssignmentTransition['when']): string {
+  if (when.kind === 'task_status') return `task:${when.status ?? 'unknown'}`;
+  if (when.kind === 'approval_decision') return `approval:${when.decision ?? 'unknown'}`;
+  return when.kind;
+}
+
+function transitionTone(when: AssignmentTransition['when'], targetTone: AssignmentTone): AssignmentTone {
+  if (when.kind === 'task_status' && (when.status === 'rejected' || when.status === 'failed')) {
+    return 'bad';
+  }
+  if (when.kind === 'approval_decision' && when.decision === 'denied') return 'bad';
+  return targetTone;
 }
 
 /**
@@ -473,20 +562,68 @@ export function buildAssignmentGraph(
   });
 
   const edges: AssignmentEdge[] = [];
-  for (let index = 0; index < nodes.length - 1; index += 1) {
-    const from = nodes[index];
-    const to = nodes[index + 1];
-    if (from === undefined || to === undefined) continue;
-    const active = from.step.status === 'done' && ['active', 'pending'].includes(to.step.status);
-    edges.push({
-      id: `${from.step.stepId}->${to.step.stepId}`,
-      fromStepId: from.step.stepId,
-      toStepId: to.step.stepId,
-      d: edgePath(from.y + from.height, to.y),
-      tone: to.tone,
-      active,
-      crossesStage: from.step.stageId !== to.step.stageId,
-    });
+  const transitions = instance.transitions ?? [];
+  if (transitions.length > 0) {
+    // The definition is the truth. Resolve each transition to the node it targets; `complete`
+    // and `fail` are terminal and have no node, so they produce no line (the last step then
+    // honestly has no outgoing edge instead of a made-up arrow to nothing).
+    const nodeByStep = new Map(nodes.map((node) => [node.step.stepId, node]));
+    const firstNodeByStage = new Map<string, AssignmentNode>();
+    for (const node of nodes) {
+      if (!firstNodeByStage.has(node.step.stageId)) firstNodeByStage.set(node.step.stageId, node);
+    }
+    const ordinalBySource = new Map<string, number>();
+    for (const transition of transitions) {
+      const from = nodeByStep.get(transition.fromStepId);
+      if (from === undefined) continue;
+      const target =
+        transition.to.kind === 'step'
+          ? (transition.to.stepId === undefined || transition.to.stepId === null
+              ? undefined
+              : nodeByStep.get(transition.to.stepId))
+          : transition.to.kind === 'stage'
+            ? (transition.to.stageId === undefined
+                ? undefined
+                : firstNodeByStage.get(transition.to.stageId))
+            : undefined;
+      if (target === undefined) continue;
+      const ordinal = ordinalBySource.get(from.step.stepId) ?? 0;
+      ordinalBySource.set(from.step.stepId, ordinal + 1);
+      const feedback = target.index <= from.index;
+      const active = from.step.status === 'done' && ['active', 'pending'].includes(target.step.status);
+      edges.push({
+        id: transition.transitionId,
+        fromStepId: from.step.stepId,
+        toStepId: target.step.stepId,
+        d: feedback
+          ? loopEdgePath(from.y + from.height, target.y, ordinal)
+          : edgePath(from.y + from.height, target.y, 34 + ordinal * 20),
+        tone: transitionTone(transition.when, target.tone),
+        active,
+        crossesStage: from.step.stageId !== target.step.stageId,
+        condition: conditionOf(transition.when),
+        feedback,
+      });
+    }
+  } else {
+    // No definition (older port): the adjacent chain is the only order the read model carries.
+    for (let index = 0; index < nodes.length - 1; index += 1) {
+      const from = nodes[index];
+      const to = nodes[index + 1];
+      if (from === undefined || to === undefined) continue;
+      const active = from.step.status === 'done' && ['active', 'pending'].includes(to.step.status);
+      edges.push({
+        id: `${from.step.stepId}->${to.step.stepId}`,
+        fromStepId: from.step.stepId,
+        toStepId: to.step.stepId,
+        d: edgePath(from.y + from.height, to.y),
+        tone: to.tone,
+        active,
+        crossesStage: from.step.stageId !== to.step.stageId,
+        condition: null,
+        feedback: false,
+      });
+    }
   }
 
   const stages: AssignmentStageBand[] = stageOrder.flatMap((stageId, index) => {

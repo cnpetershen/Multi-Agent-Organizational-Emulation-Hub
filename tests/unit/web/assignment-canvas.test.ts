@@ -226,8 +226,75 @@ describe('assignment graph', () => {
     expect(stepTone('pending', true)).toBe('warn');
   });
 
+  it('draws real transitions when the read model carries them', () => {
+    const transitions = [
+      {
+        transitionId: 'req->ship',
+        fromStepId: 'req',
+        when: { kind: 'task_status', status: 'completed' },
+        to: { kind: 'step', stepId: 'ship' },
+      },
+      {
+        transitionId: 'ship->design',
+        fromStepId: 'ship',
+        when: { kind: 'approval_decision', decision: 'denied' },
+        to: { kind: 'step', stepId: 'design' },
+      },
+      {
+        transitionId: 'build->implementation',
+        fromStepId: 'build',
+        when: { kind: 'task_status', status: 'completed' },
+        to: { kind: 'stage', stageId: 'release' },
+      },
+      {
+        transitionId: 'build->fail',
+        fromStepId: 'build',
+        when: { kind: 'task_status', status: 'rejected' },
+        to: { kind: 'fail', reason: 'build_failed' },
+      },
+    ];
+    const graph = buildAssignmentGraph({ ...instance(steps), transitions });
+    // `req → ship` skips `design`; the old neighbour chain would have drawn req→design.
+    expect(graph.edges.map((edge) => edge.id)).toEqual(['req->ship', 'ship->design', 'build->implementation']);
+    expect(graph.edges[0]?.condition).toBe('task:completed');
+    expect(graph.edges[1]?.condition).toBe('approval:denied');
+    // A transition back up the board is a loop, not a forward step.
+    expect(graph.edges[1]?.feedback).toBe(true);
+    // A stage target resolves to the first node of that stage.
+    expect(graph.edges[2]?.toStepId).toBe('ship');
+    // `fail` is terminal: no invented node or edge.
+    expect(graph.edges.map((edge) => edge.toStepId)).not.toContain('fail');
+  });
+
+  it('falls back to the neighbour chain only when no transitions are present', () => {
+    const graph = buildAssignmentGraph({ ...instance(steps), transitions: [] });
+    expect(graph.edges.map((edge) => edge.id)).toEqual(['req->design', 'design->build', 'build->ship']);
+    expect(graph.edges.every((edge) => edge.condition === null)).toBe(true);
+  });
+
+  it('parses transitions and the paused flag from the workflow row', () => {
+    const parsed = parseAssignmentInstance({
+      instanceId: 'instance-1',
+      status: 'blocked',
+      paused: true,
+      steps: [step()],
+      transitions: [
+        {
+          transitionId: 't1',
+          fromStepId: 'step-1',
+          when: { kind: 'always' },
+          to: { kind: 'complete' },
+        },
+      ],
+    });
+    expect(parsed?.paused).toBe(true);
+    expect(parsed?.transitions).toEqual([
+      { transitionId: 't1', fromStepId: 'step-1', when: { kind: 'always' }, to: { kind: 'complete' } },
+    ]);
+    expect(parseAssignmentInstance({ instanceId: 'x', steps: [step()] })?.transitions).toEqual([]);
+  });
+
   it('produces a curved edge and reads the effective assignee from overrides', () => {
     expect(edgePath(100, 200)).toMatch(new RegExp(`^M ${ASSIGNMENT_NODE_CENTER_X} 100 C `));
-    expect(effectiveAssignee(steps[2]!, { build: 'ada' })).toBe('ada');
-  });
+    expect(effectiveAssignee(steps[2]!, { build: 'ada' })).toBe('ada');  });
 });

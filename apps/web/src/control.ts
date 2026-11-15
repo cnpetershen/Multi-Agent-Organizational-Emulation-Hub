@@ -3,23 +3,39 @@ import type { Command } from './commands';
 
 export type Page =
   | 'Overview'
+  | 'Network'
   | 'Agents'
   | 'Deliverables'
+  | 'Planning'
+  | 'PlanCanvas'
   | 'Tasks'
   | 'Workflows'
+  | 'Canvas'
   | 'Approvals'
+  | 'DeliveryApproval'
+  | 'Promotion'
+  | 'Publication'
   | 'Communications'
+  | 'Theater'
   | 'Runtime'
   | 'Events';
 
 export const PAGES: readonly Page[] = [
   'Overview',
+  'Network',
   'Agents',
   'Deliverables',
+  'Planning',
+  'PlanCanvas',
   'Tasks',
   'Workflows',
+  'Canvas',
   'Approvals',
+  'DeliveryApproval',
+  'Promotion',
+  'Publication',
   'Communications',
+  'Theater',
   'Runtime',
   'Events',
 ];

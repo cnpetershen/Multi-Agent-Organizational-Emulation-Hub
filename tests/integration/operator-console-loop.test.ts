@@ -55,7 +55,7 @@ function viewOf(value: unknown): Json {
 
 describe('M1.2-C: an operator can run the company through the console API', () => {
   it('holds the runtime, surfaces the approval gate, decides it and reaches completion', async () => {
-    const server = await startApiServer(0, { tick: { activeIntervalMs: 5, idleIntervalMs: 50 }, eventLogPath: null });
+    const server = await startApiServer(0, { requirePlanConfirmation: false,  tick: { activeIntervalMs: 5, idleIntervalMs: 50 }, eventLogPath: null });
     const base = `http://127.0.0.1:${String(server.port)}/api`;
     const get = async <T>(path: string): Promise<T> =>
       (await (await fetch(`${base}${path}`, { headers: { connection: 'close' } })).json()) as T;
@@ -84,7 +84,7 @@ describe('M1.2-C: an operator can run the company through the console API', () =
       expect(qa, 'the unstaffed backend-engineer position must be visible to the console').toBeDefined();
       expect((qa?.['employeeIds'] as readonly unknown[] | undefined) ?? []).toEqual([]);
 
-      // 1. Hold the runtime â€” the console's "let me decide approval gates" checkbox.
+      // 1. Hold the runtime â€?the console's "let me decide approval gates" checkbox.
       await expectAccepted(operatorCommand('Simulation.Pause'));
       expect((await get<Json>('/simulation'))['paused']).toBe(true);
 
@@ -145,7 +145,7 @@ describe('M1.2-C: an operator can run the company through the console API', () =
       // The audit-derived pending list stays empty: gates are read from workflow state.
       expect((await get<Json>('/approvals'))['pending']).toEqual([]);
 
-      // 6. The human decides â€” the runtime is still held, so nothing outraces the click.
+      // 6. The human decides â€?the runtime is still held, so nothing outraces the click.
       const instanceId = String(gate?.['instanceId']);
       await expectAccepted(
         operatorCommand('Workflow.Approve', {
@@ -190,7 +190,7 @@ describe('M1.2-C: an operator can run the company through the console API', () =
   });
 
   it('injects a task to an unstaffed position and reports it as waiting for assignment', async () => {
-    const server = await startApiServer(0, { tick: { activeIntervalMs: 5, idleIntervalMs: 50 }, eventLogPath: null });
+    const server = await startApiServer(0, { requirePlanConfirmation: false,  tick: { activeIntervalMs: 5, idleIntervalMs: 50 }, eventLogPath: null });
     const base = `http://127.0.0.1:${String(server.port)}/api`;
     try {
       const outcome = viewOf(
@@ -221,3 +221,4 @@ describe('M1.2-C: an operator can run the company through the console API', () =
     }
   });
 });
+

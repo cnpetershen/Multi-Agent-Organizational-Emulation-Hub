@@ -19,7 +19,7 @@ import { createOrgEvent } from '@maoeh/event-system';
 import type { BudgetTracker } from '@maoeh/runtime-scheduler';
 import type { AuthzService } from '@maoeh/permission-system';
 import { employeeActor, resourceRef } from '@maoeh/permission-system';
-import type { Organization } from '@maoeh/organization-model';
+import { isExecutableEmployment, type Organization } from '@maoeh/organization-model';
 import type { TaskService } from '@maoeh/task-system';
 import { HIRING_WORKFLOW_ID } from '@maoeh/workflow-engine';
 import type { WorkflowEngine, WorkflowInstanceStore } from '@maoeh/workflow-engine';
@@ -27,6 +27,7 @@ import type { WorkflowEngine, WorkflowInstanceStore } from '@maoeh/workflow-engi
 export const PLAN_ACTION_BINDINGS: Readonly<Record<string, string>> = Object.freeze({
   CreateProposal: 'workflow.start',
   DispatchWork: 'tasks.dispatch',
+  ProduceArtifact: 'tasks.submit',
   AcceptTask: 'tasks.accept',
   StartTask: 'tasks.start',
   ProgressReport: 'tasks.submit',
@@ -39,6 +40,9 @@ export const PLAN_ACTION_BINDINGS: Readonly<Record<string, string>> = Object.fre
   RejectStep: 'workflow.approve',
   SendMessage: 'communication.sendMessage',
   RequestCollaboration: 'collaboration.request',
+  HandoffTask: 'tasks.handoffRequest',
+  AcceptHandoff: 'tasks.handoffAccept',
+  DeclineHandoff: 'tasks.handoffDecline',
   UpdatePresence: 'runtime.presenceChanged',
   RecommendHire: 'agents.create',
   Reflect: 'noop',
@@ -50,6 +54,12 @@ export interface KernelPlanExecutorDeps {
   readonly communication: CommunicationService | null;
   readonly collaboration: CollaborationService | null;
   readonly budget: BudgetTracker;
+  /**
+   * M1.9: when set, every capability-generated workflow starts as an un-entered draft and waits
+   * for the human's confirm on the orchestration canvas. The console composes truth here;
+   * headless kernels leave this unset and run plans immediately as before.
+   */
+  readonly requirePlanConfirmation?: boolean;
   /**
    * Hiring (route A, `role-agents-cannot-complete-tasks.md` §9 A1/A2/A4): the binding authorizes
    * through the kernel's own `AuthzService`; since A4 the plan never writes the roster — it
@@ -92,6 +102,41 @@ function readRecord(args: Readonly<Record<string, unknown>>, key: string): Recor
   const value = args[key];
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
   return { ...(value as Record<string, unknown>) };
+}
+
+/** Args that are protocol controls, not deliverable keys. */
+const DELIVERY_CONTROL_KEYS = new Set([
+  'taskId',
+  'summary',
+  'message',
+  'data',
+  'artifacts',
+  'name',
+  'content',
+  'contentOutline',
+  'sections',
+  'description',
+  'reasonRef',
+  'status',
+]);
+
+/**
+ * Live plans put deliverables directly on the args object, or inside an `artifacts` map, rather
+ * than under `data`. Folding those keys into the submission data preserves the same real
+ * content; it does not invent files. The implementation gate below still requires an actual
+ * runnable file key and the HTML check still rejects a prose description.
+ */
+function deliveryDataOf(
+  args: Readonly<Record<string, unknown>>,
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(args)) {
+    if (!DELIVERY_CONTROL_KEYS.has(key)) merged[key] = value;
+  }
+  const artifacts = readRecord(args, 'artifacts');
+  for (const [key, value] of Object.entries(artifacts)) merged[key] = value;
+  return { ...merged, ...data };
 }
 
 function readStringArray(
@@ -158,6 +203,12 @@ export function createKernelPlanExecutor(
     const simTime: SimTime = context.simTime;
     const args = step.args;
     const binding = PLAN_ACTION_BINDINGS[step.action];
+    /**
+     * M3.1 traceability: every task fact written by this step is caused by the event that woke
+     * the agent, so "why did this task move" is answerable from the log alone rather than only
+     * through the correlation id.
+     */
+    const trace = { causationId: context.causationId, traceId: context.traceId } as const;
 
     if (binding === undefined) {
       return {
@@ -277,6 +328,7 @@ export function createKernelPlanExecutor(
             ...(priority === undefined ? {} : { priority }),
             ...(dueAtSim === undefined ? {} : { dueAtSim }),
             ...(maxAttempts === undefined ? {} : { maxAttempts }),
+            ...trace,
           }),
         );
       }
@@ -284,25 +336,126 @@ export function createKernelPlanExecutor(
       case 'tasks.accept': {
         const taskId = requireTaskId(args);
         if (isFailure(taskId)) return { ok: false, error: taskId };
+        const current = deps.tasks.get(taskId);
+        // A live plan often restates AcceptTask after the event already moved the task forward.
+        // Treat that as an idempotent no-op instead of an invalid transition that burns retries.
+        if (current !== null && (current.status === 'accepted' || current.status === 'started' || current.status === 'completed')) {
+          return { ok: true, value: Object.freeze([]) as readonly OrgEvent[] };
+        }
         return taskCommand(() =>
-          deps.tasks.accept({ taskId, actor, simTime }),
+          deps.tasks.accept({ taskId, actor, simTime, ...trace }),
         );
       }
 
       case 'tasks.start': {
         const taskId = requireTaskId(args);
         if (isFailure(taskId)) return { ok: false, error: taskId };
-        return taskCommand(() => deps.tasks.start({ taskId, actor, simTime }));
+        const current = deps.tasks.get(taskId);
+        if (current !== null && (current.status === 'started' || current.status === 'completed')) {
+          return { ok: true, value: Object.freeze([]) as readonly OrgEvent[] };
+        }
+        // `StartTask` on an assigned item is how many live plans read the state machine: accept
+        // implicitly, then start. Doing both here is the same transition the domain requires,
+        // without asking the model to remember two commands in one plan.
+        if (current !== null && current.status === 'assigned') {
+          return taskCommand(() => {
+            const accepted = deps.tasks.accept({ taskId, actor, simTime, ...trace });
+            if (!accepted.ok) return accepted;
+            const started = deps.tasks.start({ taskId, actor, simTime, ...trace });
+            if (!started.ok) return started;
+            return { ok: true, value: { ...started.value, events: [...accepted.value.events, ...started.value.events] } };
+          });
+        }
+        return taskCommand(() => deps.tasks.start({ taskId, actor, simTime, ...trace }));
       }
 
       case 'tasks.submit': {
         const taskId = requireTaskId(args);
         if (isFailure(taskId)) return { ok: false, error: taskId };
-        const summary = readString(args, 'summary');
+        const current = deps.tasks.get(taskId);
+        // A retry may replay a submission that already closed the task; never fail it a second
+        // time or the workflow would stall on a successful delivery.
+        if (current !== null && current.status === 'completed') {
+          return { ok: true, value: Object.freeze([]) as readonly OrgEvent[] };
+        }
+        // ProduceArtifact's own args are `{name, content}` — normalize them into `tasks.submit`'s
+        // `{summary, data: { [name]: content }}` so a pure ProduceArtifact step completes the task.
+        // A live planner often hands over an outline (`contentOutline` / `sections`) or only a
+        // description; treating that as no artifact stalled the task at `accepted` forever, so
+        // materialize the outline into the deliverable rather than rejecting an otherwise valid
+        // plan. `ProgressReport` carries `message` instead of `summary`; it is a progress note.
+        let summary = readString(args, 'summary') ?? readString(args, 'message');
+        let data = deliveryDataOf(args, readRecord(args, 'data'));
+        if (step.action === 'ProduceArtifact') {
+          const artifactName = readString(args, 'name');
+          const artifactContent = typeof args['content'] === 'string' ? args['content'] : '';
+          if (artifactName !== null && artifactContent !== '') {
+            data = { ...data, [artifactName]: artifactContent };
+            if (summary === null) summary = `Delivered ${artifactName}`;
+          }
+        }
+        if (summary === null) {
+          const artifactName = readString(args, 'name');
+          let artifactContent = typeof args['content'] === 'string' ? args['content'] : '';
+          if (artifactContent === '') {
+            const outline = [
+              ...readStringArray(args, 'contentOutline'),
+              ...readStringArray(args, 'sections'),
+            ];
+            if (outline.length > 0) {
+              artifactContent = outline.map((line, index) => `${String(index + 1)}. ${line}`).join('\n');
+            }
+          }
+          if (artifactContent === '') artifactContent = readString(args, 'description') ?? '';
+          if (artifactName !== null && artifactContent !== '') {
+            summary = `Delivered ${artifactName}`;
+            data = { ...(data ?? {}), [artifactName]: artifactContent };
+          }
+        }
+        // SubmitReport commonly carries only `data`; the task contract still needs a non-empty
+        // summary, so derive one from the reported keys instead of rejecting the plan.
+        if (summary === null && data !== null && Object.keys(data).length > 0) {
+          summary = `Reported ${Object.keys(data).join(', ')}`.slice(0, 200);
+        }
+        if (data !== null) {
+          const fakeHtml = Object.entries(data).find(([key, value]) =>
+            /\.html?$/i.test(key)
+            && typeof value === 'string'
+            && value.trim() !== ''
+            && !/<(?:!doctype\s+html|html)[\s>]/i.test(value));
+          if (fakeHtml !== undefined) {
+            return {
+              ok: false,
+              error: planFailure(
+                'invalid_args',
+                `args.data.${fakeHtml[0]}`,
+                'an HTML deliverable must contain a real HTML document, not a description',
+              ),
+            };
+          }
+        }
         if (summary === null) {
           return { ok: false, error: planFailure('invalid_args', 'args.summary', 'summary is required') };
         }
         const artifacts = readStringArray(args, 'artifacts');
+        // An implementation stage must hand over executable material. A live planner repeatedly
+        // submitted `implementation_report` prose for a step that was supposed to build a
+        // sandbox; the workflow then looked complete while no product existed. Require a code
+        // file key or a declared artifact for implementation capabilities.
+        const implementationTask = current?.capability === 'implementation';
+        const fileKey = data === null
+          ? null
+          : Object.keys(data).find((key) => /\.(?:html?|css|js|mjs|cjs|tsx?|jsx|py|json|ya?ml|sh|sql|vue|svelte)$/i.test(key));
+        if (implementationTask && (fileKey === undefined || fileKey === null) && artifacts.length === 0) {
+          return {
+            ok: false,
+            error: planFailure(
+              'invalid_args',
+              'args.data',
+              'an implementation submission must contain a runnable file (for example index.html) or a declared artifact, not only an implementation_report',
+            ),
+          };
+        }
         return taskCommand(() =>
           deps.tasks.submit({
             taskId,
@@ -310,9 +463,10 @@ export function createKernelPlanExecutor(
             simTime,
             submission: {
               summary,
-              data: readRecord(args, 'data'),
+              data,
               ...(artifacts.length === 0 ? {} : { artifacts }),
             },
+            ...trace,
           }),
         );
       }
@@ -320,21 +474,21 @@ export function createKernelPlanExecutor(
       case 'tasks.complete': {
         const taskId = requireTaskId(args);
         if (isFailure(taskId)) return { ok: false, error: taskId };
-        return taskCommand(() => deps.tasks.complete({ taskId, actor, simTime }));
+        return taskCommand(() => deps.tasks.complete({ taskId, actor, simTime, ...trace }));
       }
 
       case 'tasks.reject': {
         const taskId = requireTaskId(args);
         if (isFailure(taskId)) return { ok: false, error: taskId };
         const reason = readString(args, 'reason') ?? 'rejected by agent plan';
-        return taskCommand(() => deps.tasks.reject({ taskId, actor, simTime, reason }));
+        return taskCommand(() => deps.tasks.reject({ taskId, actor, simTime, reason, ...trace }));
       }
 
       case 'tasks.block': {
         const taskId = requireTaskId(args);
         if (isFailure(taskId)) return { ok: false, error: taskId };
         const reason = readString(args, 'reason') ?? 'blocked by agent plan';
-        return taskCommand(() => deps.tasks.block({ taskId, actor, simTime, reason }));
+        return taskCommand(() => deps.tasks.block({ taskId, actor, simTime, reason, ...trace }));
       }
 
       case 'workflow.start': {
@@ -357,6 +511,10 @@ export function createKernelPlanExecutor(
           deps.workflow.start({
             ...(workflowId === null ? {} : { workflowId }),
             ...(capabilities.length === 0 ? {} : { capabilities }),
+            // M1.9 (console sets this): the generated plan waits for the human's confirm.
+            ...(capabilities.length === 0 || deps.requirePlanConfirmation !== true
+              ? {}
+              : { awaitConfirmation: true }),
             actor,
             simTime,
             title,
@@ -413,6 +571,7 @@ export function createKernelPlanExecutor(
             ),
           };
         }
+        const dedupeKey = readString(args, 'dedupeKey');
         const outcome = deps.communication.sendMessage({
           actor: context.actorContext,
           senderEmployeeId: context.actorContext.employeeId,
@@ -422,8 +581,21 @@ export function createKernelPlanExecutor(
           body,
           messageType: readString(args, 'messageType') === 'response' ? 'response' : 'request',
           simTime,
+          // Stay inside the causal chain that produced this message: the cycle's correlation, and
+          // the event that woke the agent as the cause. Without this a reply pointed at the kickoff
+          // only by sharing a correlation id, while its own `causationId` was empty — the chain
+          // "who answered what" was unreadable from the log alone.
+          correlationId: context.correlationId as CorrelationId,
+          causationId: context.causationId,
+          ...(context.traceId === null ? {} : { traceId: context.traceId }),
+          ...(dedupeKey === null ? {} : { dedupeKey }),
         });
         if (!outcome.ok) return { ok: false, error: toPlanFailure(outcome.error) };
+        // A deduplicated send hands back the *original* event, which is already on the log:
+        // returning it as this step's output would append the same fact twice.
+        if (outcome.value.duplicate) {
+          return { ok: true, value: Object.freeze([]) as readonly OrgEvent[] };
+        }
         return { ok: true, value: Object.freeze([outcome.value.event]) };
       }
 
@@ -461,6 +633,80 @@ export function createKernelPlanExecutor(
         });
         if (!outcome.ok) return { ok: false, error: toPlanFailure(outcome.error) };
         return { ok: true, value: Object.freeze([outcome.value.event]) };
+      }
+
+      case 'tasks.handoffRequest': {
+        const taskId = requireTaskId(args);
+        if (isFailure(taskId)) return { ok: false, error: taskId };
+        const toAgentId = readString(args, 'toAgentId');
+        const reason = readString(args, 'reason');
+        if (toAgentId === null || reason === null) {
+          return {
+            ok: false,
+            error: planFailure(
+              'invalid_args',
+              'args',
+              'toAgentId and reason are required to hand a task to a colleague',
+            ),
+          };
+        }
+        const note = readString(args, 'note');
+        return taskCommand(() =>
+          deps.tasks.requestHandoff({
+            taskId,
+            actor,
+            simTime,
+            toEmployeeId: toAgentId as EmployeeId,
+            reason,
+            ...(note === null ? {} : { note }),
+            causationId: context.causationId,
+            traceId: context.traceId,
+          }),
+        );
+      }
+
+      case 'tasks.handoffAccept': {
+        const taskId = requireTaskId(args);
+        if (isFailure(taskId)) return { ok: false, error: taskId };
+        const handoffId = readString(args, 'handoffId');
+        return taskCommand(() =>
+          deps.tasks.acceptHandoff({
+            taskId,
+            actor,
+            simTime,
+            ...(handoffId === null ? {} : { handoffId }),
+            causationId: context.causationId,
+            traceId: context.traceId,
+          }),
+        );
+      }
+
+      case 'tasks.handoffDecline': {
+        const taskId = requireTaskId(args);
+        if (isFailure(taskId)) return { ok: false, error: taskId };
+        const handoffId = readString(args, 'handoffId');
+        const reason = readString(args, 'reason');
+        if (reason === null) {
+          return {
+            ok: false,
+            error: planFailure(
+              'invalid_args',
+              'args.reason',
+              'declining a handoff requires a reason the sender can act on',
+            ),
+          };
+        }
+        return taskCommand(() =>
+          deps.tasks.declineHandoff({
+            taskId,
+            actor,
+            simTime,
+            reason,
+            ...(handoffId === null ? {} : { handoffId }),
+            causationId: context.causationId,
+            traceId: context.traceId,
+          }),
+        );
       }
 
       case 'agents.create': {
@@ -556,6 +802,27 @@ export function createKernelPlanExecutor(
               'unknown_position',
               'args.positionId',
               `position "${positionId}" does not exist in this organization`,
+            ),
+          };
+        }
+        // Advertise the seat as already filled if someone still carries it. `RecommendHire` asks the
+        // root approval to materialize a seat the chart needs — it cannot conjure an employee into a
+        // seat whose work is already being done, and neither grant nor authorization can change that.
+        // This is the deterministic backstop for the live model's "don't see the seated holder"
+        // failure mode: it refuses the action at the binding instead of letting the gate open on a
+        // premise the roster already contradicts.
+        const staffedHolder = deps.organization.employees.find(
+          (entry) =>
+            String(entry.positionId) === positionId &&
+            isExecutableEmployment(entry.status),
+        );
+        if (staffedHolder !== undefined) {
+          return {
+            ok: false,
+            error: planFailure(
+              'seat_already_filled',
+              'args.positionId',
+              `position "${positionId}" is already filled by an executable employee ("${staffedHolder.id}") — a hire is not needed`,
             ),
           };
         }

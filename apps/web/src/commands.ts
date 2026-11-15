@@ -294,6 +294,36 @@ export function workflowDecision(
   };
 }
 
+/**
+ * M2: pause/resume advancement for one instance. This is `Workflow.InstanceBlocked` /
+ * `Workflow.InstanceResumed` — it stops the workflow from consuming step transitions, not the
+ * task the step already handed out (the UI says so, and resume reconciles a task that finished
+ * while paused).
+ */
+export function workflowPause(
+  ctx: CommandContext,
+  instanceId: string,
+  reason = 'workflow paused from console',
+): Command {
+  return {
+    ...envelope(ctx, reason),
+    commandType: 'Workflow.Pause',
+    target: { targetType: 'workflow', targetId: instanceId },
+  };
+}
+
+export function workflowResume(
+  ctx: CommandContext,
+  instanceId: string,
+  reason = 'workflow resumed from console',
+): Command {
+  return {
+    ...envelope(ctx, reason),
+    commandType: 'Workflow.Resume',
+    target: { targetType: 'workflow', targetId: instanceId },
+  };
+}
+
 export function taskCancel(ctx: CommandContext, taskId: string): Command {
   return {
     ...envelope(ctx, 'task cancelled from console'),
@@ -341,6 +371,47 @@ export function taskRequestReview(ctx: CommandContext, taskId: string): Command 
     ...envelope(ctx, 'review requested from console'),
     commandType: 'Task.RequestReview',
     target: { targetType: 'task', targetId: taskId },
+  };
+}
+
+/**
+ * `Workflow.InstanceAssignmentOverride` (M1.8): per-instance executor pin for task steps
+ * that have not entered yet — the canvas "assign before activation" command. The command is
+ * whole-batch and fail-closed: either every entry is accepted or none is written.
+ */
+export interface AssignmentOverrideEntry {
+  readonly stepId: string;
+  readonly employeeId: string;
+  /** Per-entry reason; falls back to `reason`. Audited either way. */
+  readonly reason?: string;
+}
+
+export function workflowAssignmentOverride(
+  ctx: CommandContext,
+  instanceId: string,
+  overrides: readonly AssignmentOverrideEntry[],
+  reason: string,
+  expectedVersion?: number,
+): Command {
+  return {
+    ...envelope(ctx, reason),
+    commandType: 'Workflow.InstanceAssignmentOverride',
+    target: { targetType: 'workflow', targetId: instanceId },
+    ...(expectedVersion === undefined ? {} : { expectedVersion }),
+    overrides: overrides.map((entry) => ({
+      stepId: entry.stepId,
+      employeeId: entry.employeeId,
+      ...(entry.reason === undefined || entry.reason === '' ? {} : { reason: entry.reason }),
+    })),
+  };
+}
+
+/** `Workflow.ConfirmStart` (M1.9): promote a draft instance to running; the entry stage is entered with any staged overrides. */
+export function workflowConfirmStart(ctx: CommandContext, instanceId: string, reason: string): Command {
+  return {
+    ...envelope(ctx, reason),
+    commandType: 'Workflow.ConfirmStart',
+    target: { targetType: 'workflow', targetId: instanceId },
   };
 }
 

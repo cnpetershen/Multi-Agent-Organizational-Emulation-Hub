@@ -1,7 +1,15 @@
 import { readString, type Row, type TaskRecord } from './api';
 import { documentPreviewOf, isPlayableGame, type DocumentPreviewModel } from './document-preview';
-import { MODEL_EXTENSIONS, modelFromFile, type Model3D } from './model3d';
+import { modelFromFile, type Model3D } from './model3d';
 import { deliverableKind, deliveredFiles, workflowStepTasks, type DeliveredFile } from './results';
+import {
+  extensionOf,
+  isModelAssetPath,
+  isSpatialDelivery,
+  isThreeDimensionalContent,
+} from './spatial';
+
+export { isModelAssetPath, isThreeDimensionalContent } from './spatial';
 
 /**
  * The delivery package: every artifact one workflow produced, grouped as one hand-over.
@@ -60,23 +68,6 @@ export interface DeliveryPackageModel {
   readonly steps: { readonly done: number; readonly total: number };
 }
 
-const THREE_PATTERN = /\b(three(?:\.min)?\.js|THREE\.|WebGLRenderer|OrbitControls|PerspectiveCamera|babylon|model-viewer|gltf|glb|shaderMaterial)\b/i;
-
-function extensionOf(path: string): string {
-  const clean = path.trim().toLowerCase().replace(/\\/g, '/');
-  const name = clean.slice(clean.lastIndexOf('/') + 1);
-  const dot = name.lastIndexOf('.');
-  return dot <= 0 ? '' : name.slice(dot);
-}
-
-export function isModelAssetPath(path: string): boolean {
-  return MODEL_EXTENSIONS.has(extensionOf(path));
-}
-
-export function isThreeDimensionalContent(content: string): boolean {
-  return THREE_PATTERN.test(content);
-}
-
 function isHtml(content: string): boolean {
   return /^\s*(?:<!doctype\s+html|<html[\s>])/i.test(content);
 }
@@ -110,11 +101,10 @@ function stepCounts(workflow: Row | null): { done: number; total: number } {
 /** The best kind label for one delivered task. Game wins over code, 3D over document. */
 export function packageKindOf(task: TaskRecord, files: readonly DeliveredFile[]): PackageKind {
   if (isPlayableGame(task)) return 'game';
-  if (files.some((file) => isModelAssetPath(file.path))) return '3d';
-  if (files.some((file) => isHtml(file.content) && isThreeDimensionalContent(file.content))) return '3d';
+  if (isSpatialDelivery(files)) return '3d';
   const document = documentPreviewOf(task);
   if (document !== null) return 'document';
-  const kind = deliverableKind(task.result);
+  const kind = deliverableKind(task.result, task);
   if (kind === 'document') return 'document';
   if (kind === 'code') return 'code';
   return 'report';
@@ -216,84 +206,6 @@ export function buildDeliveryPackage(
   };
 }
 
-export interface DeliveryPackageGroup {
-  readonly instanceId: string;
-  readonly title: string;
-  readonly anchorTaskId: string;
-  readonly stepsDone: number;
-  readonly stepsTotal: number;
-  readonly members: number;
-  readonly completed: number;
-  readonly total: number;
-  readonly standalone: boolean;
-}
-
-/**
- * Group the workspace into hand-over packages before the page fetches any result payload.
- *
- * A package is a workflow with at least one completed task; a completed task with no workflow is
- * a package of one. The group carries the anchor task the delivery page opens, so the list can
- * stay a projection of the snapshot and still hand the user the whole package.
- */
-export function deliveryPackageGroups(
-  tasks: readonly Row[],
-  workflows: readonly Row[],
-): readonly DeliveryPackageGroup[] {
-  const byInstance = new Map<string, Row>();
-  for (const workflow of workflows) {
-    const id = readString(workflow['instanceId'], '');
-    if (id !== '') byInstance.set(id, workflow);
-  }
-
-  const groups: DeliveryPackageGroup[] = [];
-  for (const [instanceId, workflow] of byInstance) {
-    const memberTasks = tasks.filter((task) => readString(task['workflowInstanceId'], '') === instanceId);
-    const completedTasks = memberTasks.filter((task) => readString(task['status'], '').toLowerCase() === 'completed');
-    if (completedTasks.length === 0) continue;
-    const completedById = new Set(completedTasks.map((task) => readString(task['taskId'], '')));
-    const ordered = workflowStepTasks(workflow, '').map((pair) => pair.taskId);
-    const anchor = ordered.find((taskId) => completedById.has(taskId))
-      ?? readString(completedTasks[0]?.['taskId'], '');
-    if (anchor === '') continue;
-    const counts = stepCounts(workflow);
-    const members = new Set(memberTasks.map((task) => readString(task['assigneeEmployeeId'], '')).filter((id) => id !== ''));
-    groups.push({
-      instanceId,
-      title: readString(workflow['title'], instanceId),
-      anchorTaskId: anchor,
-      stepsDone: counts.done,
-      stepsTotal: counts.total,
-      members: members.size,
-      completed: completedTasks.length,
-      total: memberTasks.length,
-      standalone: false,
-    });
-  }
-
-  for (const task of tasks) {
-    if (readString(task['workflowInstanceId'], '') !== '') continue;
-    if (readString(task['status'], '').toLowerCase() !== 'completed') continue;
-    const taskId = readString(task['taskId'], '');
-    if (taskId === '') continue;
-    groups.push({
-      instanceId: taskId,
-      title: readString(task['title'], taskId),
-      anchorTaskId: taskId,
-      stepsDone: 0,
-      stepsTotal: 0,
-      members: 1,
-      completed: 1,
-      total: 1,
-      standalone: true,
-    });
-  }
-
-  return groups.sort((left, right) => {
-    if (left.completed !== right.completed) return right.completed - left.completed;
-    return left.title.localeCompare(right.title);
-  });
-}
-
 export type DeliveryProjectState = 'running' | 'needAction' | 'completed';
 
 /** One task inside a project block: what it is, which step it belongs to and who did it. */
@@ -338,6 +250,24 @@ export interface DeliveryProject {
 
 const finishedStatus = (status: string): boolean =>
   ['completed', 'cancelled', 'canceled'].includes(status.trim().toLowerCase());
+
+/**
+ * Which completed task should a project card open?
+ *
+ * The first step is usually a requirement/design document, which has no runnable preview. The
+ * implementation/frontend/3D task is the one that actually carries the product, so prefer it over
+ * documents and QA. Ties keep workflow order.
+ */
+function previewAnchor(tasks: readonly DeliveryProjectTask[]): string | null {
+  const rank = (task: DeliveryProjectTask): number => {
+    const text = `${task.stepTitle} ${task.title}`.toLowerCase();
+    if (/(implementation|frontend|backend|build|game|dashboard|3d|scene)/.test(text)) return 0;
+    if (/(test|qa|verify|verification)/.test(text)) return 2;
+    return 1;
+  };
+  const completed = tasks.filter((task) => task.completed);
+  return [...completed].sort((left, right) => rank(left) - rank(right))[0]?.taskId ?? null;
+}
 
 const stoppedStatus = (status: string): boolean =>
   ['blocked', 'failed', 'rejected'].includes(status.trim().toLowerCase());
@@ -425,7 +355,7 @@ export function deliveryProjects(
     const gateOpen = typeof approval === 'object' && approval !== null && !Array.isArray(approval)
       && readString((approval as Row)['status'], '') === 'open';
     const counts = stepCounts(workflow);
-    const anchor = projectTasksList.find((task) => task.completed)?.taskId ?? null;
+    const anchor = previewAnchor(projectTasksList);
     projects.push({
       instanceId,
       title: readString(workflow['title'], instanceId),
@@ -465,7 +395,7 @@ export function deliveryProjects(
       stepsTotal: 0,
       tasks: parsed,
       contributors: contributorsOf(parsed),
-      anchorTaskId: parsed.find((task) => task.completed)?.taskId ?? null,
+      anchorTaskId: previewAnchor(parsed),
       completed: parsed.filter((task) => task.completed).length,
       total: parsed.length,
       state: projectState(false, parsed),
@@ -495,8 +425,25 @@ export function deliveryProjects(
     });
   }
 
+  // A product can have an early aborted/simplified run and a later complete one under the same
+  // title. The workspace is "one project per block", so keep the richest run; showing both gave
+  // the same name twice and the operator could open the 1/2 placeholder instead of the real 5/5
+  // delivery.
+  const byTitle = new Map<string, DeliveryProject>();
+  for (const project of projects) {
+    const key = project.title.trim().toLowerCase() || project.instanceId;
+    const existing = byTitle.get(key);
+    if (existing === undefined) {
+      byTitle.set(key, project);
+      continue;
+    }
+    const richer = (project.completed * 1000 + project.total * 10 + project.stepsTotal)
+      > (existing.completed * 1000 + existing.total * 10 + existing.stepsTotal);
+    if (richer) byTitle.set(key, project);
+  }
+
   const rank: Record<DeliveryProjectState, number> = { needAction: 0, running: 1, completed: 2 };
-  return projects.sort((left, right) =>
+  return [...byTitle.values()].sort((left, right) =>
     rank[left.state] - rank[right.state] || left.title.localeCompare(right.title));
 }
 

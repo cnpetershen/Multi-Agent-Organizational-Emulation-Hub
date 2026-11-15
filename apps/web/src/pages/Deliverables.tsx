@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { parseRows, readString } from '../api';
 import { taskDelete, type CommandContext } from '../commands';
-import { DeleteIcon, Empty, PageIntro, Panel, StatusPill } from '../components';
+import { AgentAvatar, DeleteIcon, Empty, PageIntro, Panel, StatusPill } from '../components';
 import type { ConsoleControl } from '../control';
 import {
   deliveryProjects,
@@ -36,15 +36,6 @@ const FILTER_KEYS: Readonly<Record<Filter, MessageKey>> = {
   completed: 'deliverables.workspace.filter.completed',
 };
 
-function initialsOf(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word.slice(0, 1).toUpperCase())
-    .join('');
-}
-
 function ContributorRow({
   control,
   contributor,
@@ -66,7 +57,7 @@ function ContributorRow({
   return (
     <div className="project-contributor">
       <div className="project-person">
-        <span className="project-avatar">{employee === null ? '?' : initialsOf(name)}</span>
+        <AgentAvatar name={name} positionId={employee === null ? undefined : readString(employee['positionId'], '')} positionTitle={role === '' ? undefined : role} status={employee === null ? 'vacant' : 'idle'} size="sm" />
         <div>
           <b>{name}</b>
           <small>{role === '' ? t('common.unassigned') : role}</small>

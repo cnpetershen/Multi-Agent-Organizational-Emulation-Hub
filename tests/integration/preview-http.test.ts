@@ -128,7 +128,7 @@ describe('M1.6 Preview Runtime over HTTP: the delivered tetris artifact really r
   beforeAll(async () => {
     // Tests own their preview directory instead of writing into the checkout.
     process.env['MAOEH_PREVIEW_ROOT'] = previewRoot;
-    server = await startApiServer(0, { tick: { activeIntervalMs: 5, idleIntervalMs: 50 }, eventLogPath: null });
+    server = await startApiServer(0, { requirePlanConfirmation: false, tick: { activeIntervalMs: 5, idleIntervalMs: 50 }, eventLogPath: null });
     base = `http://127.0.0.1:${String(server.port)}/api`;
     const stamp = String(Date.now());
     const instructed = await post('/command', {

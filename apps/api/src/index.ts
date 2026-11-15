@@ -3,6 +3,10 @@ import { fileURLToPath } from 'node:url';
 
 export * from './api-adapter.js';
 export * from './composition.js';
+// M3.5 reads the confirmed plan through HTTP; these exports are the typed contract for callers
+// that embed the API instead of talking to it.
+export * from './planning-types.js';
+export * from './plan-validator.js';
 
 /**
  * Self-start only when this file is the process entry point. The comparison is done on

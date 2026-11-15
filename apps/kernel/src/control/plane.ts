@@ -271,6 +271,23 @@ export function createKernelControlPlane(options: KernelControlPlaneOptions): Ke
     workflow(instanceId) {
       return simulation.instanceStore.get(instanceId);
     },
+    /** M1.8: the definition behind an instance, for the canvas projection. */
+    workflowDefinition(workflowId) {
+      return simulation.definitions.get(workflowId);
+    },
+    /**
+     * M3.1: the delivery ledger is the "received" half of a message's lifecycle. It is runtime
+     * read state (no event), so the read model reads it from the running communication service.
+     */
+    messageDeliveries() {
+      return simulation.communication.getDeliveries().map((record) => ({
+        messageId: record.messageId,
+        recipientId: String(record.recipientId),
+        channelId: record.channelId,
+        deliveredAtSim: Number(record.deliveredAtSim),
+        ...(record.sourceEventId === null ? {} : { sourceEventId: record.sourceEventId }),
+      }));
+    },
     tickDuration: simulation.config.tickDuration,
   };
 
@@ -348,6 +365,8 @@ const COMMAND_BY_ACCEPTED_EVENT: Readonly<Record<string, string>> = Object.freez
   'Control.WorkflowCancelled': 'Workflow.Cancel',
   'Control.WorkflowDeleted': 'Workflow.Delete',
   'Control.WorkflowApprovalDecided': 'Workflow.Approve',
+  'Control.WorkflowInstanceAssignmentOverridden': 'Workflow.InstanceAssignmentOverride',
+  'Control.WorkflowInstanceConfirmed': 'Workflow.ConfirmStart',
   'Control.TaskCancelled': 'Task.Cancel',
   'Control.TaskDeleted': 'Task.Delete',
   'Control.TaskReassigned': 'Task.Reassign',

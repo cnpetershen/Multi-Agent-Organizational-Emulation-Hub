@@ -8,6 +8,7 @@ import {
   isBusy,
   parsePreviewStatus,
   previewActions,
+  previewFrameUrl,
   previewLabelKey,
   previewNotices,
   previewPath,
@@ -259,5 +260,20 @@ describe('what the preview admits it is running', () => {
       skipped: 2,
       skipReason: 'no files · unreadable delivery',
     });
+  });
+});
+
+describe('previewFrameUrl', () => {
+  it('uses localhost when the console was opened as localhost', () => {
+    expect(previewFrameUrl('http://127.0.0.1:4321/', 'localhost')).toBe('http://localhost:4321/');
+  });
+
+  it('leaves a 127.0.0.1 console and any other host untouched', () => {
+    expect(previewFrameUrl('http://127.0.0.1:4321/', '127.0.0.1')).toBe('http://127.0.0.1:4321/');
+    expect(previewFrameUrl('http://127.0.0.1:4321/', '192.168.1.10')).toBe('http://127.0.0.1:4321/');
+  });
+
+  it('returns a malformed URL unchanged instead of breaking the panel', () => {
+    expect(previewFrameUrl('not a url', 'localhost')).toBe('not a url');
   });
 });

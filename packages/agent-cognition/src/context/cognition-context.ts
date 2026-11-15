@@ -26,11 +26,43 @@ export interface CognitionStateView {
   readonly currentCycleId: string | null;
   readonly agenda: readonly AgendaItem[];
   readonly updatedAtSim: SimTime;
+  /**
+   * This agent's own open tasks, resolved live at cycle start.
+   *
+   * Without this, a woken agent has no idea which of its tasks are still open — it guesses, and
+   * in live mode the guess is almost always wrong ("still needs accept" on an accepted task).
+   * The status travels with the task so the model can choose the legal next transition.
+   */
+  readonly assignedTasks?: readonly AssignedTaskView[];
 }
 
 export interface OrgMemberView {
   readonly id: EmployeeId;
   readonly name: string;
+}
+
+/** One assigned open task visible to the agent — title, goal, current status, and what proves done. */
+export interface AssignedTaskView {
+  readonly taskId: string;
+  readonly title: string;
+  readonly goal: string;
+  readonly status: string;
+  /** When present, the literal `requiredOutputKeys.data` the deterministic verifier expects. */
+  readonly verificationKeys?: readonly string[];
+  /**
+   * The task commands this status accepts right now, from the task state machine itself.
+   *
+   * A live planner that could not see that `submit` requires `started` planned
+   * `AcceptTask` + `SubmitReport` and spent four retries on `invalid_transition`. The runtime
+   * passes the legal set in; the prompt renders it; cognition never has to encode the machine.
+   */
+  readonly allowedCommands?: readonly string[];
+  /**
+   * The confirmed workflow around this step: prior completed steps and the evidence keys they
+   * produced. Without it a downstream step (QA, research) blocks waiting for a second canvas
+   * confirmation even though its assignment only exists after confirmation.
+   */
+  readonly workflowContext?: string;
 }
 
 /** One seat that provides a capability — enough for a planner to see who can do the work. */
@@ -115,6 +147,44 @@ export interface WorkCatalogView {
   readonly canDispatchWork: boolean;
 }
 
+/**
+ * One channel this agent belongs to — the id it must name in `SendMessage`, and who else is on it.
+ *
+ * The channel is the whole reason a live planner could not communicate before: the executor
+ * required a `channelId`, the prompt never carried one, and a model cannot invent an id that the
+ * `CommunicationService` will accept. Only channels the agent is actually a member of are listed,
+ * so the prompt never suggests a send that authorization would refuse.
+ */
+export interface CommunicationChannelView {
+  readonly channelId: string;
+  readonly channelType: string;
+  readonly memberIds: readonly EmployeeId[];
+}
+
+/** One message already on a channel — enough to answer a colleague without guessing sender or channel. */
+export interface CommunicationMessageView {
+  readonly messageId: string;
+  readonly channelId: string;
+  readonly senderId: EmployeeId;
+  readonly recipientIds: readonly EmployeeId[];
+  readonly subject: string;
+  readonly body: string;
+  readonly messageType: string;
+  readonly createdAtSim: SimTime;
+}
+
+/**
+ * The conversation surface this agent may act on, assembled by the composition root from the live
+ * `CommunicationService` (M-COMMUNICATION: make the existing service reachable from cognition).
+ *
+ * Absent means "this agent has no channel" and renders nothing — a fresh company before its
+ * company channel exists, or any runtime composed without communication.
+ */
+export interface CommunicationView {
+  readonly channels: readonly CommunicationChannelView[];
+  readonly recentMessages: readonly CommunicationMessageView[];
+}
+
 export interface CognitionContext {
   readonly agent: CognitionAgentRef;
   readonly definition: AgentDefinition;
@@ -123,6 +193,7 @@ export interface CognitionContext {
   readonly inputEvent: OrgEvent;
   readonly organization: OrganizationSnapshotView;
   readonly workCatalog?: WorkCatalogView;
+  readonly communication?: CommunicationView;
   readonly simTime: SimTime;
   readonly memoryContext?: Readonly<Record<string, unknown>>;
   readonly knowledgeContext?: Readonly<Record<string, unknown>>;

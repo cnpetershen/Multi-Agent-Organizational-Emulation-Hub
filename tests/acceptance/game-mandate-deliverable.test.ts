@@ -58,7 +58,18 @@ describe('M1.6 acceptance · a game mandate becomes a real delivery', () => {
 
     // The work is named after the mandate itself, not a constant "Board directive".
     expect(instance.title).toBe(GAME_MANDATE);
-    expect(instance.status).toBe('completed');
+    // The generated delivery parks at its final gate; an operator, not the composing agent,
+    // accepts it.
+    expect(instance.status).toBe('blocked');
+    expect(instance.approval?.status).toBe('open');
+    const accepted = await harness.execute('Workflow.Approve', {
+      targetType: 'workflow',
+      targetId: instance.instanceId,
+      reason: 'human acceptance of the delivered game',
+    });
+    expect(accepted.status, JSON.stringify(accepted.failure)).toBe('accepted');
+    await runToIdle(harness);
+    expect(harness.control.simulation.instanceStore.all()[0]?.status).toBe('completed');
 
     const tasks = harness.control.simulation.taskStore.all();
     expect(tasks.length).toBeGreaterThan(0);

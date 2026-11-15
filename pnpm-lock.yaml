@@ -50,6 +50,9 @@ importers:
       '@maoeh/event-store':
         specifier: workspace:*
         version: link:../../packages/event-store
+      '@maoeh/event-system':
+        specifier: workspace:*
+        version: link:../../packages/event-system
       '@maoeh/kernel':
         specifier: workspace:*
         version: link:../kernel

@@ -31,7 +31,7 @@ describe('M0.8 转移选择（workflow-transition）', () => {
     expect(selected.value[0]?.to.kind).toBe('stage');
   });
 
-  it('task rejected 与 failed 输入都命中 rejected 分支', () => {
+  it('rejected only matches rejected; failed has no rejected fallback', () => {
     const rejected = selectTransitions(definition, 'intake-brief', {
       kind: 'task',
       status: 'rejected',
@@ -40,10 +40,10 @@ describe('M0.8 转移选择（workflow-transition）', () => {
       kind: 'task',
       status: 'failed',
     });
-    expect(rejected.ok && failed.ok).toBe(true);
-    if (!rejected.ok || !failed.ok) return;
-    expect(rejected.value[0]?.transitionId).toBe('intake-brief__rejected');
-    expect(failed.value[0]?.transitionId).toBe('intake-brief__rejected');
+    expect(rejected.ok).toBe(true);
+    if (rejected.ok) expect(rejected.value[0]?.transitionId).toBe('intake-brief__rejected');
+    expect(failed.ok).toBe(false);
+    if (!failed.ok) expect(failed.error.code).toBe('no_matching_transition');
   });
 
   it('审批步不接受 task 输入 → no_matching_transition', () => {
@@ -173,13 +173,13 @@ describe('M0.8 条件重叠判定（conditionsOverlap）', () => {
     ).toBe(true);
   });
 
-  it('rejected 覆盖 rejected+failed；completed 不与 failed 重叠', () => {
+  it('rejected 与 failed 不重叠；completed 与两者都不重叠', () => {
     expect(
       conditionsOverlap(
         { kind: 'task_status', status: 'rejected' },
         { kind: 'task_status', status: 'failed' },
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       conditionsOverlap(
         { kind: 'task_status', status: 'completed' },

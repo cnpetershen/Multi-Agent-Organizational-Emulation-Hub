@@ -15,6 +15,12 @@ export interface Message {
   readonly causationId: string | null;
   readonly traceId: string | null;
   readonly replyToMessageId?: string;
+  /**
+   * M3.1 idempotency: the sender's own key for "this is the same message". A repeated send with
+   * the same sender + key returns the original message instead of appending a second
+   * `Communication.MessageSent`, so a retried turn cannot duplicate a request.
+   */
+  readonly dedupeKey?: string;
 }
 
 export function messageSenderId(senderEmployeeId: EmployeeId): string {
@@ -34,6 +40,7 @@ export function createMessage(input: {
   readonly causationId?: string | null;
   readonly traceId?: string | null;
   readonly replyToMessageId?: string;
+  readonly dedupeKey?: string;
 }): Message {
   const message: Message = {
     messageId: input.messageId,
@@ -51,6 +58,7 @@ export function createMessage(input: {
     ...(input.replyToMessageId !== undefined
       ? { replyToMessageId: input.replyToMessageId }
       : {}),
+    ...(input.dedupeKey === undefined ? {} : { dedupeKey: input.dedupeKey }),
   };
   return Object.freeze(message);
 }

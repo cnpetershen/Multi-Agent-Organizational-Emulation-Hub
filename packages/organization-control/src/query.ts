@@ -1,19 +1,30 @@
-import type { EmployeeId, OrgEvent } from '@maoeh/shared-types';
+import type { EmployeeId, OrgEvent, PositionId } from '@maoeh/shared-types';
 import type { EventStore, Seq } from '@maoeh/event-store';
 import type { EventAggregate } from '@maoeh/event-system';
 import type { Organization } from '@maoeh/organization-model';
-import { createOrgGraph } from '@maoeh/organization-model';
+import { createOrgGraph, resolveCapabilityAssignments } from '@maoeh/organization-model';
 import type { Task } from '@maoeh/task-system';
 import { TASK_CREATED, TASK_DELETED } from '@maoeh/task-system';
-import type { WorkflowInstance } from '@maoeh/workflow-engine';
-import { WORKFLOW_INSTANCE_DELETED } from '@maoeh/workflow-engine';
+import { DRAFT_CONTEXT_KEY, WORKFLOW_INSTANCE_DELETED, assignmentOverridesOf } from '@maoeh/workflow-engine';
+import type { WorkflowDefinition, WorkflowInstance } from '@maoeh/workflow-engine';
+import type { WorkflowCanvasStepView } from './types.js';
 
 import { agentLifecycleOf } from './agent-lifecycle.js';
+import { buildMessageLifecycles } from './collaboration/message-lifecycle.js';
+import type { MessageLifecycle } from './collaboration/message-lifecycle.js';
+import type { CollaborationEventDescriptor } from './collaboration/protocol.js';
+import { COLLABORATION_EVENT_PROTOCOL } from './collaboration/protocol.js';
+import { buildCollaborationTrace } from './collaboration/trace.js';
+import type { CollaborationTrace } from './collaboration/trace.js';
+import { TheaterStageTracker, buildTheaterEvents } from './collaboration/theater.js';
+import type { TheaterHistory, TheaterHistoryInput } from './collaboration/theater.js';
 import {
   CONTROL_TASK_DELETED,
   CONTROL_WORK_BRIEFED,
   CONTROL_WORKFLOW_DELETED,
 } from './events.js';
+import { auditLegacyWork } from './legacy-audit.js';
+import type { LegacyAuditReport } from './legacy-audit.js';
 import type {
   AgentActivity,
   AgentActivityEntry,
@@ -38,6 +49,7 @@ import type {
   WorkBriefItemView,
   WorkBriefView,
   WorkflowSummary,
+  WorkflowTransitionView,
   WorkflowView,
 } from './types.js';
 
@@ -105,6 +117,39 @@ export interface ControlQuery {
    */
   getPendingApprovals(): readonly PendingApprovalView[];
   getControlState(): ControlState;
+  /**
+   * M3.1 collaboration protocol: the eleven mandated collaboration kinds, their concrete event
+   * types, their ownership and which trace fields apply. Static (no replay).
+   */
+  getCollaborationProtocol(): readonly CollaborationEventDescriptor[];
+  /**
+   * M3.1 collaboration trace: the whole log projected into who-said/handed-what-to-whom, grouped
+   * by session (`correlationId`), with causation pointers preserved and broken links reported.
+   */
+  getCollaborationTrace(): Promise<CollaborationTrace>;
+  /**
+   * M3.1 message lifecycle: sent (`MessageSent`) → received (delivery ledger) → processed
+   * (`MessageProcessed`), per recipient. Derived state only; no event is written by reading it.
+   */
+  getMessageLifecycle(): Promise<readonly MessageLifecycle[]>;
+  /**
+   * M3.0 legacy-work audit: fake/empty deliveries, unverified completions, broken chronology,
+   * orphaned submissions, stalled open work and dangling handoffs — with the legal repair path
+   * (cancel, or "a human must decide").
+   */
+  getLegacyWorkAudit(): Promise<LegacyAuditReport>;
+  /**
+   * M3.2 collaboration theater: one chronological page of the company's own events with their
+   * proven business stage (never a guessed one). `latestSeq` is the cursor a live SSE stream
+   * resumes from.
+   */
+  getTheaterHistory(input?: TheaterHistoryInput): Promise<TheaterHistory>;
+  /**
+   * M3.2 cursor read for the theater's SSE tail: events with `seq > afterSeq`, oldest-first.
+   * Unlike `getRecentEvents` nothing is held back (the caller filters); the hard cap keeps one
+   * poll cheap.
+   */
+  getEventPage(afterSeq: number, limit: number): Promise<readonly EventView[]>;
 }
 
 export interface ControlQueryOptions {
@@ -384,12 +429,146 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
     return counts;
   };
 
+  /**
+   * M1.8: project the definition's steps for the canvas. An absent definition service makes
+   * the whole projection absent (clients tolerate it); an instance step already entered shows
+   * the task's real executor; a not-yet-entered step shows the folded override, the definition
+   * pin, or the live capability/position resolution — whichever the engine would use at entry.
+   */
+  const workflowStepsView = (
+    instance: WorkflowInstance,
+  ): readonly WorkflowCanvasStepView[] | undefined => {
+    const definition = simulation.workflowDefinition?.(instance.workflowId);
+    if (definition === undefined || definition === null) return undefined;
+    const overrides = assignmentOverridesOf(instance);
+    const graph = createOrgGraph(organization);
+    const steps: WorkflowCanvasStepView[] = [];
+    for (const stage of definition.stages) {
+      for (const step of stage.steps) {
+        const state = instance.stepStates[step.stepId];
+        const taskId = state?.taskId ?? null;
+        const task = taskId === null ? null : simulation.task(taskId);
+        const overrideEmployeeId = overrides[step.stepId] ?? null;
+        let assigneeEmployeeId: string | null = task?.assignment.assigneeEmployeeId ?? null;
+        let assigneePositionId: string | null = task?.assignment.positionId ?? null;
+        let overridden = false;
+        if (assigneeEmployeeId === null) {
+          if (overrideEmployeeId !== null) {
+            assigneeEmployeeId = overrideEmployeeId;
+            assigneePositionId = graph.getEmployee(overrideEmployeeId as EmployeeId)?.positionId ?? null;
+            overridden = true;
+          } else if (step.assignment?.kind === 'employee' && step.assignment.employeeId !== undefined) {
+            assigneeEmployeeId = step.assignment.employeeId;
+            assigneePositionId = graph.getEmployee(step.assignment.employeeId)?.positionId ?? null;
+          } else if (step.assignment?.kind === 'position' && step.assignment.positionId !== undefined) {
+            assigneePositionId = step.assignment.positionId;
+            assigneeEmployeeId = graph.resolveByPosition(step.assignment.positionId)?.id ?? null;
+          } else if (step.assignment?.kind === 'capability' && step.assignment.capability !== undefined) {
+            const resolved = resolveCapabilityAssignments(organization, [step.assignment.capability]);
+            const seat = resolved[0];
+            if (seat !== undefined) {
+              assigneePositionId = String(seat.positionId);
+              assigneeEmployeeId =
+                graph.resolveByPosition(seat.positionId as PositionId)?.id ?? null;
+            }
+          }
+          // Role-based steps (approvals): show who holds the seat, not "unresolved".
+          if (assigneeEmployeeId === null && taskId === null && step.requiredRoles.length > 0) {
+            for (const role of step.requiredRoles) {
+              const position = organization.positions.find(
+                (entry) => entry.id === role || entry.key === role || entry.roleCode === role,
+              );
+              if (position === undefined) continue;
+              const holder = graph.resolveByPosition(position.id);
+              if (holder !== null) {
+                assigneePositionId = String(position.id);
+                assigneeEmployeeId = holder.id;
+                break;
+              }
+            }
+          }
+        }
+        steps.push(
+          Object.freeze({
+            stepId: step.stepId,
+            stageId: stage.stageId,
+            stageName: stage.name,
+            name: step.name,
+            description: step.description ?? null,
+            kind: step.kind,
+            status: state?.status ?? 'pending',
+            taskId,
+            assigneeEmployeeId,
+            assigneePositionId,
+            capability: step.capability ?? null,
+            assignment: step.assignment ?? null,
+            requiredRoles: Object.freeze([...step.requiredRoles]),
+            requiredAuthority:
+              step.requiredAuthority === null || step.requiredAuthority === undefined
+                ? null
+                : Object.freeze({
+                    domain: String(step.requiredAuthority.domain),
+                    level: step.requiredAuthority.level,
+                  }),
+            overridden,
+          }),
+        );
+      }
+    }
+    return Object.freeze(steps);
+  };
+
+  /**
+   * M2: the definition's transitions, projected for the canvas. The canvas draws what the
+   * engine will actually do — including rejected branches and approval decisions — instead of
+   * treating "next step in the array" as the dependency.
+   */
+  const workflowTransitionsView = (
+    definition: WorkflowDefinition,
+  ): readonly WorkflowTransitionView[] =>
+    Object.freeze(
+      definition.stages.flatMap((stage) =>
+        stage.transitions.map((transition) => {
+          const when = transition.when;
+          const to = transition.to;
+          return Object.freeze({
+            transitionId: transition.transitionId,
+            fromStepId: transition.fromStepId,
+            when: Object.freeze(
+              when.kind === 'task_status'
+                ? { kind: when.kind, status: when.status }
+                : when.kind === 'approval_decision'
+                  ? { kind: when.kind, decision: when.decision }
+                  : { kind: when.kind },
+            ),
+            to: Object.freeze(
+              to.kind === 'step'
+                ? {
+                    kind: to.kind,
+                    stepId: to.stepId,
+                    ...(to.stageId === null ? {} : { stageId: to.stageId }),
+                  }
+                : to.kind === 'stage'
+                  ? { kind: to.kind, stageId: to.stageId }
+                  : to.kind === 'fail'
+                    ? { kind: to.kind, reason: to.reason }
+                    : { kind: to.kind },
+            ),
+          } satisfies WorkflowTransitionView);
+        }),
+      ),
+    );
+
   const workflowSummary = (
     instance: WorkflowInstance,
     eventCount: number,
-    pausedWorkflows: readonly string[],
-  ): WorkflowSummary =>
-    Object.freeze({
+  ): WorkflowSummary => {
+    const planningContext = instance.context['planning'];
+    const planning =
+      typeof planningContext === 'object' && planningContext !== null
+        ? (planningContext as Readonly<Record<string, unknown>>)
+        : null;
+    return Object.freeze({
       instanceId: instance.instanceId,
       workflowId: instance.workflowId,
       title: instance.title,
@@ -403,11 +582,18 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
               kind: instance.blockedReason.kind,
               detail: instance.blockedReason.detail,
             }),
-      paused: pausedWorkflows.includes(instance.instanceId),
+      paused:
+        instance.status === 'blocked' && instance.blockedReason?.kind === 'manual',
       startedAtSim: Number(instance.startedAtSim),
       completedAtSim:
         instance.completedAtSim === null ? null : Number(instance.completedAtSim),
       eventCount,
+      planned: planning !== null,
+      planningOrchestrationId:
+        planning === null || typeof planning['orchestrationId'] !== 'string'
+          ? null
+          : planning['orchestrationId'],
+      executionPlan: instance.context['executionPlan'] !== undefined,
       approval:
         instance.approval === null
           ? null
@@ -418,6 +604,7 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
               grantedBy: Object.freeze([...instance.approval.grantedBy]),
             }),
     });
+  };
 
   const taskSummary = (task: Task, eventCount: number): TaskSummary =>
     Object.freeze({
@@ -550,9 +737,33 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
     return Object.freeze(briefEvents.map((event) => workBriefView(event, tasks, createdAt)));
   };
 
+  /**
+   * One company's whole log, oldest-first. The collaboration and legacy projections are pure
+   * functions over this, which keeps them honest: if a fact is not on the log it cannot appear in
+   * a trace, a lifecycle or an audit.
+   */
+  const companyEvents = async (): Promise<readonly OrgEvent[]> => {
+    const collected: OrgEvent[] = [];
+    for await (const event of eventStore.replay(1 as Seq, undefined, {
+      companyId: companyId as never,
+    })) {
+      collected.push(event);
+    }
+    return Object.freeze(collected);
+  };
+
+  const latestEventSeq = async (): Promise<number> => {
+    let latest = 0;
+    for await (const event of eventStore.replay(1 as Seq, undefined, {
+      companyId: companyId as never,
+    })) {
+      latest = Math.max(latest, Number(event.seq));
+    }
+    return latest;
+  };
+
   const query: ControlQuery = {
-    getSimulationState: simulationState,
-    getDepartments: departmentSummary,
+    getSimulationState: simulationState,    getDepartments: departmentSummary,
     getEmployees: employeeSummary,
 
     getAgents() {
@@ -645,22 +856,19 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
     },
 
     getWorkflows() {
-      const state = options.controlState();
       return Object.freeze(
         simulation
           .workflows()
-          .map((instance) => workflowSummary(instance, instance.processedEventIds.length, state.pausedWorkflowIds)),
+          .map((instance) => workflowSummary(instance, instance.processedEventIds.length)),
       );
     },
 
     getWorkflow(instanceId) {
       const instance = simulation.workflow(instanceId);
       if (instance === null) return null;
-      const summary = workflowSummary(
-        instance,
-        instance.processedEventIds.length,
-        options.controlState().pausedWorkflowIds,
-      );
+      const summary = workflowSummary(instance, instance.processedEventIds.length);
+      const definition = simulation.workflowDefinition?.(instance.workflowId) ?? null;
+      const steps = workflowStepsView(instance);
       return Object.freeze({
         ...summary,
         goal: instance.goal,
@@ -675,6 +883,13 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
             }),
           ),
         ),
+        // M1.8: canvas projection; absent when the port cannot resolve the definition.
+        ...(steps === undefined ? {} : { steps }),
+        // M2: the real transitions, so the canvas draws branches instead of inferring order.
+        ...(definition === null ? {} : { transitions: workflowTransitionsView(definition) }),
+        assignmentOverrides: Object.freeze({ ...assignmentOverridesOf(instance) }),
+        // M1.9: the console renders drafts (plan not yet executing) with a confirm action.
+        draft: instance.context[DRAFT_CONTEXT_KEY] === true,
       });
     },
 
@@ -761,20 +976,75 @@ export function createControlQuery(options: ControlQueryOptions): ControlQuery {
       return options.controlState();
     },
 
+    getCollaborationProtocol() {
+      return COLLABORATION_EVENT_PROTOCOL;
+    },
+
+    async getCollaborationTrace() {
+      return buildCollaborationTrace(await companyEvents());
+    },
+
+    async getMessageLifecycle() {
+      const deliveries = simulation.messageDeliveries?.() ?? [];
+      return buildMessageLifecycles(await companyEvents(), deliveries);
+    },
+
+    async getLegacyWorkAudit() {
+      const events = await companyEvents();
+      return auditLegacyWork({
+        tasks: simulation.tasks(),
+        events,
+        organization: simulation.organization(),
+        simTime: simulation.snapshot().simTime,
+      });
+    },
+
+    async getTheaterHistory(input = {}) {
+      const limit = Math.min(Math.max(Math.trunc(input.limit ?? 200), 1), 500);
+      // The theater is collaboration, not telemetry: the tick marker and the per-cycle
+      // Runtime.* facts are held out (they are still on the log and still frame-able elsewhere).
+      // Removed work is kept: a replay must show what the company actually did.
+      const base = {
+        limit,
+        excludeEventTypePrefixes: ['System.', 'Runtime.'],
+        includeDeleted: true,
+      };
+      const events = await collectEvents(
+        input.correlationId === undefined ? base : { ...base, correlationId: input.correlationId },
+        false,
+      );
+      const seed = simulation
+        .tasks()
+        .map((task) => ({ taskId: task.taskId, capability: task.capability }));
+      return Object.freeze({
+        companyId,
+        latestSeq: await latestEventSeq(),
+        events: buildTheaterEvents(events, new TheaterStageTracker(seed)),
+      });
+    },
+
+    async getEventPage(afterSeq, limit) {
+      const max = Math.min(Math.max(Math.trunc(limit) || 100, 1), 500);
+      const after = Math.max(0, Math.trunc(afterSeq) || 0);
+      const events: OrgEvent[] = [];
+      for await (const event of eventStore.replay((after + 1) as Seq, undefined, {
+        companyId: companyId as never,
+      })) {
+        events.push(event);
+        if (events.length >= max) break;
+      }
+      return Object.freeze(events.map(toEventView));
+    },
+
     async getOrganizationSnapshot() {
       const taskCounts = await taskEventCounts();
-      const state = options.controlState();
       const tasks = simulation
         .tasks()
         .map((task) => taskSummary(task, taskCounts.get(task.taskId) ?? 0));
       const workflows = simulation
         .workflows()
         .map((instance) =>
-          workflowSummary(
-            instance,
-            instance.processedEventIds.length,
-            state.pausedWorkflowIds,
-          ),
+          workflowSummary(instance, instance.processedEventIds.length),
         );
       const agents = simulation
         .organization()
@@ -859,6 +1129,7 @@ function workBriefView(
     title: payloadString(event, 'title') ?? '',
     goal: payloadString(event, 'goal') ?? '',
     context: typeof context === 'string' ? context : null,
+    sourceSessionId: payloadString(event, 'sourceSessionId'),
     verificationKeys: payloadStringArray(event, 'verificationKeys'),
     priority: payloadNumberOrNull(event, 'priority'),
     dueAtSim: payloadNumberOrNull(event, 'dueAtSim'),

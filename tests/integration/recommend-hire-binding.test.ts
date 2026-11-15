@@ -173,7 +173,7 @@ describe('route A A2: ControlAgent is scoped to org-domain authority and the hir
     expect(h.simulation.agents.has('frontend-frank' as EmployeeId)).toBe(false);
   });
 
-  it('still refuses a seat outside the hirer\'s reporting subtree when the grant has no threshold', async () => {
+  it('refuses a seat outside the hirer\'s subtree, and a filled downward seat, even with a permissive grant', async () => {
     // The threshold alone cannot express "your subtree": a permissive grant proves the walk
     // inside the binding is what stops a sideways/upward hire.
     const permissive: PermissionPolicy = {
@@ -203,8 +203,10 @@ describe('route A A2: ControlAgent is scoped to org-domain authority and the hir
       h.simulation.organization.employees.some((entry) => String(entry.id) === 'frontend-fay'),
     ).toBe(false);
 
-    // Downward — and into your own seat, exactly like `DispatchWork` — stays legal: the request
-    // enters the approval chain rather than being refused at the subtree gate.
+    // Downward into your own seat is inside the subtree, but the seat is already carried by
+    // `engineer-mike`: the binding refuses a hire that the roster already contradicts before it
+    // ever opens a gate. (A downward *vacant* seat would enter the chain, but this seed chart has
+    // no such seat below `engineer`.)
     const downward = await hireExecutor(h).execute(
       hireStep({
         positionId: 'engineer',
@@ -215,11 +217,10 @@ describe('route A A2: ControlAgent is scoped to org-domain authority and the hir
       }),
       planContext(h.simulation, 'engineer-mike'),
     );
-    expect(downward.ok).toBe(true);
-    if (!downward.ok) return;
-    const types = downward.value.map((event) => event.type);
-    expect(types).toContain('Workflow.ApprovalRequested');
-    expect(types).not.toContain('Control.AgentCreated');
+    expect(downward.ok).toBe(false);
+    if (downward.ok) return;
+    expect(downward.error.code).toBe('seat_already_filled');
+    expect(downward.error.issues[0]?.field).toBe('args.positionId');
     expect(
       h.simulation.organization.employees.some((entry) => String(entry.id) === 'engineer-finn'),
     ).toBe(false);

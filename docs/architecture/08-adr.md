@@ -19,6 +19,8 @@
 | [ADR-012](#adr-012) | 关系记忆用双时态表，MVP 不引入图数据库 | ✅ 已接受 |
 | [ADR-013](#adr-013) | 新增 `organization-control` 包作为 M1.0 控制面（Application 层，L6 · Control） | ✅ 已接受 |
 | [ADR-014](#adr-014) | 协同工作：任务书 → CEO 拆解 → 按岗位派发（DispatchWork，42→43） | ✅ 已接受 |
+| [ADR-015](#adr-015) | 编排画布「实例级一次性改派」（per-instance override，diff 后整体提交） | ✅ 已接受 |
+| [ADR-016](#adr-016) | 草稿确认态：capability 生成的 workflow 待人确认后才执行（console 默认、headless 可选退回即时执行） | ✅ 已接受 |
 
 ---
 
@@ -609,6 +611,98 @@ M1.0–M1.3 让公司能自主运行、能被人控制与观察。但"人类如�
 | 新增 `WorkPlan` 实体与事件 | 收益（可读的计划）真实但可延后；先用 `correlationId` 归组可避免一个早期就冻结的 schema |
 
 **复审触发条件**：单份任务书配额（默认 8）或 A1–A6 闸门成为组织吞吐的常态瓶颈；出现跨任务书/部门粒度编排（M1.4 §2.2 明确排除）成为普遍需求；或 `ACTIONS` 触及 ADR-011 的 ~50 上限需改两级结构时。
+
+---
+
+## ADR-015
+
+### 编排画布「实例级一次性改派」：per-instance override + 先 diff 后整体提交
+
+**状态**：已接受（CURRENT，2026 · M1.8）
+
+**背景**
+
+M1.6 让 CEO 依据 capability 目标**生成**流程定义并启动实例，分配在 `enterStep` 时
+按 live organization 解析。人类看见的只是「能力 → 席位」的解析结果，没有一个**安全
+的干预点**：既不能让人绕过权限模型乱抓派，也不能让人趁激活前调整执行人 ——
+`WorkflowDefinition` 模板对全部实例生效，pin 座位会重注入按座路由（M1.6 明确反对）。
+
+**决策**
+
+1. override 只存实例：`Workflow.StepAssignmentOverridden` 事件 → fold 进
+   `context.assignmentOverrides`；激活时解析顺序 definition.employee → override
+   （员工存在且可执行）→ capability/position 回落。definition 与其他实例不受影响。
+2. 一次 `Workflow.InstanceAssignmentOverride` 携带 N 条 override，**全过或全拒**
+   （fail-closed）；只允许未进入的 `task` step；approval step 不在范围。
+3. 二次确认 = 先 diff 后整体提交：弹窗展示变更摘要、硬校验（员工存在 / 雇佣状态 /
+   `requiredRoles` 命中 position id|key|roleCode / `requiredAuthority` domain×level）、
+   影响范围文案（仅本实例）、可选理由。内核再校验一遍，UI 校验只是体验层。
+4. 审计：engine 落 `Workflow.StepAssignmentOverridden`（workflow 聚合，可回放），
+   control 层另落 `Control.WorkflowInstanceAssignmentOverridden`（Control 聚合，
+   谁 / 何时 / 为什么）。
+5. SoD 仍由既有 gate 与审批路径运行时强制；画布只做提示性警告，不做假硬闸门。
+6. 前端画布不引图库，SVG 分层布局手写（definition 的 stages 天然有序，节点少）。
+
+**理由**
+
+1. 与 M1.6「capability 解析优先于座位 pin」的纪律一致：override 是**实例的局部修正**，
+   不是模板的修改；生成质量的系统性缺陷应改 capability 映射，而不是让每个实例各自 pin。
+2. 事件溯源天然支持：override 可回放、可审计、`expectedVersion` 防并发；不新增存储、
+   不新增聚合语义。
+3. 原子批量避免半途失败的脏状态（UI 只能防手误，内核才是边界，ADR-014 同款纪律）。
+4. LLM 零参与（ADR-003）；人类决定权与组织确定性执行的边界不变。
+
+**后果**
+
+- ✅ 画布成为「生成 → 审视 → 确认 → 执行」闭环里人类的那一环，而不是拖拽玩具。
+- ✅ 现有使用零变更：纯新事件、纯新命令、可选的控制面端口方法；`docs/architecture/M1.8-assignment-override-canvas.md` 记录完整契约。
+- ⚠️ 实例在激活之间员工可被归档：回落 capability 解析处理（override 保留但不生效），
+   不阻断流程。
+- ⚠️ 两个聚合各落一个事件，审计与运行时投影各自消费，别混合。
+- ⚠️ 不要借此「顺手」做激活中改派；那是 task 级 reassign 语义，需单独论证。
+
+**复审触发条件**：override 频率成为度量生成质量的信号；SoD 需要静态判定；需激活中
+改派；override 需要跨实例共享（此时应升格为 capability 映射配置）。
+
+详细规格见 [M1.8-assignment-override-canvas.md](M1.8-assignment-override-canvas.md)。
+
+---
+
+## ADR-016
+
+### 草稿确认态：capability 生成的 workflow 先停在「待你确认」，确认后才执行
+
+**状态**：已接受（CURRENT，2026 · M1.9）
+
+**背景**
+
+ADR-015 给了「实例级一次性改派」，但落到执行仍然是**即时的**：CEO 的 plan 里 `workflow.start({capabilities})` 在同一轮次里创建实例、入场第一步、随即苏醒执行者 —— 在 mock 模式下全部动作几秒内完成，人类根本没机会看画布、改席位、点确认。实例级 override 的窗口在时间上是"宽度为零"，画布事实上成了装饰品。
+
+**决策**
+
+1. 生成型 workflow（start(capabilities)）以 **draft** 创建：`context.draft = true`，实例入库但不创建任何 task、不入场任何步骤。定义与 capability plan 已冻结为可 replay 的事实。
+2. `Workflow.ConfirmStart` 命令 → engine `confirm()`：history 丢掉 draft marker（`Workflow.DraftConfirmed` 事件），进入入口阶段，之后全程既有语义（含 M1.8 在岗确认前的 override 生效）。
+   审批步骤的解析在读侧投影里按 `requiredRoles`（position id/key/roleCode）解析在岗者，不再显示「未解析」。
+3. **控制台**（api composition）对 capability 生成的 workflow 一律 draft（`requirePlanConfirmation = true`），无人确认则组织不执行 —— 这是"人类是最终执行闸门"的直接落地（ADR-003 的组织级对应物）。
+4. **无头内核 / 测试基线**默认 `requirePlanConfirmation = false`（`ComposedRuntimeOptions`、`StartApiServerOptions` 可显式开启），保持既有验收语义不变。
+5. 恢复（replay）安全：draft marker 是 context 字段，DraftConfirmed 事件显式删掉它；重启后 draft 仍然是 draft，确认仍然等待人类。
+6. 画布在 draft 下所有 task 步骤都可改派（全部未入场），确认按钮与既有 override 流组合（先 override、后 confirm，同一提交里完成）；完成后实例正常推进。
+
+**理由**
+
+1. 用户原话的顺序："安排好了之后 → 投影到画布 → 交换Agent位置 → 让用户二次确认"。这要求 draft 存在且可调整，并以确认为执行闸门。
+2. 其他形式解决不了：实例先入场再暂停不行（入口 step 已在创建时处理，override 不可用）；console 端 hold 不行（缺可观测 draft 投影与确认语义）。
+3. draft 是显式、可 replay、可审计的状态机态，不是隐式控制面标记；两种落地路径（console / 无头）只差一个 composition 开关。
+
+**后果**
+
+- ✅ 画布真的成为「安排 → 投影 → 改派 → 二次确认 → 执行」的闭环；组织在任何生成的计划上都等人点头。
+- ✅ 无头/测试基线零行为变更；HTTP 验收套件经 opt-out 保持原有事实。
+- ⚠️ 每次任务书确认多一次点击 —— 这是有意的税，和审批闸门同源。
+- ⚠️ 若人类关掉了确认（composition 开关关掉），生成仍然立即执行，但那是显式的退路，不是隐式默认。
+- ⚠️ 「确认后立即补交计划外步骤」不属于本 ADR —— 任何能力定义层的修改都需要单独论证。
+
+**复审触发条件**：confirms 成为常态瓶颈（多数 draft 无人调整）；无头场景多到需要 mini console 而非 composition 开关；draft 需要附带选项（比如"按默认确认 + 自动暂停"）——那时再讨论多态确认。
 
 ---
 

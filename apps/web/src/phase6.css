@@ -26,7 +26,7 @@
 .archived-row>div{display:grid;gap:3px;min-width:0}
 .archived-row b{overflow:hidden;font-size:13px;text-overflow:ellipsis;white-space:nowrap}
 .archived-row span{overflow:hidden;color:var(--muted);font-size:11px;text-overflow:ellipsis;white-space:nowrap}
-.archived-row .avatar{opacity:.55}
+.archived-row .agent-avatar{opacity:.55}
 @media(max-width:900px){.agent-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.agent-stats{grid-template-columns:1fr}.archived-row{grid-template-columns:auto minmax(0,1fr)}.archived-row .pill,.archived-row .link{grid-column:2}.record-head,.detail-section{padding-right:14px;padding-left:14px}.record-history{padding:14px 14px 16px}}
 /* --- M1.4 §5.7: Agent.Instruct demoted to a diagnostic, inside the record it targets --- */

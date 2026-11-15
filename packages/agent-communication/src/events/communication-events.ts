@@ -15,6 +15,13 @@ import {
 export const COMMUNICATION_MESSAGE_SENT = 'Communication.MessageSent';
 export const COMMUNICATION_CHANNEL_OPENED = 'Communication.ChannelOpened';
 export const COMMUNICATION_COLLABORATION_REQUESTED = 'Communication.CollaborationRequested';
+/**
+ * M3.1 message lifecycle: `sent` is the `MessageSent` fact, `delivered` the delivery ledger entry
+ * derived from it, and `processed` this event — emitted for a recipient when the turn that
+ * consumed the message settles (handled, or failed without a retry pending). A `failed` outcome
+ * may be upgraded once by a later `handled`; a duplicate message never produces a second send.
+ */
+export const COMMUNICATION_MESSAGE_PROCESSED = 'Communication.MessageProcessed';
 
 export const messageSentPayloadSchema = z.object({
   messageId: messageIdSchema,
@@ -27,6 +34,15 @@ export const messageSentPayloadSchema = z.object({
   subject: z.string().min(MESSAGE_LIMITS.subject.min).max(MESSAGE_LIMITS.subject.max),
   body: z.string().min(MESSAGE_LIMITS.body.min).max(MESSAGE_LIMITS.body.max),
   messageType: z.enum(MESSAGE_TYPES),
+  /** Optional so every message written before M3.1 replays unchanged. */
+  dedupeKey: z.string().min(1).max(128).optional(),
+});
+
+export const messageProcessedPayloadSchema = z.object({
+  messageId: messageIdSchema,
+  channelId: channelIdSchema,
+  recipientId: employeeIdSchema,
+  outcome: z.enum(['handled', 'failed']),
 });
 
 export const channelOpenedPayloadSchema = z.object({
@@ -53,6 +69,8 @@ export const collaborationRequestedPayloadSchema = z.object({
 export type MessageSentPayload = z.infer<typeof messageSentPayloadSchema>;
 
 export type ChannelOpenedPayload = z.infer<typeof channelOpenedPayloadSchema>;
+
+export type MessageProcessedPayload = z.infer<typeof messageProcessedPayloadSchema>;
 
 export type CollaborationRequestedPayload = z.infer<typeof collaborationRequestedPayloadSchema>;
 
@@ -82,6 +100,12 @@ export function registerCommunicationEvents(
     collaborationRequestedPayloadSchema,
   );
   if (!collaboration.ok) return collaboration;
+  const processed = registerOnce(
+    registry,
+    COMMUNICATION_MESSAGE_PROCESSED,
+    messageProcessedPayloadSchema,
+  );
+  if (!processed.ok) return processed;
   return { ok: true, value: undefined };
 }
 
@@ -95,4 +119,8 @@ export function isChannelOpenedEvent(type: string): boolean {
 
 export function isCollaborationRequestedEvent(type: string): boolean {
   return type === COMMUNICATION_COLLABORATION_REQUESTED;
+}
+
+export function isMessageProcessedEvent(type: string): boolean {
+  return type === COMMUNICATION_MESSAGE_PROCESSED;
 }

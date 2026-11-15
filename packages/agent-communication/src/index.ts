@@ -4,12 +4,17 @@ export type {
   CreateChannelInput,
   CreateChannelResult,
   DeliverMessageInput,
+  MarkMessageProcessedInput,
+  MarkMessageProcessedResult,
+  MessageProcessingOutcome,
+  MessageProcessingRecord,
   ReadMessageInput,
   ReadMessageResult,
   ResolveRecipientsInput,
   SendMessageInput,
   SendMessageResult,
 } from './communication-types.js';
+export { MESSAGE_PROCESSING_OUTCOMES } from './communication-types.js';
 export type {
   CommunicationErrorCode,
   CommunicationFailure,
@@ -48,17 +53,21 @@ export { DELIVERY_STATUSES, createDeliveryResult } from './delivery/delivery-res
 export type {
   ChannelOpenedPayload,
   CollaborationRequestedPayload,
+  MessageProcessedPayload,
   MessageSentPayload,
 } from './events/communication-events.js';
 export {
   COMMUNICATION_CHANNEL_OPENED,
   COMMUNICATION_COLLABORATION_REQUESTED,
+  COMMUNICATION_MESSAGE_PROCESSED,
   COMMUNICATION_MESSAGE_SENT,
   channelOpenedPayloadSchema,
   collaborationRequestedPayloadSchema,
   isChannelOpenedEvent,
   isCollaborationRequestedEvent,
+  isMessageProcessedEvent,
   isMessageSentEvent,
+  messageProcessedPayloadSchema,
   messageSentPayloadSchema,
   registerCommunicationEvents,
 } from './events/communication-events.js';

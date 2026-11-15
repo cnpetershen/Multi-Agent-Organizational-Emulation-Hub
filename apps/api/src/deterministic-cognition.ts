@@ -691,6 +691,56 @@ export function deterministicCognitionText(request: LlmRequest): string {
     });
   }
 
+  if (type === 'Task.HandoffRequested') {
+    // M3.1: a colleague asked this agent to take their task. The receiver answers in the same
+    // cycle — accept, start and deliver — so the handoff chain ends in a real result rather than
+    // an acknowledgement. The request itself restates the work (title/goal/output keys), which is
+    // what lets the delivery be shaped from the event that woke this agent.
+    const taskId = str(payload, 'taskId');
+    const handoffId = str(payload, 'handoffId');
+    if (taskId === null) return noOp(`A ${type} event names no task for ${selfId || 'me'}.`);
+    const title = str(payload, 'title') ?? '';
+    const deliverable = deliverableFor({
+      goal: str(payload, 'goal') ?? '',
+      title,
+      requiredOutputKeys: strArray(payload, 'requiredOutputKeys'),
+      capabilities,
+      capability: str(payload, 'capability'),
+    });
+    return output({
+      interpretation: `${str(payload, 'fromEmployeeId') ?? 'A colleague'} asked ${selfId || 'me'} to take over task ${taskId}${
+        title === '' ? '' : ` "${title}"`
+      }.`,
+      considerations: [
+        'A handoff request is addressed to me by name; ignoring it would leave the sender waiting.',
+        'Accepting moves the task to me, so the delivery I hand back is the task result itself.',
+      ],
+      conclusion: 'Accept the handoff, start the task and submit the work product.',
+      goal: `${taskId} is accepted, executed and submitted by me`,
+      doneWhen: 'the task carries my submitted result',
+      steps: [
+        {
+          action: 'AcceptHandoff',
+          args: { taskId, ...(handoffId === null ? {} : { handoffId }) },
+          reasonRef: 0,
+        },
+        { action: 'StartTask', args: { taskId }, reasonRef: 1 },
+        {
+          action: 'ProgressReport',
+          args: {
+            taskId,
+            summary: deliverable.summary,
+            data: deliverable.data,
+            ...(deliverable.artifacts.length === 0
+              ? {}
+              : { artifacts: [...deliverable.artifacts] }),
+          },
+          reasonRef: 1,
+        },
+      ],
+    });
+  }
+
   if (type === 'Workflow.ApprovalRequested') {
     const instanceId = str(payload, 'instanceId');
     if (instanceId === null) return noOp('The approval request names no workflow instance.');

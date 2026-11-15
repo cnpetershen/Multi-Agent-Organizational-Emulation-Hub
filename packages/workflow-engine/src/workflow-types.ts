@@ -73,12 +73,21 @@ export interface WorkflowStep {
    * because steps written before this existed simply do not declare one.
    */
   readonly capability?: string | null;
+  /** Machine-readable acceptance checks for this step, when it has a contract. */
+  readonly acceptanceCriteria?: readonly string[];
+  /** Machine-readable artifact classes this step must hand over. */
+  readonly requiredArtifacts?: readonly string[];
   readonly verification: TaskVerification | null;
   readonly maxAttempts: number;
   readonly requiredAuthority: AuthorityRequirement | null;
   readonly requiredRoles: readonly string[];
   readonly approvalPolicy: ApprovalPolicy;
   readonly requiredCount: number;
+  /**
+   * Final acceptance of a generated delivery belongs to the operator, never to the agent that
+   * composed or executed it. Templates leave this unset; generated approval steps set it true.
+   */
+  readonly humanOnly?: boolean;
 }
 
 export type TransitionCondition =

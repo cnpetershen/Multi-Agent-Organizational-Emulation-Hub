@@ -76,7 +76,7 @@ function cyclesOf(events: readonly OrgEvent[]): readonly Readonly<Record<string,
 
 describe('M1.2-A: the composed runtime actually runs the minimal business chain', () => {
   it('drives Human -> CEO -> cognition -> task/workflow -> CTO -> cognition -> result', async () => {
-    const { simulation, api } = await createComposedRuntime({ eventLogPath: null });
+    const { simulation, api } = await createComposedRuntime({ eventLogPath: null, requirePlanConfirmation: false });
     const driver = startTickDriver(simulation, { activeIntervalMs: 2, idleIntervalMs: 25 });
     try {
       const instructed = await api.control.execute(
@@ -85,8 +85,20 @@ describe('M1.2-A: the composed runtime actually runs the minimal business chain'
       expect(instructed.status, JSON.stringify(instructed.failure)).toBe('accepted');
 
       await waitFor(
+        () => simulation.instanceStore.all().some((instance) => instance.status === 'blocked' || instance.status === 'completed'),
+        'the product-analysis workflow to reach its final gate',
+      );
+      const gated = simulation.instanceStore.all().find((instance) => instance.status === 'blocked');
+      if (gated !== undefined) {
+        const approved = await api.control.execute(operatorCommand('Workflow.Approve', {
+          target: { targetType: 'workflow', targetId: gated.instanceId },
+          reason: 'human acceptance of the product analysis',
+        }));
+        expect(approved.status, JSON.stringify(approved.failure)).toBe('accepted');
+      }
+      await waitFor(
         () => simulation.instanceStore.all().some((instance) => instance.status === 'completed'),
-        'the product-analysis workflow to complete',
+        'the human-accepted workflow to complete',
       );
 
       const events = await collectEvents(simulation.eventStore);
@@ -113,7 +125,8 @@ describe('M1.2-A: the composed runtime actually runs the minimal business chain'
       // `schema_violation` because the mock returned an empty plan.
       const failures = cycles
         .map((cycle) => cycle['failureCode'])
-        .filter((code) => code !== null && code !== undefined);
+        .filter((code) => code !== null && code !== undefined)
+        .filter((code) => code !== 'human_approval_required');
       expect(failures).toEqual([]);
       expect(types.filter((type) => type === 'Task.ProgressReported').length).toBeGreaterThan(0);
 
@@ -136,7 +149,7 @@ describe('M1.2-A: the composed runtime actually runs the minimal business chain'
   });
 
   it('keeps ticking on its own, freezes on Pause and resumes on Resume', async () => {
-    const { simulation, api } = await createComposedRuntime({ eventLogPath: null });
+    const { simulation, api } = await createComposedRuntime({ eventLogPath: null, requirePlanConfirmation: false });
     const driver = startTickDriver(simulation, { activeIntervalMs: 5, idleIntervalMs: 20 });
     try {
       // RT-1/RT-2: no manual Step, no manual POST /api/tick - the runtime advances alone.
@@ -174,7 +187,7 @@ describe('M1.2-A: the composed runtime actually runs the minimal business chain'
   });
 
   it('backs off when there is nothing to do instead of busy-looping', async () => {
-    const { simulation } = await createComposedRuntime({ eventLogPath: null });
+    const { simulation } = await createComposedRuntime({ eventLogPath: null, requirePlanConfirmation: false });
     const driver = startTickDriver(simulation, { activeIntervalMs: 1, idleIntervalMs: 60_000 });
     try {
       await waitFor(() => driver.ticks >= 1, 'the first keep-alive tick', 5_000);
@@ -188,7 +201,7 @@ describe('M1.2-A: the composed runtime actually runs the minimal business chain'
   });
 
   it('serves the running console over HTTP: command, auto-tick, LLM and queries', async () => {
-    const server = await startApiServer(0, { tick: { activeIntervalMs: 5, idleIntervalMs: 50 }, eventLogPath: null });
+    const server = await startApiServer(0, { requirePlanConfirmation: false,  tick: { activeIntervalMs: 5, idleIntervalMs: 50 }, eventLogPath: null });
     const base = `http://127.0.0.1:${String(server.port)}/api`;
     try {
       const post = async (path: string, body: unknown): Promise<Response> =>
@@ -211,11 +224,24 @@ describe('M1.2-A: the composed runtime actually runs the minimal business chain'
       const after = await get<{ tick: number }>('/simulation');
       expect(after.tick).toBeGreaterThan(before.tick);
 
-      // The chain completes through the HTTP surface the console reads.
+      // The chain reaches its final human gate through the HTTP surface.
+      await waitFor(async () => {
+        const workflows = await get<readonly { status: string; instanceId: string }[]>('/workflows');
+        return workflows.some((workflow) => workflow.status === 'blocked' || workflow.status === 'completed');
+      }, 'the workflow to reach its gate over HTTP');
+      const gatedWorkflows = await get<readonly { status: string; instanceId: string }[]>('/workflows');
+      const waiting = gatedWorkflows.filter((workflow) => workflow.status === 'blocked');
+      for (const workflow of waiting) {
+        const approved = await post('/command', operatorCommand('Workflow.Approve', {
+          target: { targetType: 'workflow', targetId: workflow.instanceId },
+          reason: 'human acceptance over HTTP',
+        }));
+        expect(approved.status).toBe(200);
+      }
       await waitFor(async () => {
         const workflows = await get<readonly { status: string }[]>('/workflows');
         return workflows.some((workflow) => workflow.status === 'completed');
-      }, 'the workflow to complete over HTTP');
+      }, 'the human-accepted workflow to complete over HTTP');
 
       const tasks = await get<readonly { status: string }[]>('/tasks');
       expect(tasks.filter((task) => task.status === 'completed').length).toBeGreaterThanOrEqual(3);
@@ -224,7 +250,7 @@ describe('M1.2-A: the composed runtime actually runs the minimal business chain'
       expect(llm.callCount).toBeGreaterThan(0);
 
       const events = await get<readonly Readonly<Record<string, unknown>>[]>('/events?limit=200');
-      // M1.2-B: the feed the console renders is company activity — the per-tick clock
+      // M1.2-B: the feed the console renders is company activity �?the per-tick clock
       // markers stay in the store but must not fill the window the operator sees.
       expect(events.filter((event) => event['type'] === 'System.SimClockTicked')).toEqual([]);
       // ...and they are still one explicit query away.
@@ -239,8 +265,9 @@ describe('M1.2-A: the composed runtime actually runs the minimal business chain'
       expect(cycles.length).toBeGreaterThan(0);
       expect(cycles.some((cycle) => Number(cycle['actionCount'] ?? 0) > 0)).toBe(true);
       expect(
-        cycles.map((cycle) => cycle['failureCode']).filter((code) => code !== null),
-        'no cycle may fail with schema_violation',
+        cycles.map((cycle) => cycle['failureCode'])
+          .filter((code) => code !== null && code !== 'human_approval_required'),
+        'only the agent approval refused by the human gate may fail',
       ).toEqual([]);
 
       // Pause/Resume work over HTTP too, and the driver obeys them.
@@ -263,3 +290,4 @@ describe('M1.2-A: the composed runtime actually runs the minimal business chain'
     }
   });
 });
+

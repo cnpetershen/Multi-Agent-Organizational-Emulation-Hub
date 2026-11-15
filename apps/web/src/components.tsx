@@ -2,6 +2,9 @@ import type { ReactNode } from 'react';
 import { readNumber, readString, type Feedback, type Row } from './api';
 import { useI18n } from './i18n';
 
+export { AgentAvatar, avatarStatusOf } from './components/RoleAvatar';
+export type { AvatarSize, AvatarStatus } from './components/RoleAvatar';
+
 export function Panel({
   title,
   actions,
@@ -55,16 +58,6 @@ export function StatCard({ label, value, detail, tone = 'neutral' }: { label: st
       {detail !== undefined && <span className="stat-detail">{detail}</span>}
     </div>
   );
-}
-
-export function Avatar({ name, tone = 'default' }: { name: string; tone?: string }) {
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('') || '?';
-  return <span className={`avatar avatar-${tone}`} aria-hidden="true">{initials}</span>;
 }
 
 const WARN_STATUSES = new Set([

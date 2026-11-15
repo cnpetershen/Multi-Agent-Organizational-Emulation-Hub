@@ -2,6 +2,7 @@ import type { EmployeeId, OrgEvent, PositionId, SimTime } from '@maoeh/shared-ty
 import type {
   Task,
   TaskAssignment,
+  TaskHandoff,
   TaskResult,
   TaskReview,
   TaskVerification,
@@ -13,6 +14,10 @@ import type {
   TaskCompletedPayload,
   TaskCreatedPayload,
   TaskFailedPayload,
+  TaskHandoffAcceptedPayload,
+  TaskHandoffCompletedPayload,
+  TaskHandoffDeclinedPayload,
+  TaskHandoffRequestedPayload,
   TaskProgressReportedPayload,
   TaskRejectedPayload,
 } from './task-events.js';
@@ -25,6 +30,10 @@ import {
   TASK_CREATED,
   TASK_DELETED,
   TASK_FAILED,
+  TASK_HANDOFF_ACCEPTED,
+  TASK_HANDOFF_COMPLETED,
+  TASK_HANDOFF_DECLINED,
+  TASK_HANDOFF_REQUESTED,
   TASK_PROGRESS_REPORTED,
   TASK_REJECTED,
   TASK_STARTED,
@@ -88,6 +97,7 @@ function toResult(
 function freezeTask(task: Task): Task {
   Object.freeze(task.assignment);
   Object.freeze(task.reviews);
+  if (task.handoff !== null) Object.freeze(task.handoff);
   if (task.result !== null) {
     Object.freeze(task.result.artifacts);
     Object.freeze(task.result);
@@ -116,6 +126,7 @@ function buildInitial(payload: TaskCreatedPayload, event: OrgEvent): Task {
     attempt: payload.attempt,
     maxAttempts: payload.maxAttempts,
     rejectReason: null,
+    failureReason: null,
     blockedReason: null,
     blockedFrom: null,
     requiredSkills: payload.requiredSkills,
@@ -125,7 +136,9 @@ function buildInitial(payload: TaskCreatedPayload, event: OrgEvent): Task {
     verification: toVerification(payload.verification),
     outputs: payload.outputs,
     result: null,
+    review: null,
     reviews: [],
+    handoff: null,
     correlationId: event.correlationId,
     createdAtSim: event.occurredAtSim,
     dueAtSim: payload.dueAtSim as SimTime | null,
@@ -161,6 +174,7 @@ export function applyTaskEvent(current: Task | null, event: OrgEvent): Task | nu
         status: 'assigned',
         assignmentReason: payload.reason ?? null,
         matchedCapabilities: Object.freeze([...(payload.matchedCapabilities ?? [])]),
+        failureReason: null,
         // The kind of work travels with the assignment (it is what wakes the executor), but an
         // assignment that names none must not erase what the step declared at creation.
         ...(payload.capability === undefined ? {} : { capability: payload.capability }),
@@ -221,6 +235,7 @@ export function applyTaskEvent(current: Task | null, event: OrgEvent): Task | nu
         completedAtSim: event.occurredAtSim,
         result,
         outputs: result === null ? current.outputs : [...result.artifacts],
+        failureReason: null,
         blockedReason: null,
         blockedFrom: null,
       });
@@ -232,6 +247,7 @@ export function applyTaskEvent(current: Task | null, event: OrgEvent): Task | nu
         status: 'rejected',
         rejectReason: payload.reason,
         attempt: payload.attempt,
+        failureReason: null,
         blockedReason: null,
         blockedFrom: null,
       });
@@ -243,6 +259,7 @@ export function applyTaskEvent(current: Task | null, event: OrgEvent): Task | nu
         status: 'rejected',
         rejectReason: payload.reason,
         attempt: payload.attempt,
+        failureReason: payload.reason,
         blockedReason: null,
         blockedFrom: null,
       });
@@ -251,8 +268,81 @@ export function applyTaskEvent(current: Task | null, event: OrgEvent): Task | nu
       return freezeTask({
         ...current,
         status: 'cancelled',
+        failureReason: null,
         blockedReason: null,
         blockedFrom: null,
+      });
+    }
+    /**
+     * M3.1 handoff. The request is a fact about intent, not a status change: the task stays where
+     * it is until the receiver accepts (the followed `Task.Assigned` is what moves the executor).
+     */
+    case TASK_HANDOFF_REQUESTED: {
+      const payload = event.payload as TaskHandoffRequestedPayload;
+      return freezeTask({
+        ...current,
+        handoff: Object.freeze({
+          handoffId: payload.handoffId,
+          fromEmployeeId: payload.fromEmployeeId as EmployeeId,
+          toEmployeeId: payload.toEmployeeId as EmployeeId,
+          status: 'requested' as const,
+          reason: payload.reason,
+          fromStatus: payload.fromStatus,
+          requestedAtSim: event.occurredAtSim,
+          sourceEventId: event.eventId,
+          respondedAtSim: null,
+          settledAtSim: null,
+          outcome: null,
+          settlement: null,
+        } satisfies TaskHandoff),
+      });
+    }
+    case TASK_HANDOFF_ACCEPTED: {
+      // The request must be the one being answered: an acceptance that names no open handoff is
+      // not a fact about this task and must not fabricate one.
+      const payload = event.payload as TaskHandoffAcceptedPayload;
+      if (current.handoff === null || current.handoff.handoffId !== payload.handoffId) {
+        return current;
+      }
+      return freezeTask({
+        ...current,
+        handoff: Object.freeze({
+          ...current.handoff,
+          status: 'accepted' as const,
+          respondedAtSim: event.occurredAtSim,
+        }),
+      });
+    }
+    case TASK_HANDOFF_DECLINED: {
+      const payload = event.payload as TaskHandoffDeclinedPayload;
+      if (current.handoff === null || current.handoff.handoffId !== payload.handoffId) {
+        return current;
+      }
+      return freezeTask({
+        ...current,
+        handoff: Object.freeze({
+          ...current.handoff,
+          status: 'declined' as const,
+          respondedAtSim: event.occurredAtSim,
+          outcome: null,
+          settlement: payload.reason,
+        }),
+      });
+    }
+    case TASK_HANDOFF_COMPLETED: {
+      const payload = event.payload as TaskHandoffCompletedPayload;
+      if (current.handoff === null || current.handoff.handoffId !== payload.handoffId) {
+        return current;
+      }
+      return freezeTask({
+        ...current,
+        handoff: Object.freeze({
+          ...current.handoff,
+          status: 'completed' as const,
+          settledAtSim: event.occurredAtSim,
+          outcome: payload.outcome,
+          settlement: payload.summary,
+        }),
       });
     }
     /**

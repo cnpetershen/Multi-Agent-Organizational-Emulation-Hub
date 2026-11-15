@@ -89,6 +89,16 @@ export type AgendaItem = Readonly<Record<string, unknown>>;
 
 export const ACTIONS = [
   'SendMessage',
+  'RequestCollaboration',
+  /**
+   * M3.1 collaboration handoff: transfer real work to a colleague, and the receiver's answer.
+   * `HandoffTask` asks; `AcceptHandoff`/`DeclineHandoff` are the named receiver's decision. They
+   * are separate actions because the closed Action Space is what a planner may emit, and an
+   * acceptance is not the same act as a request.
+   */
+  'HandoffTask',
+  'AcceptHandoff',
+  'DeclineHandoff',
   'Reply',
   'Mention',
   'Announce',

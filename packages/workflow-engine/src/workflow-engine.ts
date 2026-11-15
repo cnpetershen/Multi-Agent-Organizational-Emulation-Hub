@@ -12,10 +12,12 @@ import {
 import type { EventRegistry } from '@maoeh/event-system';
 import { createOrgEvent } from '@maoeh/event-system';
 import { meetsContextAuthority } from '@maoeh/authority-engine';
+import type { AuthorityService } from '@maoeh/authority-engine';
 import { createOrgGraph, isExecutableEmployment } from '@maoeh/organization-model';
 import { resolveCapabilityAssignments } from '@maoeh/organization-model';
 import type { Organization } from '@maoeh/organization-model';
 import type { PositionId } from '@maoeh/shared-types';
+import type { EmployeeId } from '@maoeh/shared-types';
 import type { Task, TaskErrorCode, TaskFailure, TaskService } from '@maoeh/task-system';
 import {
   TASK_CANCELLED,
@@ -49,13 +51,16 @@ import {
   WORKFLOW_INSTANCE_COMPLETED,
   WORKFLOW_INSTANCE_DELETED,
   WORKFLOW_INSTANCE_RESUMED,
+  WORKFLOW_DRAFT_CONFIRMED,
   WORKFLOW_INSTANCE_STARTED,
+  WORKFLOW_STEP_ASSIGNMENT_OVERRIDDEN,
   WORKFLOW_STEP_COMPLETED,
   WORKFLOW_STEP_ENTERED,
   WORKFLOW_STEP_REJECTED,
 } from './workflow-events.js';
 import type { InstanceStartedPayload } from './workflow-events.js';
-import { applyWorkflowEvent } from './workflow-fold.js';
+import { DRAFT_CONTEXT_KEY } from './workflow-events.js';
+import { assignmentOverridesOf, applyWorkflowEvent } from './workflow-fold.js';
 import type {
   AssignmentRule,
   AuthorityRequirement,
@@ -91,6 +96,12 @@ export interface WorkflowEngineOptions {
   readonly registry: EventRegistry;
   readonly tasks: TaskService;
   readonly definitions: WorkflowDefinitionStore;
+  /**
+   * Required for `overrideAssignments` when a step declares `requiredAuthority`: the engine
+   * checks the *assignee's* authority, which is not derivable from the actor's context.
+   * Without it, such overrides fail closed.
+   */
+  readonly authority?: AuthorityService;
   readonly instances?: WorkflowInstanceStore;
   readonly eventIdGenerator: () => string;
   readonly instanceIdGenerator: () => string;
@@ -105,6 +116,13 @@ export interface WorkflowStartInput {
    * (resolved against the live organization to seats) instead of a template.
    */
   readonly capabilities?: readonly string[];
+  /**
+   * M1.9: when set, the instance is created as a *draft* on the canvas — the plan is stored
+   * (`context.draft`) with no step entered — until `confirm()` is called on it. Used for
+   * capability-generated workflows so a human sees and may adjust the plan before the
+   * organization starts executing it.
+   */
+  readonly awaitConfirmation?: boolean;
   readonly actor: CommandActor;
   readonly simTime: SimTime;
   readonly title: string;
@@ -112,6 +130,9 @@ export interface WorkflowStartInput {
   readonly context?: Readonly<Record<string, unknown>>;
   readonly instanceId?: string;
 }
+
+/** M1.9: confirm a draft instance on the canvas; the entry stage is then entered normally. */
+export type WorkflowConfirmInput = WorkflowInstanceCommandInput;
 
 export interface WorkflowAdvanceInput {
   readonly instanceId: string;
@@ -126,6 +147,12 @@ export interface WorkflowApproveInput {
   readonly decision: 'granted' | 'denied';
   readonly simTime: SimTime;
   readonly reason?: string | null;
+  /**
+   * True only for an operator command (`ControlActor.kind === 'human'`). The workflow actor type
+   * does not carry that distinction, so the control plane passes it explicitly and the generated
+   * delivery gate refuses an agent approval.
+   */
+  readonly humanApproval?: boolean;
 }
 
 export interface WorkflowInstanceCommandInput {
@@ -133,6 +160,22 @@ export interface WorkflowInstanceCommandInput {
   readonly actor: CommandActor;
   readonly simTime: SimTime;
   readonly reason?: string | null;
+}
+
+/** M1.8: one executor override request inside `WorkflowOverrideAssignmentsInput`. */
+export interface WorkflowOverrideAssignmentEntry {
+  readonly stepId: string;
+  readonly employeeId: string;
+  readonly reason?: string | null;
+}
+
+/**
+ * M1.8: per-instance, whole-batch executor override for task steps that have not entered
+ * yet. Either every entry validates and one `Workflow.StepAssignmentOverridden` event per
+ * real change is appended, or the whole command fails with no events at all.
+ */
+export interface WorkflowOverrideAssignmentsInput extends WorkflowInstanceCommandInput {
+  readonly overrides: readonly WorkflowOverrideAssignmentEntry[];
 }
 
 export interface WorkflowGateInput {
@@ -178,6 +221,18 @@ export interface WorkflowEngine {
    * explainable after the state it removed is gone.
    */
   delete(input: WorkflowInstanceCommandInput): Result<WorkflowOperation, WorkflowFailure>;
+  /**
+   * M1.8: re-point not-yet-entered task steps of a single instance at named employees.
+   * Whole-batch: one bad entry rejects everything; only real changes emit events.
+   */
+  overrideAssignments(
+    input: WorkflowOverrideAssignmentsInput,
+  ): Result<WorkflowOperation, WorkflowFailure>;
+  /**
+   * M1.9: confirm a draft instance created with `awaitConfirmation` — drops the draft marker
+   * and enters the entry stage. Refused with `instance_not_draft` for any other instance.
+   */
+  confirm(input: WorkflowConfirmInput): Result<WorkflowOperation, WorkflowFailure>;
   gate(input: WorkflowGateInput): Result<WorkflowGateVerdict, WorkflowFailure>;
 }
 
@@ -232,6 +287,8 @@ interface EnterContext {
   readonly goal: string;
   readonly simTime: SimTime;
   readonly buffer: OrgEvent[];
+  /** M1.8: `{ [stepId]: employeeId }` folded from `Workflow.StepAssignmentOverridden`. */
+  readonly overrides: Readonly<Record<string, string>>;
 }
 
 export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEngine {
@@ -470,13 +527,37 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
     let assigneeEmployeeId: string | null = null;
 
     if (step.kind === 'task' && step.assignment !== null) {
-      // A capability assignment is answered by the live chart here, at entry, so the seat that
-      // holds the task is the seat that can do the work *now* — not whatever seat the template
-      // was written against.
+      // M1.8: a per-instance executor override wins over capability resolution — but only
+      // while the pinned employee still exists and is executable. When it does not (e.g. it
+      // was archived between the human confirmation and this activation), the step falls back
+      // to the live capability resolution instead of blocking; the override stays visible on
+      // the log and in `context.assignmentOverrides` for audit.
+      // A plan-derived step names a concrete employee: that assignment is the plan's authority,
+      // not a suggestion to be re-resolved through the seat. Overrides remain the mechanism for
+      // position/capability templates.
+      const directEmployee =
+        step.assignment.kind === 'employee' ? graph.getEmployee(step.assignment.employeeId) : null;
+      const overrideId = ctx.overrides[step.stepId];
+      const overridden =
+        directEmployee !== null
+          ? null
+          : typeof overrideId === 'string' &&
+              overrideId !== '' &&
+              step.assignment.kind !== 'employee'
+            ? graph.getEmployee(overrideId as EmployeeId)
+            : null;
+      const pinned = directEmployee ?? overridden;
+      const pinnedExecutable =
+        pinned !== null && isExecutableEmployment(pinned.status) ? pinned : null;
       const seat =
-        step.assignment.kind === 'position'
-          ? step.assignment.positionId
-          : assignmentSeat(step, step.assignment);
+        pinnedExecutable !== null
+          ? pinnedExecutable.positionId
+          : step.assignment.kind === 'position'
+            ? step.assignment.positionId
+            : step.assignment.kind === 'employee'
+              ? (graph.getEmployee(step.assignment.employeeId)?.positionId ??
+                assignmentSeat(step, step.assignment))
+              : assignmentSeat(step, step.assignment);
       if (typeof seat !== 'string') return { ok: false, error: seat };
       const created = tasks.create({
         actor: engine,
@@ -486,12 +567,15 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
         // wake-up event and the organization slice and nothing else, so a goal that only restates
         // the step name leaves the executor unable to tell what the work is *for*: a "Frontend"
         // step on a snake-game mandate read exactly like a "Frontend" step on anything else, and
-        // every step answered with the same placeholder. Keep the step's own description when it
-        // declares one; otherwise restate the step together with the instance goal it serves.
-        goal:
-          step.description ??
-          `Complete step "${step.name}" of workflow "${ctx.title}": ${ctx.goal}`,
-        assignment: { kind: 'position', positionId: seat },
+        // every step answered with the same placeholder. Keep the instance mandate in the goal
+        // (artifacts and previews are generated from it) and carry the capability hand-off as
+        // the task's detail, not as a replacement for the goal.
+        goal: `Complete step "${step.name}" of workflow "${ctx.title}": ${ctx.goal}`,
+        ...(step.description === null ? {} : { detail: step.description }),
+        assignment:
+          pinnedExecutable !== null
+            ? { kind: 'employee', employeeId: pinnedExecutable.id }
+            : { kind: 'position', positionId: seat },
         workflowInstanceId: ctx.instanceId,
         workflowStepId: step.stepId,
         // The step's declared kind of work becomes part of the task contract, so the executor's
@@ -509,6 +593,14 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
         taskId: created.value.task.taskId,
         actor: engine,
         simTime: ctx.simTime,
+        ...(pinnedExecutable !== null
+          ? {
+              assignment: {
+                kind: 'employee' as const,
+                employeeId: pinnedExecutable.id,
+              },
+            }
+          : {}),
       });
       if (!assigned.ok) return { ok: false, error: mapTaskFailure(assigned.error) };
       ctx.buffer.push(...created.value.events, ...assigned.value.events);
@@ -757,8 +849,10 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
       goal: input.goal,
       simTime: input.simTime,
       buffer: [],
+      overrides: Object.freeze({}),
     };
 
+    const draft = input.awaitConfirmation === true;
     const started = emitWorkflow(
       WORKFLOW_INSTANCE_STARTED,
       {
@@ -767,7 +861,9 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
         version: definition.version,
         title: input.title,
         goal: input.goal,
-        context,
+        // M1.9: a draft marker rides on the instance context; the console's canvas shows the
+        // plan before anything executes. `confirm()` removes it via `Workflow.DraftConfirmed`.
+        context: draft ? { ...context, [DRAFT_CONTEXT_KEY]: true } : context,
         initiatedBy: commandActorId(input.actor),
         entryStageId: definition.entryStageId,
       } satisfies InstanceStartedPayload,
@@ -779,10 +875,40 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
     if (!started.ok) return started;
     ctx.buffer.push(started.value);
 
-    const entered = enterStep(ctx, entryStage, firstStep, 0);
+    const entered = draft ? ({ ok: true, value: null } as Result<null, WorkflowFailure>) : enterEntryStage(ctx, definition);
     if (!entered.ok) return entered;
 
     return finalize(null, ctx.buffer, [], null);
+  };
+
+  /** Shared by `beginInstance` (normal start) and `confirm` (draft promotion). */
+  const enterEntryStage = (
+    ctx: EnterContext,
+    definition: WorkflowDefinition,
+  ): Result<null, WorkflowFailure> => {
+    const entryStage = findStage(definition, definition.entryStageId);
+    if (entryStage === null) {
+      return {
+        ok: false,
+        error: workflowError(
+          'invalid_definition',
+          'entryStageId',
+          `stage "${definition.entryStageId}" does not exist`,
+        ),
+      };
+    }
+    const firstStep = entryStage.steps[0];
+    if (firstStep === undefined) {
+      return {
+        ok: false,
+        error: workflowError(
+          'invalid_definition',
+          'entryStageId',
+          `stage "${definition.entryStageId}" has no steps`,
+        ),
+      };
+    }
+    return enterStep(ctx, entryStage, firstStep, 0);
   };
 
   const checkInputIssues = (input: WorkflowStartInput): WorkflowFailure | null => {
@@ -934,6 +1060,16 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
     }
 
     if (verdict.kind === 'pass') {
+      if (step.capability === 'implementation' && !hasRunnableArtifact(task)) {
+        return {
+          ok: false,
+          error: workflowError(
+            'verification_not_applicable',
+            'task.result',
+            'an implementation step cannot pass without a runnable file or declared artifact',
+          ),
+        };
+      }
       const selected = selectTransitions(ctx.definition, step.stepId, {
         kind: 'task',
         status: 'completed',
@@ -1262,6 +1398,7 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
       goal: instance.goal,
       simTime: input.simTime,
       buffer: [],
+      overrides: assignmentOverridesOf(instance),
     };
 
     switch (input.event.type) {
@@ -1425,6 +1562,17 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
     const actorId = input.actor.context.employeeId;
     const approval = instance.approval;
 
+    if (step.humanOnly === true && input.humanApproval !== true) {
+      return {
+        ok: false,
+        error: workflowError(
+          'human_approval_required',
+          'actor',
+          'a generated delivery must be accepted by the human operator, not by an agent',
+        ),
+      };
+    }
+
     if (step.requiredAuthority !== null) {
       const meets = meetsContextAuthority(input.actor.context, step.requiredAuthority);
       if (!meets) {
@@ -1469,6 +1617,7 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
       goal: instance.goal,
       simTime: input.simTime,
       buffer: [],
+      overrides: assignmentOverridesOf(instance),
     };
     const engine = engineActor(ctx.correlationId);
     const reason = input.reason ?? null;
@@ -1715,6 +1864,7 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
       goal: instance.goal,
       simTime: input.simTime,
       buffer: [],
+      overrides: assignmentOverridesOf(instance),
     };
     const engine = engineActor(ctx.correlationId);
     const cancelResult = cancelActiveTasks(instance, ctx, engine, `workflow_${mode}`);
@@ -1856,6 +2006,7 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
       goal: instance.goal,
       simTime: input.simTime,
       buffer: [],
+      overrides: assignmentOverridesOf(instance),
     };
     const blocked = emitWorkflow(
       WORKFLOW_INSTANCE_BLOCKED,
@@ -1873,6 +2024,70 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
     if (!blocked.ok) return blocked;
     ctx.buffer.push(blocked.value);
     return finalize(instance, ctx.buffer, [], 'paused');
+  };
+
+  /**
+   * M2: a task that reached a terminal state while the instance was paused has no later
+   * trigger. The reactor refuses the transition (`instance_blocked`) and has no retry, so
+   * resuming must settle the active step from the task's own state; otherwise the instance
+   * wakes up `running` with an `active` step whose task is already done.
+   *
+   * The task is the source of truth here: for a paused instance the only thing missing is the
+   * call that would have consumed its terminal event. The engine reuses the same settle paths
+   * (`settleSubmitted` / `settleFailed` / `settleCancelled`), so verification, retry and
+   * transition selection behave exactly as they do on the live path.
+   */
+  const reconcilePausedStep = (
+    ctx: EnterContext,
+    instance: WorkflowInstance,
+  ): Result<WorkflowOperation, WorkflowFailure> | null => {
+    for (const stepId of instance.activeStepIds) {
+      const state = instance.stepStates[stepId];
+      if (state === undefined || state.taskId === null) continue;
+      const task = tasks.get(state.taskId);
+      if (task === null) continue;
+      const located = findStep(ctx.definition, stepId);
+      if (located === null) {
+        return {
+          ok: false,
+          error: workflowError(
+            'invalid_definition',
+            'stepId',
+            `step "${stepId}" does not exist in workflow "${ctx.definition.workflowId}"`,
+          ),
+        };
+      }
+      if (task.status === 'completed' || task.status === 'submitted') {
+        return settleSubmitted(ctx, instance, located, task, []);
+      }
+      if (task.status === 'cancelled') {
+        return settleCancelled(
+          ctx,
+          instance,
+          located,
+          task,
+          task.rejectReason ?? 'task cancelled while the workflow was paused',
+          [],
+        );
+      }
+      if (task.status === 'rejected') {
+        // A failed task folds to `rejected` so the state machine accepts the retry, but the
+        // original fact is preserved on `failureReason`. Transition selection must use it: a
+        // failed task takes the failed branch, a rejected task the rejected branch.
+        const failed = typeof task.failureReason === 'string' && task.failureReason !== '';
+        return settleFailed(ctx, instance, located, task, {
+          cause: failed ? 'failed' : 'rejected',
+          reason:
+            task.rejectReason ??
+            (failed
+              ? 'task failed while the workflow was paused'
+              : 'task rejected while the workflow was paused'),
+          alreadyRejected: true,
+          processedIds: [],
+        });
+      }
+    }
+    return null;
   };
 
   const resume = (
@@ -1947,6 +2162,7 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
       goal: instance.goal,
       simTime: input.simTime,
       buffer: [],
+      overrides: assignmentOverridesOf(instance),
     };
     const resumed = emitWorkflow(
       WORKFLOW_INSTANCE_RESUMED,
@@ -1958,6 +2174,8 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
     );
     if (!resumed.ok) return resumed;
     ctx.buffer.push(resumed.value);
+    const reconciled = reconcilePausedStep(ctx, instance);
+    if (reconciled !== null) return reconciled;
     return finalize(instance, ctx.buffer, [], 'resumed');
   };
 
@@ -2050,6 +2268,275 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
       ok: true,
       value: { instance, events: buffer, outcome: 'deleted' },
     };
+  };
+
+  /**
+   * M1.8: per-instance, whole-batch executor override for task steps that have not entered
+   * yet. Atomic: every entry is validated up front; one bad entry fails the command with no
+   * events at all. Entries identical to the folded override state emit no events (accepted
+   * no-op). Authorization is the Control Plane's concern; here we re-check the actor's
+   * legitimacy only, mirroring `resume`.
+   */
+  const overrideAssignments = (
+    input: WorkflowOverrideAssignmentsInput,
+  ): Result<WorkflowOperation, WorkflowFailure> => {
+    const actorFailure = validateActor(input.actor);
+    if (actorFailure !== null) return { ok: false, error: actorFailure };
+    const instance = loadInstance(input.instanceId);
+    if (instance === null) {
+      return {
+        ok: false,
+        error: workflowError(
+          'unknown_instance',
+          'instanceId',
+          `instance "${input.instanceId}" does not exist`,
+        ),
+      };
+    }
+    if (instance.status === 'completed' || instance.status === 'aborted') {
+      return {
+        ok: false,
+        error: workflowError(
+          'instance_terminal',
+          'status',
+          `instance is already ${instance.status}`,
+        ),
+      };
+    }
+    if (!Array.isArray(input.overrides) || input.overrides.length === 0) {
+      return {
+        ok: false,
+        error: workflowError(
+          'invalid_input',
+          'overrides',
+          'overrides must be a non-empty list',
+        ),
+      };
+    }
+    const definition = loadDefinition(instance.workflowId);
+    if (definition === null) {
+      return {
+        ok: false,
+        error: workflowError(
+          'unknown_workflow',
+          'workflowId',
+          `workflow "${instance.workflowId}" is not registered`,
+        ),
+      };
+    }
+    const current = assignmentOverridesOf(instance);
+    const seen = new Set<string>();
+    const issues: WorkflowIssue[] = [];
+    const normalized: { stepId: string; employeeId: string; reason: string | null }[] = [];
+    for (let index = 0; index < input.overrides.length; index += 1) {
+      const entry = input.overrides[index];
+      const field = `overrides.${String(index)}`;
+      const stepId = typeof entry?.stepId === 'string' ? entry.stepId.trim() : '';
+      const employeeId = typeof entry?.employeeId === 'string' ? entry.employeeId.trim() : '';
+      const reason =
+        typeof entry?.reason === 'string' && entry.reason.trim() !== '' ? entry.reason.trim() : null;
+      if (stepId === '') {
+        issues.push(workflowIssue(`${field}.stepId`, 'stepId must not be empty'));
+        continue;
+      }
+      if (employeeId === '') {
+        issues.push(workflowIssue(`${field}.employeeId`, 'employeeId must not be empty'));
+        continue;
+      }
+      if (seen.has(stepId)) {
+        issues.push(workflowIssue(`${field}.stepId`, `duplicate override for step "${stepId}"`));
+        continue;
+      }
+      seen.add(stepId);
+      const located = findStep(definition, stepId);
+      if (located === null) {
+        issues.push(
+          workflowIssue(
+            `${field}.stepId`,
+            `step "${stepId}" does not exist in workflow "${definition.workflowId}"`,
+          ),
+        );
+        continue;
+      }
+      if (located.step.kind !== 'task') {
+        issues.push(
+          workflowIssue(
+            `${field}.stepId`,
+            `step "${stepId}" is a ${located.step.kind} step; only task steps can be overridden`,
+          ),
+        );
+        continue;
+      }
+      const state = instance.stepStates[stepId];
+      if (state !== undefined) {
+        issues.push(
+          workflowIssue(
+            `${field}.stepId`,
+            `step "${stepId}" already entered (status ${state.status}); only not-yet-entered steps can be overridden`,
+          ),
+        );
+        continue;
+      }
+      const employee = graph.getEmployee(employeeId as EmployeeId);
+      if (employee === null) {
+        issues.push(
+          workflowIssue(`${field}.employeeId`, `employee "${employeeId}" does not exist`),
+        );
+        continue;
+      }
+      if (!isExecutableEmployment(employee.status)) {
+        issues.push(
+          workflowIssue(
+            `${field}.employeeId`,
+            `employee "${employee.id}" has employment status "${employee.status}" and cannot be assigned steps`,
+          ),
+        );
+        continue;
+      }
+      const position = graph.getPosition(employee.positionId);
+      if (located.step.requiredRoles.length > 0) {
+        const matched =
+          position !== null &&
+          located.step.requiredRoles.some(
+            (role) => role === position.id || role === position.key || role === position.roleCode,
+          );
+        if (!matched) {
+          issues.push(
+            workflowIssue(
+              `${field}.employeeId`,
+              `employee "${employee.id}" does not hold any of the required roles of step "${stepId}"`,
+            ),
+          );
+        }
+      }
+      if (located.step.requiredAuthority !== null) {
+        const meets =
+          options.authority !== undefined &&
+          options.authority.meets(employee.id, located.step.requiredAuthority);
+        if (!meets) {
+          issues.push(
+            workflowIssue(
+              `${field}.employeeId`,
+              `employee "${employee.id}" does not meet the required authority of step "${stepId}"`,
+            ),
+          );
+        }
+      }
+      normalized.push({ stepId, employeeId: employee.id, reason });
+    }
+    if (issues.length > 0) {
+      return { ok: false, error: { code: 'invalid_input' as const, issues } };
+    }
+    const changed = normalized.filter((entry) => current[entry.stepId] !== entry.employeeId);
+    if (changed.length === 0) {
+      // Accepted no-op: nothing new to fold, so the projection is untouched.
+      return finalize(instance, [], [], null);
+    }
+    const actorId = commandActorId(input.actor);
+    const buffer: OrgEvent[] = [];
+    for (const entry of changed) {
+      const emitted = emitWorkflow(
+        WORKFLOW_STEP_ASSIGNMENT_OVERRIDDEN,
+        {
+          instanceId: instance.instanceId,
+          stepId: entry.stepId,
+          employeeId: entry.employeeId,
+          actorId,
+          previousEmployeeId: current[entry.stepId] ?? null,
+          reason: entry.reason ?? input.reason ?? null,
+        },
+        input.actor,
+        instance.instanceId,
+        instance.correlationId,
+        input.simTime,
+      );
+      if (!emitted.ok) return emitted;
+      buffer.push(emitted.value);
+    }
+    return finalize(instance, buffer, [], null);
+  };
+
+  /**
+   * M1.9: promote a draft instance (`context.draft === true`, created with
+   * `awaitConfirmation`) to a running workflow. Drops the marker via
+   * `Workflow.DraftConfirmed`, then enters the entry stage — with the same per-instance
+   * overrides the canvas staged onto it.
+   */
+  const confirm = (
+    input: WorkflowConfirmInput,
+  ): Result<WorkflowOperation, WorkflowFailure> => {
+    const actorFailure = validateActor(input.actor);
+    if (actorFailure !== null) return { ok: false, error: actorFailure };
+    const instance = loadInstance(input.instanceId);
+    if (instance === null) {
+      return {
+        ok: false,
+        error: workflowError(
+          'unknown_instance',
+          'instanceId',
+          `instance "${input.instanceId}" does not exist`,
+        ),
+      };
+    }
+    if (instance.status === 'completed' || instance.status === 'aborted') {
+      return {
+        ok: false,
+        error: workflowError(
+          'instance_terminal',
+          'status',
+          `instance is already ${instance.status}`,
+        ),
+      };
+    }
+    if (instance.context[DRAFT_CONTEXT_KEY] !== true) {
+      return {
+        ok: false,
+        error: workflowError(
+          'instance_not_draft',
+          'status',
+          `instance "${instance.instanceId}" is not a draft awaiting confirmation`,
+        ),
+      };
+    }
+    const definition = loadDefinition(instance.workflowId);
+    if (definition === null) {
+      return {
+        ok: false,
+        error: workflowError(
+          'unknown_workflow',
+          'workflowId',
+          `workflow "${instance.workflowId}" is not registered`,
+        ),
+      };
+    }
+    const ctx: EnterContext = {
+      definition,
+      instanceId: instance.instanceId,
+      correlationId: instance.correlationId,
+      title: instance.title,
+      goal: instance.goal,
+      simTime: input.simTime,
+      buffer: [],
+      overrides: assignmentOverridesOf(instance),
+    };
+    const confirmed = emitWorkflow(
+      WORKFLOW_DRAFT_CONFIRMED,
+      {
+        instanceId: instance.instanceId,
+        confirmedBy: commandActorId(input.actor),
+        reason: input.reason ?? null,
+      },
+      input.actor,
+      instance.instanceId,
+      instance.correlationId,
+      input.simTime,
+    );
+    if (!confirmed.ok) return confirmed;
+    ctx.buffer.push(confirmed.value);
+
+    const entered = enterEntryStage(ctx, definition);
+    if (!entered.ok) return entered;
+    return finalize(instance, ctx.buffer, [], null);
   };
 
   const gate = (
@@ -2181,5 +2668,16 @@ export function createWorkflowEngine(options: WorkflowEngineOptions): WorkflowEn
     };
   };
 
-  return { start, advance, approve, wait, resume, complete: (i) => manualCommand(i, 'complete'), fail: (i) => manualCommand(i, 'fail'), cancel: (i) => manualCommand(i, 'cancel'), delete: removeInstance, gate };
+  return { start, advance, approve, wait, resume, complete: (i) => manualCommand(i, 'complete'), fail: (i) => manualCommand(i, 'fail'), cancel: (i) => manualCommand(i, 'cancel'), delete: removeInstance, overrideAssignments, confirm, gate };
+}
+
+
+/** A workflow implementation step is only complete when it handed over executable material. */
+export function hasRunnableArtifact(task: Task): boolean {
+  const result = task.result;
+  if (result === null) return false;
+  if (result.artifacts.length > 0) return true;
+  const data = result.data;
+  return Object.keys(data).some((key) =>
+    /\.(?:html?|css|js|mjs|cjs|tsx?|jsx|py|json|ya?ml|sh|sql|vue|svelte)$/i.test(key));
 }

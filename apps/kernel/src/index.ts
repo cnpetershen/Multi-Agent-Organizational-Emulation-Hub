@@ -20,6 +20,8 @@ export type { AgentBundle, SimulationCore, TickOutcome } from './simulation/run-
 export { runSimulationTick } from './simulation/run-tick.js';
 export { organizationSnapshotView } from './simulation/snapshot.js';
 export { workCatalogView } from './simulation/work-catalog.js';
+export type { CommunicationViewOptions } from './simulation/communication-view.js';
+export { communicationViewOf } from './simulation/communication-view.js';
 export type { Simulation, SimulationOptions } from './simulation/simulation.js';
 export { DEFAULT_AGENT_POLICY, companyChannelId, createSimulation } from './simulation/simulation.js';
 export type {

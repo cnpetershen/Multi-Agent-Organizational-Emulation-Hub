@@ -222,6 +222,33 @@ describe('M1.4 dispatch work: brief -> positions -> wake assignees', () => {
     );
     expect(subordinate.canDispatchWork).toBe(false);
   });
+
+  it('keeps per-instance generated graphs out of the template catalogue', async () => {
+    const h = await createControlHarness();
+    const seed = loadSeedWorkflows()[0];
+    expect(seed).toBeDefined();
+    if (seed === undefined) return;
+    const definitions = createInMemoryWorkflowDefinitionStore([
+      ...loadSeedWorkflows(),
+      // A graph generated for brief instance "res-brief-1"; starting it again would replace a
+      // new brief's title, goal and routing with that instance's.
+      { ...seed, workflowId: 'generated-res-brief-1', name: 'Proposal' },
+    ]);
+    const catalog = workCatalogView(
+      {
+        organization: h.organization,
+        tasks: h.simulation.tasks,
+        definitions,
+        instances: h.simulation.instanceStore,
+        authz: h.simulation.authz,
+      },
+      h.harness.identity.actorContext('ceo-alex', 'corr-generated-template' as CorrelationId),
+    );
+    expect(catalog.workflows.map((workflow) => workflow.workflowId)).not.toContain(
+      'generated-res-brief-1',
+    );
+    expect(catalog.workflows.length).toBeGreaterThan(0);
+  });
 });
 
 function listSourceFiles(directory: string): readonly string[] {

@@ -366,6 +366,17 @@ export function validateCommand(command: ControlCommand): ControlFailure | null 
       );
     }
     if (
+      brief.sourceSessionId !== undefined &&
+      brief.sourceSessionId !== null &&
+      (!isNonEmptyString(brief.sourceSessionId) || brief.sourceSessionId.length > 120)
+    ) {
+      return controlFailure(
+        'INVALID_COMMAND',
+        'workBrief.sourceSessionId',
+        'sourceSessionId must be a non-empty string of at most 120 characters',
+      );
+    }
+    if (
       brief.priority !== undefined &&
       brief.priority !== null &&
       (!Number.isInteger(brief.priority) || brief.priority < 1 || brief.priority > 9)
@@ -389,6 +400,57 @@ export function validateCommand(command: ControlCommand): ControlFailure | null 
     }
   }
 
+  if (command.commandType === 'Workflow.InstanceAssignmentOverride') {
+    const overrides = command.overrides;
+    if (!Array.isArray(overrides) || overrides.length === 0) {
+      return controlFailure('INVALID_COMMAND', 'overrides', 'overrides must be a non-empty list');
+    }
+    if (overrides.length > 64) {
+      return controlFailure('INVALID_COMMAND', 'overrides', 'overrides may carry at most 64 entries');
+    }
+    const seen = new Set<string>();
+    for (let index = 0; index < overrides.length; index += 1) {
+      const entry = overrides[index];
+      const field = `overrides.${String(index)}`;
+      if (typeof entry !== 'object' || entry === null) {
+        return controlFailure('INVALID_COMMAND', field, 'each override must be an object');
+      }
+      if (!isNonEmptyString(entry.stepId) || entry.stepId.length > 64) {
+        return controlFailure(
+          'INVALID_COMMAND',
+          `${field}.stepId`,
+          'overrides[].stepId must be a non-empty string of at most 64 characters',
+        );
+      }
+      if (!isNonEmptyString(entry.employeeId) || entry.employeeId.length > 64) {
+        return controlFailure(
+          'INVALID_COMMAND',
+          `${field}.employeeId`,
+          'overrides[].employeeId must be a non-empty string of at most 64 characters',
+        );
+      }
+      if (
+        entry.reason !== undefined &&
+        entry.reason !== null &&
+        (typeof entry.reason !== 'string' || entry.reason.length > 500)
+      ) {
+        return controlFailure(
+          'INVALID_COMMAND',
+          `${field}.reason`,
+          'overrides[].reason must be a string of at most 500 characters',
+        );
+      }
+      if (seen.has(entry.stepId)) {
+        return controlFailure(
+          'INVALID_COMMAND',
+          `${field}.stepId`,
+          `duplicate override for step "${entry.stepId}"`,
+        );
+      }
+      seen.add(entry.stepId);
+    }
+  }
+
   const expectedTarget: Record<string, string> = {
     'Agent.Create': 'organization',
     'Agent.Archive': 'agent',
@@ -403,6 +465,8 @@ export function validateCommand(command: ControlCommand): ControlFailure | null 
     'Workflow.Approve': 'workflow',
     'Workflow.Reject': 'workflow',
     'Workflow.Delete': 'workflow',
+    'Workflow.InstanceAssignmentOverride': 'workflow',
+    'Workflow.ConfirmStart': 'workflow',
     'Task.Cancel': 'task',
     'Task.Reassign': 'task',
     'Task.AssignToAgent': 'task',

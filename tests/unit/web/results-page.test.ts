@@ -115,6 +115,71 @@ describe('delivered artifact shape', () => {
     expect(deliverableKind({ data: { findings: ['friction'] }, artifacts: [] })).toBe('report');
   });
 
+  it('calls a delivered dashboard with a script runnable code, not a document', () => {
+    const dashboard = record({
+      title: 'Implementation',
+      result: {
+        taskId: 'task-1',
+        producedBy: 'engineer',
+        summary: 'A content generation dashboard.',
+        data: {
+          'index.html': '<!doctype html><html><body><div id="app"></div><script>renderBoard();</script></body></html>',
+        },
+        artifacts: [],
+      },
+    });
+    expect(deliverableKind(dashboard.result, dashboard)).toBe('code');
+  });
+
+  it('calls a delivered Markdown file a document, not a report', () => {
+    const document = record({
+      title: 'Product Requirement',
+      result: {
+        taskId: 'task-1',
+        producedBy: 'analyst',
+        summary: 'A requirements document.',
+        data: { 'product-requirement-spec.md': '# Requirements\n\nBody' },
+        artifacts: [],
+      },
+    });
+    expect(deliverableKind(document.result, document)).toBe('document');
+  });
+
+  it('calls a CSS 3D scene a 3D delivery, not a report or document', () => {
+    const scene = record({
+      title: '3D product tour',
+      result: {
+        taskId: 'task-1',
+        producedBy: 'engineer',
+        summary: 'A rotatable CSS 3D product tour.',
+        data: {
+          files: [
+            { path: 'index.html', language: 'html', content: '<!doctype html><style>.s{perspective:900px;transform-style:preserve-3d;transform:rotateY(20deg)}</style>' },
+            { path: 'design.md', language: 'markdown', content: '# Design' },
+          ],
+        },
+        artifacts: [],
+      },
+    });
+    expect(deliverableKind(scene.result, scene)).toBe('3d');
+  });
+
+  it('calls a playable index.html a game instead of a document', () => {
+    const game = record({
+      title: 'Tic-Tac-Toe',
+      result: {
+        taskId: 'task-1',
+        producedBy: 'engineer',
+        summary: 'A playable SVG tic-tac-toe board.',
+        data: {
+          'index.html': '<!doctype html><html><body><svg></svg><script>document.addEventListener("click", play);</script></body></html>',
+        },
+        artifacts: ['index.html'],
+      },
+    });
+    expect(deliverableKind(game.result, game)).toBe('game');
+  });
+
   it('names the delivery, its stack and its links without ever inventing a label', () => {
     const task = record({
       result: {

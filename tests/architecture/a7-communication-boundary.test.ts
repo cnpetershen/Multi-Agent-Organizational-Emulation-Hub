@@ -116,6 +116,9 @@ describe('A7 通信边界守卫（agent-communication）', () => {
         'Communication.MessageSent',
         'Communication.ChannelOpened',
         'Communication.CollaborationRequested',
+        // M3.1: the "processed" half of send → deliver → process (the delivery ledger itself
+        // writes no event; a message being put in an inbox is runtime state, not an org fact).
+        'Communication.MessageProcessed',
       ]),
     );
   });

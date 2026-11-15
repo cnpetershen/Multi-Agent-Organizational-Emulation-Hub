@@ -10,14 +10,20 @@ import { LanguageSwitch } from './i18n/LanguageSwitch';
 import { AgentsPage } from './pages/Agents';
 import { NetworkPage } from './pages/Network';
 import { ApprovalsPage } from './pages/Approvals';
+import { DeliveryApprovalsPage } from './pages/DeliveryApprovals';
+import { PromotionPage } from './pages/Promotion';
+import { PublicationPage } from './pages/Publication';
 import { CommunicationsPage } from './pages/Communications';
 import { DeliverablesPage } from './pages/Deliverables';
 import { EventsPage } from './pages/Events';
 import { OverviewPage } from './pages/Overview';
+import { PlanningPage } from './pages/Planning';
+import { PlanCanvasPage } from './pages/PlanCanvas';
 import { Foundry } from './pages/Foundry';
 import { ResultsPage } from './pages/Results';
 import { RuntimePage } from './pages/Runtime';
 import { TasksPage } from './pages/Tasks';
+import { TheaterPage } from './pages/Theater';
 import { WorkflowCanvasPage } from './pages/WorkflowCanvas';
 import { WorkflowsPage } from './pages/Workflows';
 import { clearSession, readSession, signIn, writeSession, type CompanySession } from './ownership';
@@ -37,6 +43,13 @@ import './hiring.css';
 import './deliverables.css';
 import './foundry.css';
 import './results.css';
+import './roles.css';
+import './theater.css';
+import './planning.css';
+import './plan-canvas.css';
+import './delivery-approval.css';
+import './promotion.css';
+import './publication.css';
 
 const POLL_INTERVAL_MS = 2500;
 const SUCCESS_FEEDBACK_MS = 8000;
@@ -44,9 +57,9 @@ const SUCCESS_FEEDBACK_MS = 8000;
 type NavGroup = { readonly labelKey: MessageKey; readonly items: readonly Page[] };
 const NAV_GROUPS: readonly NavGroup[] = [
   { labelKey: 'nav.group.company', items: ['Overview', 'Network', 'Agents'] },
-  { labelKey: 'nav.group.work', items: ['Deliverables', 'Tasks', 'Workflows', 'Canvas'] },
-  { labelKey: 'nav.group.decisions', items: ['Approvals'] },
-  { labelKey: 'nav.group.activity', items: ['Communications', 'Events'] },
+  { labelKey: 'nav.group.work', items: ['Planning', 'Deliverables', 'Tasks', 'Workflows', 'Canvas'] },
+  { labelKey: 'nav.group.decisions', items: ['Approvals', 'DeliveryApproval', 'Promotion', 'Publication'] },
+  { labelKey: 'nav.group.activity', items: ['Theater', 'Communications', 'Events'] },
   { labelKey: 'nav.group.system', items: ['Runtime'] },
 ];
 
@@ -56,11 +69,17 @@ const PAGE_KEYS: Readonly<Record<Page, { readonly title: MessageKey; readonly la
   Network: { title: 'page.network.title', label: 'page.network.label' },
   Agents: { title: 'page.agents.title', label: 'page.agents.label' },
   Deliverables: { title: 'page.deliverables.title', label: 'page.deliverables.label' },
+  Planning: { title: 'page.planning.title', label: 'page.planning.label' },
+  PlanCanvas: { title: 'page.planCanvas.title', label: 'page.planCanvas.label' },
   Tasks: { title: 'page.tasks.title', label: 'page.tasks.label' },
   Workflows: { title: 'page.workflows.title', label: 'page.workflows.label' },
   Canvas: { title: 'page.canvas.title', label: 'page.canvas.label' },
   Approvals: { title: 'page.approvals.title', label: 'page.approvals.label' },
+  DeliveryApproval: { title: 'page.deliveryApproval.title', label: 'page.deliveryApproval.label' },
+  Promotion: { title: 'page.promotion.title', label: 'page.promotion.label' },
+  Publication: { title: 'page.publication.title', label: 'page.publication.label' },
   Communications: { title: 'page.communications.title', label: 'page.communications.label' },
+  Theater: { title: 'page.theater.title', label: 'page.theater.label' },
   Runtime: { title: 'page.runtime.title', label: 'page.runtime.label' },
   Events: { title: 'page.events.title', label: 'page.events.label' },
 };
@@ -301,7 +320,7 @@ export function App() {
         <button className="sidebar-close" type="button" onClick={() => setSidebarOpen(false)} aria-label={t('nav.closeMenu')}>×</button>
       </div>
       <div className="company-block"><span className="company-mark">{snapshot?.company.name.slice(0, 1) ?? 'C'}</span><div><strong>{snapshot?.company.name ?? t('app.companyFallback')}</strong><span>{t('app.tagline')}</span>{founderName !== '' && <span className="founder-line">{founderName}</span>}</div></div>
-      <nav aria-label={t('nav.ariaLabel')}>{NAV_GROUPS.map((group) => <div className="nav-group" key={group.labelKey}><span className="nav-label">{t(group.labelKey)}</span>{group.items.map((item) => <button className={item === activeNav ? 'active' : ''} key={item} onClick={() => navigate(item)} title={t(PAGE_KEYS[item].title)} aria-label={t(PAGE_KEYS[item].title)}><span className={`nav-icon nav-${item.toLowerCase()}`} aria-hidden="true" /><span className="nav-text">{t(PAGE_KEYS[item].title)}</span>{item === 'Approvals' && <span className="nav-count" data-count={snapshot?.workflows.filter(isOpenApproval).length || undefined} aria-hidden="true" />}</button>)}</div>)}</nav>
+      <nav aria-label={t('nav.ariaLabel')}>{NAV_GROUPS.map((group) => <div className="nav-group" key={group.labelKey}><span className="nav-label">{t(group.labelKey)}</span>{group.items.map((item) => <button className={item === activeNav ? 'active' : ''} key={item} onClick={() => navigate(item)} title={t(PAGE_KEYS[item].title)} aria-label={t(PAGE_KEYS[item].title)}><span className={`nav-icon nav-${item.toLowerCase()}`} aria-hidden="true" /><span className="nav-text">{t(PAGE_KEYS[item].title)}</span>{item === 'Approvals' && <span className="nav-count" data-count={snapshot?.workflows.filter((workflow) => isOpenApproval(workflow) && workflow['executionPlan'] !== true).length || undefined} aria-hidden="true" />}</button>)}</div>)}</nav>
       <div className="side-foot"><i className="connection-dot" data-connected={connected} /><span className="side-connection-text">{connected ? t('shell.connected') : t('shell.disconnected')}</span><span className={`side-runtime ${simulation?.paused || held ? 'paused' : 'running'}`}>{runtimeLabel}</span><button type="button" className="founder-switch" onClick={leaveCompany} title={t('foundry.switchCompany')}><span className="founder-switch-text">{t('foundry.switchCompany')}</span></button></div>
     </aside>
     <main>
@@ -318,11 +337,17 @@ function renderPage(page: Page, control: ConsoleControl): ReactNode {
     case 'Network': return <NetworkPage control={control} />;
     case 'Agents': return <AgentsPage control={control} />;
     case 'Deliverables': return <DeliverablesPage control={control} />;
+    case 'Planning': return <PlanningPage control={control} />;
+    case 'PlanCanvas': return <PlanCanvasPage control={control} />;
     case 'Tasks': return <TasksPage control={control} />;
     case 'Workflows': return <WorkflowsPage control={control} />;
     case 'Canvas': return <WorkflowCanvasPage control={control} />;
     case 'Approvals': return <ApprovalsPage control={control} />;
+    case 'DeliveryApproval': return <DeliveryApprovalsPage control={control} />;
+    case 'Promotion': return <PromotionPage control={control} />;
+    case 'Publication': return <PublicationPage control={control} />;
     case 'Communications': return <CommunicationsPage control={control} />;
+    case 'Theater': return <TheaterPage control={control} />;
     case 'Runtime': return <RuntimePage control={control} />;
     case 'Events': return <EventsPage control={control} />;
     default: return <OverviewPage control={control} />;

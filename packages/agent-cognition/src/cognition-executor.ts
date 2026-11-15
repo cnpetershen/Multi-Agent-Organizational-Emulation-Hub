@@ -26,6 +26,55 @@ function stripFences(text: string): string {
   return withoutOpening.replace(/\r?\n?[ \t]*```$/, '').trim();
 }
 
+const CONTROL_NAMES: Readonly<Record<number, string>> = {
+  10: '\\n',
+  13: '\\r',
+  9: '\\t',
+};
+
+/**
+ * DeepSeek-flash (and many other live providers) systematically emit raw control characters
+ * inside string literals — most often real newlines in a multi-line `content`/`product_requirement`.
+ * Strict `JSON.parse` refuses those, and the deterministic cognition layer then fails the whole
+ * plan with `malformed_output` even though the model's JSON object shape is otherwise fine.
+ *
+ * Scan the text once, escape control characters that sit inside a string literal, and leave
+ * everything else untouched. Escaped backslashes are tracked so an `\\\n` pair is untouched,
+ * and only characters strictly inside a quoted string are rewritten (control characters are legal
+ * JSON whitespace outside strings).
+ */
+function escapeControlCharsInsideStrings(raw: string): string {
+  let out = '';
+  let inString = false;
+  let escape = false;
+  for (let index = 0; index < raw.length; index += 1) {
+    const code = raw.charCodeAt(index);
+    if (escape) {
+      escape = false;
+      out += raw[index];
+      continue;
+    }
+    if (code === 0x5c /* backslash */) {
+      escape = true;
+      out += raw[index];
+      continue;
+    }
+    if (code === 0x22 /* double quote */) {
+      inString = !inString;
+      out += raw[index];
+      continue;
+    }
+    if (inString && code < 0x20) {
+      out += Object.prototype.hasOwnProperty.call(CONTROL_NAMES, code)
+        ? CONTROL_NAMES[code]!
+        : `\\u${code.toString(16).padStart(4, '0')}`;
+      continue;
+    }
+    out += raw[index];
+  }
+  return out;
+}
+
 function parseOutput(
   text: string,
 ): Result<Record<string, unknown>, CognitionError> {
@@ -36,26 +85,87 @@ function parseOutput(
       error: cognitionIssue('malformed_output', 'response.text', 'provider returned no content'),
     };
   }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (error) {
-    return {
-      ok: false,
-      error: cognitionIssue(
-        'malformed_output',
-        'response.text',
-        error instanceof Error ? error.message : 'response is not valid JSON',
-      ),
-    };
+  const attempt = (candidate: string): unknown => {
+    try {
+      return JSON.parse(candidate) as unknown;
+    } catch {
+      return undefined;
+    }
+  };
+  const direct = attempt(raw);
+  if (direct !== undefined) {
+    return finalize(direct);
   }
+  const repaired = escapeControlCharsInsideStrings(raw);
+  if (repaired !== raw) {
+    const secondPass = attempt(repaired);
+    if (secondPass !== undefined) {
+      return finalize(secondPass);
+    }
+  }
+  return {
+    ok: false,
+    error: cognitionIssue(
+      'malformed_output',
+      'response.text',
+      'response is not valid JSON',
+    ),
+  };
+}
+
+/**
+ * Live models add harmless extra keys (`steps_notes`, `confidence_reason`) and occasionally omit
+ * the non-semantic `reasonRef` audit index. Dropping unknown keys and defaulting only that index
+ * is shape normalisation, not a structural repair: required semantic fields are still validated
+ * by the schema below, and a missing goal/action/steps still fails.
+ */
+function normalizeOutputShape(parsed: Record<string, unknown>): Record<string, unknown> {
+  const output: Record<string, unknown> = {};
+  for (const key of ['interpretation', 'considerations', 'conclusion', 'confidence'] as const) {
+    if (Object.prototype.hasOwnProperty.call(parsed, key)) output[key] = parsed[key];
+  }
+  const plan = parsed['plan'];
+  if (typeof plan === 'object' && plan !== null && !Array.isArray(plan)) {
+    const source = plan as Record<string, unknown>;
+    const normalizedPlan: Record<string, unknown> = {};
+    for (const key of ['goal', 'doneWhen'] as const) {
+      if (Object.prototype.hasOwnProperty.call(source, key)) normalizedPlan[key] = source[key];
+    }
+    const steps = source['steps'];
+    normalizedPlan['steps'] = Array.isArray(steps)
+      ? steps.map((step) => {
+          if (typeof step !== 'object' || step === null || Array.isArray(step)) return step;
+          const entry = step as Record<string, unknown>;
+          return {
+            action: entry['action'],
+            args:
+              typeof entry['args'] === 'object' && entry['args'] !== null && !Array.isArray(entry['args'])
+                ? entry['args']
+                : {},
+            reasonRef:
+              typeof entry['reasonRef'] === 'number' && Number.isInteger(entry['reasonRef'])
+                ? entry['reasonRef']
+                : 0,
+          };
+        })
+      : steps;
+    output['plan'] = normalizedPlan;
+  } else {
+    output['plan'] = plan;
+  }
+  return output;
+}
+
+function finalize(
+  parsed: unknown,
+): Result<Record<string, unknown>, CognitionError> {
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return {
       ok: false,
       error: cognitionIssue('malformed_output', 'response.text', 'response JSON must be an object'),
     };
   }
-  return { ok: true, value: parsed as Record<string, unknown> };
+  return { ok: true, value: normalizeOutputShape(parsed as Record<string, unknown>) };
 }
 
 function validateRequest(request: CognitionRequest): CognitionError | null {
@@ -127,6 +237,7 @@ export function createCognitionExecutor(options: CognitionExecutorOptions): Cogn
       if (!llmResult.ok) return { ok: false, error: mapLlmError(llmResult.error) };
 
       const response = llmResult.value;
+      if (response.text !== undefined) console.error(`[llm-raw] agent=${request.cognitionContext.definition.id}\n${response.text}`);
       const objectResult = parseOutput(response.text);
       if (!objectResult.ok) return { ok: false, error: objectResult.error };
 

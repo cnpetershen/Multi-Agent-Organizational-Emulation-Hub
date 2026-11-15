@@ -25,7 +25,7 @@ import {
   workflowDecision,
   type CommandContext,
 } from '../commands';
-import { PageIntro, StatusPill } from '../components';
+import { AgentAvatar, PageIntro, StatusPill } from '../components';
 import type { ConsoleControl } from '../control';
 import { statusLabel, workflowStatus } from '../status';
 import { useJson } from '../hooks';
@@ -56,15 +56,6 @@ type AssignmentGate =
 
 function ctxOf(control: ConsoleControl): CommandContext {
   return { companyId: control.companyId, simTime: control.simTime };
-}
-
-function initialsOf(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word.slice(0, 1).toUpperCase())
-    .join('');
 }
 
 function nodeGlyph(kind: string): string {
@@ -109,7 +100,7 @@ function EmployeeCard({
       onClick={onChoose}
       title={`${employee.name} · ${employee.positionTitle}${employee.capabilities.length === 0 ? '' : ` · ${employee.capabilities.join(', ')}`}`}
     >
-      <span className="assignment-avatar" data-kind={employee.kind}>{initialsOf(employee.name)}</span>
+      <AgentAvatar name={employee.name} positionId={employee.positionId} positionTitle={employee.positionTitle} capabilities={employee.capabilities} kind={employee.kind} status={employee.status === 'on_leave' ? 'paused' : 'idle'} />
       <span className="assignment-agent-body">
         <b>{employee.name}</b>
         <small>{employee.positionTitle}{employee.departmentName === undefined || employee.departmentName === '' ? '' : ` · ${employee.departmentName}`}</small>
@@ -224,7 +215,7 @@ function StepNode({
           <span className="assignment-node-unassigned">{t('canvas.unresolved')}</span>
         ) : (
           <span className="assignment-node-person">
-            <span className="assignment-avatar small" data-kind={employee.kind}>{initialsOf(employee.name)}</span>
+            <AgentAvatar name={employee.name} positionId={employee.positionId} positionTitle={employee.positionTitle} capabilities={employee.capabilities} kind={employee.kind} status={employee.status === 'on_leave' ? 'paused' : 'idle'} size="xs" />
             <b>{employee.name}</b>
             <small>{employee.positionTitle}</small>
           </span>
@@ -504,6 +495,14 @@ export function WorkflowCanvasPage({ control }: { control: ConsoleControl }) {
 
   const commitChanges = async (): Promise<void> => {
     if (selected === null || submitting) return;
+    // M3.4: a planning draft is confirmed on the plan canvas, never here. This button used to
+    // call `Workflow.ConfirmStart` (which enters stage 1 and creates tasks); for a planned draft
+    // that is M3.5's "start execution", so it must not be reachable from M3.3/M3.4.
+    if (selected.planned) {
+      setReviewing(false);
+      control.navigate('PlanCanvas');
+      return;
+    }
     if (stagedCount === 0 && !selected.draft) {
       setReviewing(false);
       return;
@@ -620,6 +619,7 @@ export function WorkflowCanvasPage({ control }: { control: ConsoleControl }) {
                 <div className="assignment-title-row">
                   <h2>{selected.title}</h2>
                   {selected.draft && <span className="assignment-chip draft">{t('canvas.draftTag')}</span>}
+                  {selected.paused === true && <span className="assignment-chip draft">{t('canvas.paused')}</span>}
                 </div>
                 <p>{selected.goal === '' ? t('common.noGoal') : selected.goal}</p>
               </div>
@@ -807,7 +807,8 @@ export function WorkflowCanvasPage({ control }: { control: ConsoleControl }) {
                         <path
                           key={edge.id}
                           d={edge.d}
-                          className={`assignment-edge tone-${edge.tone}${edge.active ? ' active' : ''}${edge.crossesStage ? ' cross' : ''}`}
+                          className={`assignment-edge tone-${edge.tone}${edge.active ? ' active' : ''}${edge.crossesStage ? ' cross' : ''}${edge.feedback ? ' feedback' : ''}`}
+                          data-condition={edge.condition ?? undefined}
                         />
                       ))}
                     </svg>
@@ -903,7 +904,7 @@ export function WorkflowCanvasPage({ control }: { control: ConsoleControl }) {
                     <>
                       <p>{t('canvas.gate.assignmentDetail', { employee: gateEmployee.name, step: gateStep.name })}</p>
                       <div className="assignment-assignee-card gate-card">
-                        <span className="assignment-avatar" data-kind={gateEmployee.kind}>{initialsOf(gateEmployee.name)}</span>
+                        <AgentAvatar name={gateEmployee.name} positionId={gateEmployee.positionId} positionTitle={gateEmployee.positionTitle} capabilities={gateEmployee.capabilities} kind={gateEmployee.kind} status={gateEmployee.status === 'on_leave' ? 'paused' : 'idle'} />
                         <div>
                           <b>{gateEmployee.name}</b>
                           <small>{gateEmployee.positionTitle}{gateEmployee.departmentName === undefined || gateEmployee.departmentName === '' ? '' : ` · ${gateEmployee.departmentName}`}</small>
@@ -989,7 +990,7 @@ export function WorkflowCanvasPage({ control }: { control: ConsoleControl }) {
                       <p className="assignment-unassigned">{t('canvas.unresolved')}</p>
                     ) : (
                       <div className="assignment-assignee-card">
-                        <span className="assignment-avatar" data-kind={activeEmployee.kind}>{initialsOf(activeEmployee.name)}</span>
+                        <AgentAvatar name={activeEmployee.name} positionId={activeEmployee.positionId} positionTitle={activeEmployee.positionTitle} capabilities={activeEmployee.capabilities} kind={activeEmployee.kind} status={activeEmployee.status === 'on_leave' ? 'paused' : 'idle'} />
                         <div>
                           <b>{activeEmployee.name}</b>
                           <small>{activeEmployee.positionTitle}</small>
@@ -1046,7 +1047,7 @@ export function WorkflowCanvasPage({ control }: { control: ConsoleControl }) {
                       disabled={commitDisabled}
                       onClick={() => setReviewing(true)}
                     >
-                      {selected.draft ? t('canvas.confirmDraft', { count: stagedCount }) : t('canvas.review', { count: stagedCount })}
+                      {selected.planned ? t('canvas.openPlanCanvas') : selected.draft ? t('canvas.confirmDraft', { count: stagedCount }) : t('canvas.review', { count: stagedCount })}
                     </button>
                     <button type="button" className="ghost" disabled={stagedCount === 0} onClick={reset}>
                       {t('canvas.discard')}
@@ -1076,7 +1077,7 @@ export function WorkflowCanvasPage({ control }: { control: ConsoleControl }) {
               disabled={commitDisabled}
               onClick={() => setReviewing(true)}
             >
-              {selected.draft ? t('canvas.confirmDraft', { count: stagedCount }) : t('canvas.review', { count: stagedCount })}
+              {selected.planned ? t('canvas.openPlanCanvas') : selected.draft ? t('canvas.confirmDraft', { count: stagedCount }) : t('canvas.review', { count: stagedCount })}
             </button>
             <button type="button" className="ghost assignment-reset" disabled={stagedCount === 0} onClick={reset}>
               {t('canvas.discard')}
@@ -1119,12 +1120,12 @@ export function WorkflowCanvasPage({ control }: { control: ConsoleControl }) {
                   return (
                     <div className="assignment-diff-row" key={stepId}>
                       <div className="assignment-diff-person">
-                        <span className="assignment-avatar small">{from === null ? '?' : initialsOf(from.name)}</span>
+                        <AgentAvatar name={from?.name} positionId={from?.positionId} positionTitle={from?.positionTitle} capabilities={from?.capabilities} kind={from?.kind} status={from === null ? 'vacant' : 'idle'} size="xs" />
                         <span><b>{step?.name ?? stepId}</b><small>{t('canvas.from', { name: from?.name ?? t('canvas.unresolved') })}</small></span>
                       </div>
                       <span className="assignment-diff-arrow">→</span>
                       <div className="assignment-diff-person">
-                        <span className="assignment-avatar small" data-kind={to?.kind}>{to === null ? '?' : initialsOf(to.name)}</span>
+                        <AgentAvatar name={to?.name} positionId={to?.positionId} positionTitle={to?.positionTitle} capabilities={to?.capabilities} kind={to?.kind} status={to === null ? 'vacant' : 'idle'} size="xs" />
                         <span><b>{to?.name ?? employeeId}</b><small>{to?.positionTitle ?? ''}</small></span>
                       </div>
                       {warned && <p className="assignment-diff-warning">{t('canvas.sodWarningDetail', { employee: to?.name ?? employeeId })}</p>}
@@ -1148,9 +1149,11 @@ export function WorkflowCanvasPage({ control }: { control: ConsoleControl }) {
               <button type="button" className="primary" disabled={submitting} onClick={() => void commitChanges()}>
                 {submitting
                   ? t('common.submitting')
-                  : selected.draft
-                    ? t('canvas.confirmDraft', { count: stagedCount })
-                    : t('canvas.confirm', { count: stagedCount })}
+                  : selected.planned
+                    ? t('canvas.openPlanCanvas')
+                    : selected.draft
+                      ? t('canvas.confirmDraft', { count: stagedCount })
+                      : t('canvas.confirm', { count: stagedCount })}
               </button>
               <button type="button" className="ghost" onClick={() => setReviewing(false)}>{t('common.cancel')}</button>
             </div>

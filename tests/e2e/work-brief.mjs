@@ -322,7 +322,7 @@ async function main() {
   const apiEventLog = path.join(profile, 'events.jsonl');
   const api = spawn(process.execPath, ['apps/api/dist/index.js'], {
     cwd: ROOT,
-    env: { ...process.env, PORT: String(API_PORT), MAOEH_EVENT_LOG: apiEventLog, MAOEH_OWNERSHIP: 'memory' },
+    env: { ...process.env, PORT: String(API_PORT), MAOEH_EVENT_LOG: apiEventLog, MAOEH_OWNERSHIP: 'memory', MAOEH_REQUIRE_PLAN_CONFIRMATION: '0' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   const preview = spawn(

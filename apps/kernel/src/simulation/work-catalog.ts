@@ -5,16 +5,15 @@ import type { AuthzService } from '@maoeh/permission-system';
 import { resourceRef } from '@maoeh/permission-system';
 import type { TaskService } from '@maoeh/task-system';
 import { isTerminalStatus } from '@maoeh/task-system';
-import type {
-  WorkflowDefinitionStore,
-  WorkflowInstanceStore,
-} from '@maoeh/workflow-engine';
+import { isGeneratedWorkflowId, type WorkflowDefinitionStore, type WorkflowInstanceStore } from '@maoeh/workflow-engine';
 
 function workflowSummaries(
   definitions: WorkflowDefinitionStore,
 ): WorkCatalogView['workflows'] {
+  // Generated graphs are per-instance derivations, not templates: reusing one would overwrite
+  // the new brief's title, goal and routing with the instance that generated it.
   return Object.freeze(
-    definitions.all().map((definition) => {
+    definitions.all().filter((definition) => !isGeneratedWorkflowId(definition.workflowId)).map((definition) => {
       const steps = definition.stages.flatMap((stage) => stage.steps);
       return Object.freeze({
         workflowId: definition.workflowId,

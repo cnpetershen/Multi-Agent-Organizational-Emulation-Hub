@@ -9,6 +9,9 @@ import type {
   CreateChannelInput,
   CreateChannelResult,
   DeliverMessageInput,
+  MarkMessageProcessedInput,
+  MarkMessageProcessedResult,
+  MessageProcessingRecord,
   ReadMessageInput,
   ReadMessageResult,
   ResolveRecipientsInput,
@@ -28,8 +31,11 @@ import { createDeliveryRecord } from './delivery/delivery.js';
 import type { DeliveryRecord } from './delivery/delivery.js';
 import {
   COMMUNICATION_CHANNEL_OPENED,
+  COMMUNICATION_MESSAGE_PROCESSED,
   COMMUNICATION_MESSAGE_SENT,
+  isMessageProcessedEvent,
   isMessageSentEvent,
+  messageProcessedPayloadSchema,
   messageSentPayloadSchema,
   registerCommunicationEvents,
 } from './events/communication-events.js';
@@ -64,11 +70,23 @@ export interface CommunicationService {
   readMessage(input: ReadMessageInput): Result<ReadMessageResult, CommunicationFailure>;
   deliverMessage(input: DeliverMessageInput): Result<DeliveryResult, CommunicationFailure>;
   deliverFromEvent(event: OrgEvent): Result<readonly DeliveryResult[], CommunicationFailure>;
+  /**
+   * M3.1: close the lifecycle for one recipient. Emits `Communication.MessageProcessed` once;
+   * a repeated call for the same (messageId, recipient) and the same outcome is a no-op.
+   */
+  markProcessed(
+    input: MarkMessageProcessedInput,
+  ): Result<MarkMessageProcessedResult | null, CommunicationFailure>;
+  /** Recovery projection: rebuild the message store from `Communication.MessageSent`. */
+  restoreMessage(event: OrgEvent): Result<Message, CommunicationFailure>;
+  /** Recovery projection: rebuild delivery + processing state from the log (no new events). */
+  restoreProcessing(event: OrgEvent): void;
   getChannel(channelId: string): Channel | null;
   getChannels(): readonly Channel[];
   getMessage(messageId: string): Message | null;
   getMessages(): readonly Message[];
   getDeliveries(): readonly DeliveryRecord[];
+  getProcessing(): readonly MessageProcessingRecord[];
 }
 
 function eventFailure(failureValue: EventContractFailure): CommunicationFailure {
@@ -90,6 +108,14 @@ export function createCommunicationService(
   const nextMessageId = options?.messageIdGenerator ?? (() => `msg-${++messageCounter}`);
   const nextChannelId = options?.channelIdGenerator ?? (() => `chan-${++channelCounter}`);
   const nextEventId = options?.eventIdGenerator ?? (() => `evt-${++eventCounter}`);
+
+  /**
+   * The `MessageSent` event behind each message, kept so a deduplicated send can hand back the
+   * original fact instead of minting a second one. Rebuilt from the log during recovery
+   * (`restoreMessage`), so a restarted kernel deduplicates against history it did not witness.
+   */
+  const sentEvents = new Map<string, OrgEvent>();
+  const processing = new Map<string, MessageProcessingRecord>();
 
   const openChannel = (
     input: CreateChannelInput,
@@ -213,6 +239,36 @@ export function createCommunicationService(
     const authorized = authorizeCommunication(deps, input);
     if (!authorized.ok) return authorized;
 
+    // Idempotency (M3.1): the same sender + dedupeKey is the same message. Returning the
+    // original fact makes a retried turn succeed without a second send on the log, a second
+    // delivery to the recipient, or a second wakeup.
+    if (input.dedupeKey !== undefined) {
+      const existing = deps.messages
+        .all()
+        .find(
+          (message) =>
+            message.dedupeKey === input.dedupeKey &&
+            String(message.senderEmployeeId) === String(input.senderEmployeeId),
+        );
+      if (existing !== undefined) {
+        const original = sentEvents.get(existing.messageId);
+        if (original === undefined) {
+          return {
+            ok: false,
+            error: failure(
+              'unknown_message',
+              'dedupeKey',
+              `message "${existing.messageId}" was restored without its send event`,
+            ),
+          };
+        }
+        return {
+          ok: true,
+          value: { message: existing, event: original, duplicate: true },
+        };
+      }
+    }
+
     const message = createMessage({
       messageId: nextMessageId(),
       channelId: input.channelId,
@@ -228,6 +284,7 @@ export function createCommunicationService(
       ...(input.replyToMessageId !== undefined
         ? { replyToMessageId: input.replyToMessageId }
         : {}),
+      ...(input.dedupeKey === undefined ? {} : { dedupeKey: input.dedupeKey }),
     });
 
     const sent = createOrgEvent(deps.registry, {
@@ -249,13 +306,15 @@ export function createCommunicationService(
         subject: message.subject,
         body: message.body,
         messageType: message.messageType,
+        ...(message.dedupeKey === undefined ? {} : { dedupeKey: message.dedupeKey }),
       },
       eventId: nextEventId(),
     });
     if (!sent.ok) return { ok: false, error: eventFailure(sent.error) };
 
     deps.messages.save(message);
-    return { ok: true, value: { message, event: sent.value } };
+    sentEvents.set(message.messageId, sent.value);
+    return { ok: true, value: { message, event: sent.value, duplicate: false } };
   };
 
   const read = (input: ReadMessageInput): Result<ReadMessageResult, CommunicationFailure> =>
@@ -390,6 +449,131 @@ export function createCommunicationService(
     return { ok: true, value: Object.freeze(results) };
   };
 
+  /**
+   * M3.1: the recipient consumed the message. One fact per (message, recipient): a later
+   * `failed` can be upgraded by a `handled`, but the same outcome is never recorded twice, so a
+   * retried turn cannot flood the log with "processed" noise.
+   */
+  const markProcessed = (
+    input: MarkMessageProcessedInput,
+  ): Result<MarkMessageProcessedResult | null, CommunicationFailure> => {
+    const message = deps.messages.get(input.messageId);
+    if (message === null) {
+      return {
+        ok: false,
+        error: failure(
+          'unknown_message',
+          'messageId',
+          `message "${input.messageId}" does not exist`,
+        ),
+      };
+    }
+    if (!message.recipientIds.includes(input.recipientId)) {
+      return {
+        ok: false,
+        error: failure(
+          'not_message_recipient',
+          'recipientId',
+          `employee "${String(input.recipientId)}" is not a recipient of message "${message.messageId}"`,
+        ),
+      };
+    }
+    const key = `${message.messageId} ${String(input.recipientId)}`;
+    const existing = processing.get(key);
+    if (
+      existing !== undefined &&
+      (existing.outcome === 'handled' || existing.outcome === input.outcome)
+    ) {
+      return { ok: true, value: null };
+    }
+
+    const created = createOrgEvent(deps.registry, {
+      companyId: deps.companyId,
+      type: COMMUNICATION_MESSAGE_PROCESSED,
+      occurredAtSim: input.simTime,
+      actorKind: 'employee',
+      actorId: String(input.recipientId),
+      subjectType: 'message',
+      subjectId: message.messageId,
+      correlationId: input.correlationId,
+      causationId: input.causationId ?? null,
+      traceId: input.traceId ?? null,
+      payload: {
+        messageId: message.messageId,
+        channelId: message.channelId,
+        recipientId: String(input.recipientId),
+        outcome: input.outcome,
+      },
+      eventId: nextEventId(),
+    });
+    if (!created.ok) return { ok: false, error: eventFailure(created.error) };
+
+    const record: MessageProcessingRecord = Object.freeze({
+      messageId: message.messageId,
+      channelId: message.channelId,
+      recipientId: input.recipientId,
+      outcome: input.outcome,
+      processedAtSim: input.simTime,
+      sourceEventId: created.value.eventId,
+    });
+    processing.set(key, record);
+    return { ok: true, value: { processing: record, event: created.value } };
+  };
+
+  /**
+   * Recovery projection (M3.1): the in-memory message store is derived state, exactly like
+   * channels and delivery records. Without this a restarted kernel remembered no message at all,
+   * so a delivered-but-unprocessed message could never be traced or deduplicated.
+   */
+  const restoreMessage = (event: OrgEvent): Result<Message, CommunicationFailure> => {
+    if (!isMessageSentEvent(event.type)) {
+      return {
+        ok: false,
+        error: failure(
+          'invalid_message',
+          'event.type',
+          `expected "${COMMUNICATION_MESSAGE_SENT}" but got "${event.type}"`,
+        ),
+      };
+    }
+    const payload = messageSentPayloadSchema.safeParse(event.payload);
+    if (!payload.success) {
+      return { ok: false, error: communicationFailure('invalid_message', zodIssues(payload.error)) };
+    }
+    const message = createMessage({
+      messageId: payload.data.messageId,
+      channelId: payload.data.channelId,
+      senderEmployeeId: payload.data.senderId as EmployeeId,
+      recipientIds: payload.data.recipientIds as readonly string[] as readonly EmployeeId[],
+      subject: payload.data.subject,
+      body: payload.data.body,
+      messageType: payload.data.messageType,
+      createdAtSim: event.occurredAtSim,
+      correlationId: event.correlationId as never,
+      causationId: event.causationId,
+      traceId: event.traceId,
+      ...(payload.data.dedupeKey === undefined ? {} : { dedupeKey: payload.data.dedupeKey }),
+    });
+    if (!deps.messages.has(message.messageId)) deps.messages.save(message);
+    sentEvents.set(message.messageId, event);
+    return { ok: true, value: message };
+  };
+
+  const restoreProcessing = (event: OrgEvent): void => {
+    if (!isMessageProcessedEvent(event.type)) return;
+    const payload = messageProcessedPayloadSchema.safeParse(event.payload);
+    if (!payload.success) return;
+    const record: MessageProcessingRecord = Object.freeze({
+      messageId: payload.data.messageId,
+      channelId: payload.data.channelId,
+      recipientId: payload.data.recipientId as EmployeeId,
+      outcome: payload.data.outcome,
+      processedAtSim: event.occurredAtSim,
+      sourceEventId: event.eventId,
+    });
+    processing.set(`${record.messageId} ${String(record.recipientId)}`, record);
+  };
+
   return {
     createChannel: openChannel,
     authorizeCommunication: authorizeSend,
@@ -398,6 +582,9 @@ export function createCommunicationService(
     readMessage: read,
     deliverMessage: deliver,
     deliverFromEvent: deliverFrom,
+    markProcessed,
+    restoreMessage,
+    restoreProcessing,
     getChannel(channelId) {
       return deps.channels.get(channelId);
     },
@@ -412,6 +599,9 @@ export function createCommunicationService(
     },
     getDeliveries() {
       return deps.deliveries.all();
+    },
+    getProcessing() {
+      return Object.freeze([...processing.values()]);
     },
   };
 }

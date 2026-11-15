@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { Result } from '@maoeh/shared-types';
 import type { EventContractFailure, EventRegistry } from '@maoeh/event-system';
-import { TASK_STATUSES, TASK_VERIFICATION_KINDS } from './task-types.js';
+import { TASK_HANDOFF_OUTCOMES, TASK_STATUSES, TASK_VERIFICATION_KINDS } from './task-types.js';
 
 export const TASK_CREATED = 'Task.Created';
 export const TASK_ASSIGNED = 'Task.Assigned';
@@ -13,6 +13,16 @@ export const TASK_COMPLETED = 'Task.Completed';
 export const TASK_REJECTED = 'Task.Rejected';
 export const TASK_FAILED = 'Task.Failed';
 export const TASK_CANCELLED = 'Task.Cancelled';
+/**
+ * M3.1 collaboration handoff (see `TaskHandoff` in task-types):
+ * requested → accepted|declined → completed. The accepted hop is followed by a `Task.Assigned`
+ * caused by it, which is what actually moves the executor; the handoff events carry the chain's
+ * identity so "who asked whom, who took it, and how did it end" is readable from the log alone.
+ */
+export const TASK_HANDOFF_REQUESTED = 'Task.HandoffRequested';
+export const TASK_HANDOFF_ACCEPTED = 'Task.HandoffAccepted';
+export const TASK_HANDOFF_DECLINED = 'Task.HandoffDeclined';
+export const TASK_HANDOFF_COMPLETED = 'Task.HandoffCompleted';
 /**
  * The record leaves the organization, not just the run: the fold turns the stream back into
  * `null`, so a replay rebuilds nothing and the console's counts fall by one. Cancellation is
@@ -31,6 +41,10 @@ export const TASK_EVENT_TYPES = [
   TASK_REJECTED,
   TASK_FAILED,
   TASK_CANCELLED,
+  TASK_HANDOFF_REQUESTED,
+  TASK_HANDOFF_ACCEPTED,
+  TASK_HANDOFF_DECLINED,
+  TASK_HANDOFF_COMPLETED,
   TASK_DELETED,
 ] as const;
 
@@ -181,6 +195,61 @@ export const taskCancelledPayloadSchema = z.object({
   from: z.enum(TASK_STATUSES),
 });
 
+const handoffIdSchema = z.string().min(1).max(64);
+const handoffReasonSchema = z.string().min(1).max(500);
+
+/**
+ * The request restates the work on the event that wakes the receiver, for the same reason
+ * `Task.Assigned` does: the cognition prompt carries the input event and the org slice, so
+ * without the title / goal / output keys the receiver could not shape the delivery it is asked
+ * to take over.
+ */
+export const taskHandoffRequestedPayloadSchema = z.object({
+  handoffId: handoffIdSchema,
+  taskId: idSchema,
+  fromEmployeeId: idSchema,
+  toEmployeeId: idSchema,
+  fromStatus: z.enum(TASK_STATUSES),
+  reason: handoffReasonSchema,
+  note: z.string().max(2000).nullable(),
+  title: z.string().min(1).max(200).optional(),
+  goal: z.string().min(1).max(2000).optional(),
+  requiredOutputKeys: z.array(z.string().min(1)).optional(),
+  capability: z.string().min(1).max(64).optional(),
+});
+
+export const taskHandoffAcceptedPayloadSchema = z.object({
+  handoffId: handoffIdSchema,
+  taskId: idSchema,
+  fromEmployeeId: idSchema,
+  toEmployeeId: idSchema,
+  previousStatus: z.enum(TASK_STATUSES),
+});
+
+export const taskHandoffDeclinedPayloadSchema = z.object({
+  handoffId: handoffIdSchema,
+  taskId: idSchema,
+  fromEmployeeId: idSchema,
+  toEmployeeId: idSchema,
+  reason: handoffReasonSchema,
+});
+
+/**
+ * The handoff's result. `resultSummary` is the delivered work's own summary when the task was
+ * completed; `summary` explains the settlement itself (who did what, or why the chain closed
+ * without a delivery). Both are optional content, never ids — the ids are the payload fields.
+ */
+export const taskHandoffCompletedPayloadSchema = z.object({
+  handoffId: handoffIdSchema,
+  taskId: idSchema,
+  fromEmployeeId: idSchema,
+  toEmployeeId: idSchema,
+  outcome: z.enum(TASK_HANDOFF_OUTCOMES),
+  summary: z.string().min(1).max(2000).nullable(),
+  resultSummary: z.string().min(1).max(2000).nullable(),
+  artifactCount: z.number().int().min(0),
+});
+
 /**
  * Deliberately carries no `employeeId`: a deletion must not wake the assignee, it only has to
  * explain to the log why the record is gone.
@@ -201,6 +270,10 @@ export type TaskCompletedPayload = z.infer<typeof taskCompletedPayloadSchema>;
 export type TaskRejectedPayload = z.infer<typeof taskRejectedPayloadSchema>;
 export type TaskFailedPayload = z.infer<typeof taskFailedPayloadSchema>;
 export type TaskCancelledPayload = z.infer<typeof taskCancelledPayloadSchema>;
+export type TaskHandoffRequestedPayload = z.infer<typeof taskHandoffRequestedPayloadSchema>;
+export type TaskHandoffAcceptedPayload = z.infer<typeof taskHandoffAcceptedPayloadSchema>;
+export type TaskHandoffDeclinedPayload = z.infer<typeof taskHandoffDeclinedPayloadSchema>;
+export type TaskHandoffCompletedPayload = z.infer<typeof taskHandoffCompletedPayloadSchema>;
 export type TaskDeletedPayload = z.infer<typeof taskDeletedPayloadSchema>;
 
 function registerOnce(
@@ -226,6 +299,10 @@ export function registerTaskEvents(
     [TASK_REJECTED, taskRejectedPayloadSchema],
     [TASK_FAILED, taskFailedPayloadSchema],
     [TASK_CANCELLED, taskCancelledPayloadSchema],
+    [TASK_HANDOFF_REQUESTED, taskHandoffRequestedPayloadSchema],
+    [TASK_HANDOFF_ACCEPTED, taskHandoffAcceptedPayloadSchema],
+    [TASK_HANDOFF_DECLINED, taskHandoffDeclinedPayloadSchema],
+    [TASK_HANDOFF_COMPLETED, taskHandoffCompletedPayloadSchema],
     [TASK_DELETED, taskDeletedPayloadSchema],
   ];
   for (const [type, schema] of registrations) {

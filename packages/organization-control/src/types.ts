@@ -1,7 +1,7 @@
 import type { AuthorityLevel, DecisionDomain, EmployeeId, SimTime } from '@maoeh/shared-types';
 import type { CommandActor } from '@maoeh/permission-system';
 import type { Task, TaskFailure } from '@maoeh/task-system';
-import type { WorkflowFailure, WorkflowInstance } from '@maoeh/workflow-engine';
+import type { WorkflowDefinition, WorkflowFailure, WorkflowInstance } from '@maoeh/workflow-engine';
 import type { StateVersionConflict } from '@maoeh/runtime-state';
 
 import type { AgentLifecycleStatus } from './agent-lifecycle.js';
@@ -64,6 +64,8 @@ export const CONTROL_COMMAND_TYPES = [
   'Organization.InjectTask',
   'Organization.InjectEvent',
   'Work.SubmitBrief',
+  'Workflow.InstanceAssignmentOverride',
+  'Workflow.ConfirmStart',
 ] as const;
 
 export type ControlCommandType = (typeof CONTROL_COMMAND_TYPES)[number];
@@ -237,6 +239,28 @@ export interface TaskAssignToAgentCommand extends ControlCommandBase {
   readonly agentId?: string;
 }
 
+/**
+ * M1.8 — per-instance, whole-batch executor override for not-yet-entered task steps.
+ *
+ * Either every entry is accepted (one `Control.WorkflowInstanceAssignmentOverridden` event,
+ * one `Workflow.StepAssignmentOverridden` fact per real change) or the command is rejected
+ * with no events at all. Written to the instance's event stream only; the workflow
+ * definition and every other instance are untouched.
+ */
+export interface WorkflowInstanceAssignmentOverrideCommand extends ControlCommandBase {
+  readonly commandType: 'Workflow.InstanceAssignmentOverride';
+  readonly overrides: readonly {
+    readonly stepId: string;
+    readonly employeeId: string;
+    readonly reason?: string | null;
+  }[];
+}
+
+/** M1.9 — confirm a draft instance on the orchestration canvas; the engine enters the entry stage. */
+export interface WorkflowConfirmStartCommand extends ControlCommandBase {
+  readonly commandType: 'Workflow.ConfirmStart';
+}
+
 export interface TaskRequestReviewCommand extends ControlCommandBase {
   readonly commandType: 'Task.RequestReview';
 }
@@ -280,6 +304,12 @@ export interface WorkBriefSpec {
   readonly context?: string | null;
   /** Q3: verification is mandatory — an unverifiable brief cannot be met. */
   readonly verificationKeys: readonly string[];
+  /**
+   * M2: where the brief came from, when it was produced from a 赛博沙盘 session. It is the
+   * duplicate guard (one session → one brief) and the audit link back to the discussion; a
+   * hand-written brief leaves it out.
+   */
+  readonly sourceSessionId?: string | null;
   /** Urgency 1 (highest) … 9 (lowest); absent = the org's default priority. */
   readonly priority?: number | null;
   /** Deadline in simulation time; absent = no deadline stated. */
@@ -310,6 +340,8 @@ export type ControlCommand =
   | WorkflowApproveCommand
   | WorkflowRejectCommand
   | WorkflowDeleteCommand
+  | WorkflowInstanceAssignmentOverrideCommand
+  | WorkflowConfirmStartCommand
   | TaskCancelCommand
   | TaskReassignCommand
   | TaskAssignToAgentCommand
@@ -339,6 +371,8 @@ export const CONTROL_ACTION_BY_COMMAND: Readonly<Record<ControlCommandType, stri
     'Workflow.Approve': 'ControlWorkflow',
     'Workflow.Reject': 'ControlWorkflow',
     'Workflow.Delete': 'ControlWorkflow',
+    'Workflow.InstanceAssignmentOverride': 'ControlWorkflow',
+    'Workflow.ConfirmStart': 'ControlWorkflow',
     'Task.Cancel': 'ControlTask',
     'Task.Reassign': 'ControlTask',
     'Task.AssignToAgent': 'ControlTask',
@@ -373,6 +407,8 @@ export const CONTROL_DOMAIN_BY_COMMAND: Readonly<Record<ControlCommandType, Deci
     'Workflow.Reject': 'ops',
     // Removal is an operational act on running work, exactly like the cancel beside it.
     'Workflow.Delete': 'ops',
+    'Workflow.InstanceAssignmentOverride': 'ops',
+    'Workflow.ConfirmStart': 'ops',
     'Task.Cancel': 'ops',
     'Task.Reassign': 'ops',
     'Task.AssignToAgent': 'ops',
@@ -598,6 +634,12 @@ export interface WorkflowSummary {
   readonly startedAtSim: number;
   readonly completedAtSim: number | null;
   readonly eventCount: number;
+  /** M3.4: a draft created by the planning sandbox/orchestrator, not a generic canvas draft. */
+  readonly planned?: boolean;
+  /** The M3.3 orchestration this instance came from, when planned. */
+  readonly planningOrchestrationId?: string | null;
+  /** M3.6: this instance is an execution of a confirmed plan; its approval belongs to the M3.6 workbench. */
+  readonly executionPlan?: boolean;
   readonly approval: {
     readonly stepId: string;
     readonly status: string;
@@ -615,6 +657,65 @@ export interface WorkflowView extends WorkflowSummary {
     readonly status: string;
     readonly taskId: string | null;
   }[];
+  /**
+   * M1.8: the definition's steps projected for the canvas (stage order, assignment verbatim,
+   * required roles/authority, live holder of the seat, folded override when any). Absent when
+   * the control port cannot resolve the definition — clients must tolerate its absence.
+   */
+  readonly steps?: readonly WorkflowCanvasStepView[];
+  /**
+   * M2: the definition's transitions, so a canvas can draw what the engine will actually do
+   * (branches, failure paths, approval decisions) instead of inferring order from step spacing.
+   * Optional for the same reason `steps` is: a port that cannot resolve the definition omits it.
+   */
+  readonly transitions?: readonly WorkflowTransitionView[];
+  /**
+   * M1.9: the instance is a draft — plan stored but nothing entered — until a human confirms
+   * on the canvas. Always present so clients can sort/hide accordingly.
+   */
+  readonly draft?: boolean;
+  /** M1.8: per-instance executor overrides folded from `Workflow.StepAssignmentOverridden`. */
+  readonly assignmentOverrides?: Readonly<Record<string, string>>;
+}
+
+/** M2: one transition of a definition, projected for the canvas. */
+export interface WorkflowTransitionView {
+  readonly transitionId: string;
+  readonly fromStepId: string;
+  /** `always` / `task_status` (with `status`) / `approval_decision` (with `decision`). */
+  readonly when: {
+    readonly kind: string;
+    readonly status?: string;
+    readonly decision?: string;
+  };
+  /** `step` / `stage` / `complete` / `fail`; step/stage ids are filled for their own kinds. */
+  readonly to: {
+    readonly kind: string;
+    readonly stepId?: string | null;
+    readonly stageId?: string;
+    readonly reason?: string | null;
+  };
+}
+
+/** M1.8: one step of a definition as the canvas needs it. */
+export interface WorkflowCanvasStepView {
+  readonly stepId: string;
+  readonly stageId: string;
+  readonly stageName: string;
+  readonly name: string;
+  readonly description: string | null;
+  readonly kind: string;
+  readonly status: string;
+  readonly taskId: string | null;
+  /** Known before activation: folded override, else definition employee pin, else live resolution. */
+  readonly assigneeEmployeeId: string | null;
+  readonly assigneePositionId: string | null;
+  readonly capability: string | null;
+  readonly assignment: unknown;
+  readonly requiredRoles: readonly string[];
+  readonly requiredAuthority: { readonly domain: string; readonly level: number } | null;
+  /** M1.8: true when the displayed assignee comes from an override rather than resolution. */
+  readonly overridden: boolean;
 }
 
 export interface TaskSummary {
@@ -703,6 +804,8 @@ export interface WorkBriefView {
   readonly title: string;
   readonly goal: string;
   readonly context: string | null;
+  /** The sandbox session this brief was generated from, when it was. */
+  readonly sourceSessionId: string | null;
   readonly verificationKeys: readonly string[];
   readonly priority: number | null;
   readonly dueAtSim: number | null;
@@ -972,5 +1075,24 @@ export interface ControlSimulationPort {
   task(taskId: string): Task | null;
   workflows(): readonly WorkflowInstance[];
   workflow(instanceId: string): WorkflowInstance | null;
+  /**
+   * M3.1 (optional): the delivery ledger behind `Communication.MessageSent`.
+   *
+   * Being handed to a recipient's inbox is a runtime fact, not a domain state change, so it is not
+   * an event. The collaboration read model takes it from here when the runtime exposes it and
+   * otherwise reports the message as "sent, delivery not observed" — it never invents a delivery.
+   */
+  messageDeliveries?(): readonly {
+    readonly messageId: string;
+    readonly recipientId: string;
+    readonly channelId: string;
+    readonly deliveredAtSim: number;
+    readonly sourceEventId?: string;
+  }[];
+  /**
+   * Optional (M1.8): the workflow definition behind an instance, used by the canvas
+   * projection. Implementations may omit it; consumers must handle its absence.
+   */
+  workflowDefinition?(workflowId: string): WorkflowDefinition | null;
   tickDuration: number;
 }

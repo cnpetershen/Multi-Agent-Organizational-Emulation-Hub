@@ -7,6 +7,7 @@ import type {
   CognitionAgentRef,
   CognitionContext,
   CognitionStateView,
+  CommunicationView,
   OrganizationSnapshotView,
   WorkCatalogView,
 } from './cognition-context.js';
@@ -21,6 +22,7 @@ export interface BuildCognitionContextInput {
   readonly simTime: SimTime;
   readonly profile: CognitionProfile | undefined;
   readonly workCatalog?: WorkCatalogView;
+  readonly communication?: CommunicationView;
   readonly memoryContext?: Readonly<Record<string, unknown>>;
   readonly knowledgeContext?: Readonly<Record<string, unknown>>;
 }
@@ -116,6 +118,7 @@ export function buildCognitionContext(
     organization,
     simTime: input.simTime,
     ...(input.workCatalog === undefined ? {} : { workCatalog: input.workCatalog }),
+    ...(input.communication === undefined ? {} : { communication: input.communication }),
     ...(input.memoryContext === undefined ? {} : { memoryContext: input.memoryContext }),
     ...(input.knowledgeContext === undefined ? {} : { knowledgeContext: input.knowledgeContext }),
   };

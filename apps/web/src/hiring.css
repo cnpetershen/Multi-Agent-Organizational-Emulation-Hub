@@ -3,6 +3,8 @@
    pages keep one visual language; only the hiring-specific rows get their own rules. */
 
 .hiring-card{border-left:3px solid var(--border-strong)}
+.hiring-card .hiring-card-head{display:flex;align-items:center;gap:10px;min-width:0}
+.hiring-card .hiring-card-head>div{display:grid;gap:5px;min-width:0}
 .hiring-card.hiring-pending{border-left-color:var(--amber)}
 .hiring-card.hiring-approved{border-left-color:var(--green)}
 .hiring-card.hiring-rejected{border-left-color:var(--red)}

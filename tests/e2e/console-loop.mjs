@@ -43,7 +43,7 @@ function check(condition, message) {
 
 /**
  * Windows reserves dynamic port ranges (Hyper-V) that move between reboots, and a reserved
- * range makes `listen` fail with EACCES rather than EADDRINUSE — so the preview port is probed
+ * range makes `listen` fail with EACCES rather than EADDRINUSE —so the preview port is probed
  * instead of assumed: the preferred 4173 first, then outward until one the OS will hand over.
  */
 async function pickBindablePort(preferred) {
@@ -60,7 +60,7 @@ async function pickBindablePort(preferred) {
 }
 
 const WEB_PORT = await pickBindablePort(4173);
-if (WEB_PORT !== 4173) log(`[setup] preview port 4173 is reserved by the OS — using ${String(WEB_PORT)}`);
+if (WEB_PORT !== 4173) log(`[setup] preview port 4173 is reserved by the OS —using ${String(WEB_PORT)}`);
 const CONSOLE_URL = `http://127.0.0.1:${String(WEB_PORT)}/`;
 
 async function waitForHttp(url, label, timeoutMs = 40_000) {
@@ -88,14 +88,14 @@ function findChrome() {
     '/usr/bin/chromium',
   ].filter((candidate) => typeof candidate === 'string' && candidate !== '');
   const found = candidates.find((candidate) => existsSync(candidate));
-  if (found === undefined) fail('Chrome not found — set CHROME_PATH to a Chrome binary');
+  if (found === undefined) fail('Chrome not found —set CHROME_PATH to a Chrome binary');
   return found;
 }
 
 /**
  * Reclaim this script's own ports. A run that was killed before it could clean up leaves
  * an orphaned preview or Chrome behind, and the next run would silently talk to the stale
- * one — so the ports are taken back explicitly instead of being "already in use".
+ * one —so the ports are taken back explicitly instead of being "already in use".
  */
 async function ensurePortFree(port) {
   const { stdout } = await new Promise((resolve) => {
@@ -269,8 +269,8 @@ const INSTALL_ERROR_WATCH = `
   return true;
 })()`;
 
-/** The nine destinations every operator page must render from the real snapshot. */
-const PAGES = ['Overview', 'Agents', 'Deliverables', 'Tasks', 'Workflows', 'Approvals', 'Communications', 'Runtime', 'Events'];
+/** The eleven destinations every operator page must render from the real snapshot. */
+const PAGES = ['Overview', 'Network', 'Agents', 'Deliverables', 'Tasks', 'Workflows', 'Canvas', 'Approvals', 'Communications', 'Runtime', 'Events'];
 
 const FILL = `
 (() => {
@@ -412,10 +412,18 @@ async function main() {
   const apiEventLog = path.join(profile, 'events.jsonl');
   const api = spawn(process.execPath, ['apps/api/dist/index.js'], {
     cwd: ROOT,
-    env: { ...process.env, PORT: String(API_PORT), MAOEH_EVENT_LOG: apiEventLog, MAOEH_OWNERSHIP: 'memory' },
+    env: {
+      ...process.env,
+      PORT: String(API_PORT),
+      MAOEH_EVENT_LOG: apiEventLog,
+      MAOEH_OWNERSHIP: 'memory',
+      // This harness drives the pre-M1.9 autonomous loop; the draft-confirm path is exercised
+      // by the Canvas UI and `tests/integration/draft-confirm.test.ts`.
+      MAOEH_REQUIRE_PLAN_CONFIRMATION: '0',
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
-  // vite runs the production bundle in front of a proxy to the API — no extra tooling.
+  // vite runs the production bundle in front of a proxy to the API —no extra tooling.
   const preview = spawn(
     process.execPath,
     ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', String(WEB_PORT), '--strictPort'],
@@ -500,7 +508,7 @@ async function main() {
     await cdp.send('Page.reload', { ignoreCache: true });
 
     log('[1] loading the console');
-    // M1.5: a fresh profile lands on the company gate — capture it, then sign in to the lab.
+    // M1.5: a fresh profile lands on the company gate —capture it, then sign in to the lab.
     await cdp.waitFor(
       `document.querySelector('[data-testid="foundry-signin"]') !== null`,
       'the Create Your AI Company gate',
@@ -510,11 +518,11 @@ async function main() {
     log(`[1b] company gate screenshot: ${gateShot}`);
     await enterConsole(cdp);
     await cdp.waitFor(
-      `document.querySelector('h1')?.textContent === 'Overview' && document.querySelectorAll('nav button').length === 9`,
-      'the console shell with its nine nav destinations',
+      `document.querySelector('h1')?.textContent === 'Overview' && document.querySelectorAll('nav button').length === 11`,
+      'the console shell with its eleven nav destinations',
     );
     // Prove the watcher is really installed (installed before the document loads) and that it
-    // records — otherwise the "no console.error" assertions below would pass vacuously.
+    // records —otherwise the "no console.error" assertions below would pass vacuously.
     await cdp.waitFor(
       `Array.isArray(window.__pageErrors)`,
       'the error watcher to be installed before the document loads',
@@ -595,7 +603,7 @@ async function main() {
       'an open approval gate row',
     );
     await cdp.waitFor(
-      `document.querySelector('.side-foot span')?.textContent === 'HELD FOR YOU'`,
+      `document.querySelector('.side-runtime')?.textContent === 'HELD FOR YOU'`,
       'the sidebar to report the console is holding the runtime',
     );
 
@@ -606,7 +614,7 @@ async function main() {
       'the approval feedback',
     );
     await cdp.waitFor(
-      `document.querySelector('.side-foot span')?.textContent === 'LIVE'`,
+      `document.querySelector('.side-runtime')?.textContent === 'LIVE'`,
       'the runtime to be released after the decision',
     );
 
@@ -676,7 +684,7 @@ async function main() {
     log('[6g] M1.5 delivery centre: the CEO workspace opens a task delivery page');
     check(await cdp.evaluate(NAVIGATE('Deliverables')), 'the Deliverables nav button must be clickable');
     await cdp.waitFor(
-      `document.querySelectorAll('.deliverable-card').length > 0`,
+      `document.querySelectorAll('.project-card').length > 0`,
       'the deliverable workspace cards',
       30_000,
     );
@@ -685,7 +693,7 @@ async function main() {
     check(
       await cdp.evaluate(
         `(() => {
-           const cards = [...document.querySelectorAll('.deliverable-card')];
+           const cards = [...document.querySelectorAll('.project-card')];
            const card = cards.find((node) => node.textContent.includes('Completed')) ?? cards[0];
            const button = card?.querySelector('button.primary');
            if (!button || button.disabled) return false;
@@ -757,20 +765,29 @@ async function main() {
       'the back-to-workspace link must be clickable',
     );
     await cdp.waitFor(
-      `location.pathname === '/' && document.querySelectorAll('.deliverable-card').length > 0`,
+      `location.pathname === '/' && document.querySelectorAll('.project-card').length > 0`,
       'the workspace to take over from the delivery link',
       30_000,
     );
 
-    log('[7] every one of the nine pages renders from the real snapshot');
+    log('[7] every one of the eleven pages renders from the real snapshot');
     for (const page of PAGES) {
+      // Network and Canvas are canvases, not card stacks: their own surfaces are the panel the
+      // snapshot must fill.
+      const panelSelector = page === 'Network'
+        ? '.network-deck'
+        : page === 'Canvas' ? '.canvas-board' : '.panel';
       check(await cdp.evaluate(NAVIGATE(page)), `${page} nav button must be clickable`);
       await cdp.waitFor(
         `document.querySelector('h1')?.textContent === ${JSON.stringify(page)}`,
         `${page} heading`,
         30_000,
       );
-      await cdp.waitFor(`document.querySelectorAll('.panel').length > 0`, `${page} panels`, 30_000);
+      await cdp.waitFor(
+        `document.querySelectorAll(${JSON.stringify(panelSelector)}).length > 0`,
+        `${page} panels`,
+        30_000,
+      );
       // One full poll cycle: the snapshot is re-read every 2500 ms, so a contract failure on
       // the *next* refresh must be observed too, not only on the first render.
       await sleep(2_700);
@@ -778,7 +795,7 @@ async function main() {
         await cdp.evaluate(
           `JSON.stringify({
             heading: document.querySelector('h1')?.textContent ?? null,
-            panels: document.querySelectorAll('.panel').length,
+            panels: document.querySelectorAll(${JSON.stringify(panelSelector)}).length,
             failure: document.querySelector('.failure')?.textContent ?? null,
             boundary: document.querySelector('.boundary')?.textContent ?? null,
             errors: window.__pageErrors ?? [],
@@ -813,3 +830,4 @@ async function main() {
 }
 
 await main();
+

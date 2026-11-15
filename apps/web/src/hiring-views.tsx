@@ -1,5 +1,5 @@
 import { type Row } from './api';
-import { StatusPill } from './components';
+import { AgentAvatar, StatusPill } from './components';
 import { employeeName, positionTitle } from './derive';
 import type { HiringRequest, HiringStatus } from './hiring';
 import { useI18n, type MessageKey } from './i18n';
@@ -48,11 +48,14 @@ export function HiringRequestCard({
   return (
     <article className={`approval-card hiring-card hiring-${request.status}`}>
       <div className="approval-card-top">
-        <div>
-          <span className="approval-kicker">
-            {request.status === 'pending' ? t('hiring.decisionRequired') : statusText}
-          </span>
-          <h3>{role}</h3>
+        <div className="hiring-card-head">
+          <AgentAvatar positionId={request.seatId} positionTitle={role} status={request.status === 'approved' ? 'idle' : 'vacant'} size="sm" />
+          <div>
+            <span className="approval-kicker">
+              {request.status === 'pending' ? t('hiring.decisionRequired') : statusText}
+            </span>
+            <h3>{role}</h3>
+          </div>
         </div>
         <StatusPill value={STATUS_TONE[request.status]} label={statusText} />
       </div>

@@ -6,11 +6,15 @@ export type {
 export { cognitionError, cognitionIssue, mapLlmError } from './cognition-errors.js';
 
 export type {
+  AssignedTaskView,
   CapabilityOfferView,
   CapabilitySeatView,
   CognitionAgentRef,
   CognitionContext,
   CognitionStateView,
+  CommunicationChannelView,
+  CommunicationMessageView,
+  CommunicationView,
   OrgMemberView,
   OrganizationSnapshotView,
   WorkCatalogView,

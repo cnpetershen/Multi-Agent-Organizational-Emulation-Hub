@@ -7,6 +7,26 @@
 .result-back{display:flex;justify-content:flex-start}
 .result-anchor{scroll-margin-top:96px}
 
+/* M2: the in-place approval gate. It sends the same command as the Approvals page, so it reads
+   as a decision panel rather than a second inbox. */
+.result-approval-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.result-approval-head h3{margin:2px 0 0;font-size:18px}
+.result-approval-badge{border:1px solid var(--amber);border-radius:999px;padding:4px 10px;color:var(--amber);background:var(--amber-soft);font-size:10.5px;font-weight:750;letter-spacing:.08em;text-transform:uppercase}
+.result-approval-facts{display:flex;flex-wrap:wrap;gap:12px 28px;margin:12px 0;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-subtle)}
+.result-approval-facts span{display:grid;gap:2px;min-width:0}
+.result-approval-facts small{color:var(--muted);font-size:10px;font-weight:750;letter-spacing:.08em;text-transform:uppercase}
+.result-approval-facts b{color:var(--ink-soft);font-size:12.5px;font-weight:600;overflow-wrap:anywhere}
+.result-approval-reason-line{margin:0 0 12px;color:var(--ink-soft);font-size:12.5px}
+.result-approval-results{display:grid;gap:8px;margin:12px 0}
+.result-approval-task{border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:var(--surface)}
+.result-approval-task-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.result-approval-status{border:1px solid var(--border-strong);border-radius:999px;padding:2px 8px;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.result-approval-summary{margin:6px 0 2px;color:var(--ink-soft);font-size:12.5px;line-height:1.55}
+.result-approval-comment{display:grid;gap:5px;margin:10px 0}
+.result-approval-comment textarea{width:100%;border:1px solid var(--border);border-radius:7px;padding:8px 10px;font:inherit;font-size:12.5px;background:var(--surface);color:var(--ink);resize:vertical}
+.result-approval-failure{margin:8px 0;color:var(--red);font-size:12.5px}
+.result-approval-actions{margin-top:10px}
+
 /* Header: state, artifact shape and the three facts an owner checks first. */
 .result-hero{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow)}
 .result-hero-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
@@ -23,6 +43,7 @@
 /* Run preview: the delivered project itself, running above the artifact it delivered. The frame
    is a plain bordered box — and, once expanded, the whole screen. */
 .result-preview .preview-body{display:grid;gap:10px}
+.preview-open-tab{align-self:start;color:var(--blue);font-size:11.5px;font-weight:600;text-decoration:underline;text-underline-offset:2px}
 .preview-command{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin:0}
 .preview-command code{border:1px solid var(--border);border-radius:5px;background:var(--surface-subtle);padding:3px 8px;color:var(--ink-soft);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;overflow-wrap:anywhere}
 .preview-hint{font-size:12px;margin:0}
@@ -110,3 +131,7 @@
   .fact-grid,.role-grid{grid-template-columns:1fr}
   .result-actions-body{padding:14px}
 }
+
+.sandbox-hint { margin: 0 0 10px; font-size: 12px; }
+.sandbox-frame { width: 100%; height: 720px; border: 1px solid var(--border); border-radius: 8px; background: #0b1015; }
+@media (max-width: 700px) { .sandbox-frame { height: 620px; } }

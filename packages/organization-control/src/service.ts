@@ -38,6 +38,8 @@ import {
   CONTROL_WORKFLOW_APPROVAL_DECIDED,
   CONTROL_WORKFLOW_CANCELLED,
   CONTROL_WORKFLOW_DELETED,
+  CONTROL_WORKFLOW_INSTANCE_ASSIGNMENT_OVERRIDDEN,
+  CONTROL_WORKFLOW_INSTANCE_CONFIRMED,
   CONTROL_DELEGATION_DECIDED,
 } from './events.js';
 import { createControlQuery, type ControlQuery } from './query.js';
@@ -138,7 +140,18 @@ export function createControlService(options: ControlServiceOptions): ControlPla
     return Object.freeze({
       simulationPaused: projection.simulationPaused,
       pausedAgentIds: Object.freeze([...projection.pausedAgentIds]),
-      pausedWorkflowIds: Object.freeze([]),
+      // M2: a manual block is a paused workflow; an approval block is not (the gate is the
+      // reason it waits, and resume must not clear it). Derived from the same instance state
+      // the workflow read model uses, so the two cannot disagree.
+      pausedWorkflowIds: Object.freeze(
+        simulation
+          .workflows()
+          .filter(
+            (instance) =>
+              instance.status === 'blocked' && instance.blockedReason?.kind === 'manual',
+          )
+          .map((instance) => instance.instanceId),
+      ),
       issuedInstructionIds: projection.issuedInstructionIds,
       tick: snapshot.tick,
       simTime: snapshot.simTime,
@@ -787,6 +800,7 @@ export function createControlService(options: ControlServiceOptions): ControlPla
       goal: brief.goal,
       context: brief.context ?? null,
       verificationKeys: [...brief.verificationKeys],
+      sourceSessionId: brief.sourceSessionId ?? null,
       priority: brief.priority ?? null,
       dueAtSim: brief.dueAtSim ?? null,
     });
@@ -881,6 +895,18 @@ export function createControlService(options: ControlServiceOptions): ControlPla
       }
       case 'Workflow.Approve':
       case 'Workflow.Reject': {
+        // M3.6: an execution approval must carry artifact/completeness validation and an immutable
+        // approval record. The generic control command would bypass both, so it is refused here;
+        // the dedicated `/api/execution-approvals` endpoint calls the same engine with the checks.
+        if (instance.context['executionPlan'] !== undefined) {
+          return bad(
+            failure(
+              'INVALID_STATE',
+              'instanceId',
+              `workflow "${instanceId}" is an execution delivery; use the delivery approval workbench`,
+            ),
+          );
+        }
         const decision = command.commandType === 'Workflow.Approve' ? 'granted' : 'denied';
         if (instance.approval === null || instance.approval.status !== 'open') {
           return bad(
@@ -894,6 +920,7 @@ export function createControlService(options: ControlServiceOptions): ControlPla
           decision,
           simTime: command.createdAtSim,
           reason: command.reason,
+          humanApproval: command.actor.kind === 'human',
         });
         if (!result.ok) return bad(fromWorkflowFailure(result.error));
         const created = emit(CONTROL_WORKFLOW_APPROVAL_DECIDED, command, 'workflow_instance', {
@@ -906,6 +933,60 @@ export function createControlService(options: ControlServiceOptions): ControlPla
         });
         if (!created.ok) return bad(created.failure, result.value.events);
         return ok([...result.value.events, created.event], { instanceId, decision });
+      }
+      case 'Workflow.InstanceAssignmentOverride': {
+        const result = workflow.overrideAssignments({
+          instanceId,
+          actor,
+          simTime: command.createdAtSim,
+          reason: command.reason,
+          overrides: command.overrides.map((entry) => ({
+            stepId: entry.stepId,
+            employeeId: entry.employeeId,
+            ...(entry.reason === undefined ? {} : { reason: entry.reason }),
+          })),
+        });
+        if (!result.ok) return bad(fromWorkflowFailure(result.error));
+        const created = emit(
+          CONTROL_WORKFLOW_INSTANCE_ASSIGNMENT_OVERRIDDEN,
+          command,
+          'workflow_instance',
+          {
+            commandId: command.commandId,
+            operatorId: String(command.actor.operatorId),
+            reason: command.reason,
+            instanceId,
+            overrides: command.overrides.map((entry) => ({
+              stepId: entry.stepId,
+              employeeId: entry.employeeId,
+              reason: entry.reason ?? command.reason ?? null,
+            })),
+          },
+        );
+        if (!created.ok) return bad(created.failure, result.value.events);
+        return ok([...result.value.events, created.event], { instanceId });
+      }
+      case 'Workflow.ConfirmStart': {
+        const result = workflow.confirm({
+          instanceId,
+          actor,
+          simTime: command.createdAtSim,
+          reason: command.reason,
+        });
+        if (!result.ok) return bad(fromWorkflowFailure(result.error));
+        const created = emit(
+          CONTROL_WORKFLOW_INSTANCE_CONFIRMED,
+          command,
+          'workflow_instance',
+          {
+            commandId: command.commandId,
+            operatorId: String(command.actor.operatorId),
+            reason: command.reason,
+            instanceId,
+          },
+        );
+        if (!created.ok) return bad(created.failure, result.value.events);
+        return ok([...result.value.events, created.event], { instanceId });
       }
       default:
         return bad(failure('INVALID_COMMAND', 'commandType', 'not a workflow command'));
@@ -1369,7 +1450,7 @@ export function createControlService(options: ControlServiceOptions): ControlPla
     };
   };
 
-  const execute = async (command: ControlCommand): Promise<ControlOutcome> => {
+  const executeRaw = async (command: ControlCommand): Promise<ControlOutcome> => {
     const replayed = replayOutcome(command);
     if (replayed !== null) return replayed;
 
@@ -1440,6 +1521,32 @@ export function createControlService(options: ControlServiceOptions): ControlPla
     });
   };
 
+  /**
+   * M3.0 · kernel clock authority.
+   *
+   * A control command carries the operator's `createdAtSim`, which is only ever a *copy* of the
+   * kernel's clock (the console stamps it from its last snapshot). When that copy is behind — a
+   * tab that had not polled yet, a client whose snapshot failed — the command used to write its
+   * domain facts into the past: the production log contains a `Task.Cancelled` at sim 0 for a task
+   * created at sim 63048, i.e. a terminal fact that precedes its own creation. The log's
+   * chronology is the audit trail, so the kernel's clock wins: a command can never be stamped
+   * earlier than the simulation is right now. Commands stamped ahead are left alone (a replay or
+   * a test may legitimately arrive later in sim time).
+   */
+  const execute = async (rawCommand: ControlCommand): Promise<ControlOutcome> => {
+    const currentSim = Number(simulation.snapshot().simTime);
+    const submittedSim = Number(rawCommand.createdAtSim);
+    if (!Number.isFinite(submittedSim) || submittedSim >= currentSim) {
+      return executeRaw(rawCommand);
+    }
+    return executeRaw(
+      Object.freeze({
+        ...rawCommand,
+        createdAtSim: currentSim as ControlCommand['createdAtSim'],
+      }),
+    );
+  };
+
   return { execute, hydrate, query, state };
 }
 
@@ -1484,6 +1591,7 @@ export function fromWorkflowFailure(error: {
           ? 'WORKFLOW_BLOCKED'
           : error.code === 'instance_terminal' ||
               error.code === 'instance_not_running' ||
+              error.code === 'instance_not_draft' ||
               error.code === 'approval_not_open' ||
               error.code === 'approval_already_decided'
             ? 'INVALID_STATE'

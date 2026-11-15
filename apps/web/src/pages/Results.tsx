@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { parseRows, parseTaskRecord, readString } from '../api';
+import { parseRows, parseTaskRecord, parseWorkBriefs, readString } from '../api';
 import { instructAgent, taskReassign, type CommandContext } from '../commands';
-import { Avatar, Empty, LoadError, PageIntro, Panel, StatusPill } from '../components';
+import { AgentAvatar, Empty, LoadError, PageIntro, Panel, StatusPill } from '../components';
+import { DeliveryPackage } from '../components/DeliveryPackage';
+import { ResultApprovalPanel } from '../components/ResultApproval';
+import { DocumentPreview } from '../components/DocumentPreview';
 import type { ConsoleControl } from '../control';
 import { isOpenApproval, positionTitle, workflowById } from '../derive';
+import { isPlayableGame } from '../document-preview';
+import { resultSourceOf } from '../results-source';
 import { useJson } from '../hooks';
 import { useI18n, type MessageKey } from '../i18n';
-import { previewActions, previewLabelKey, previewNotices, previewTone, type PreviewActionKind } from '../preview';
+import { previewActions, previewFrameUrl, previewLabelKey, previewNotices, previewTone, type PreviewActionKind } from '../preview';
 import { usePreview } from '../preview-hook';
 import {
   contributions,
@@ -46,6 +51,8 @@ import {
  */
 
 const KIND_LABELS: Readonly<Record<DeliverableKind, MessageKey>> = {
+  game: 'results.deliverable.kind.game',
+  '3d': 'results.deliverable.kind.3d',
   code: 'results.deliverable.kind.code',
   document: 'results.deliverable.kind.document',
   report: 'results.deliverable.kind.report',
@@ -302,8 +309,22 @@ function PreviewPanel({ taskId, control }: { taskId: string; control: ConsoleCon
 
         {running && (
           <div className="preview-frame" ref={frameRef}>
-            <iframe title={t('results.preview.iframeTitle')} src={previewUrl} allow="fullscreen" />
+            <iframe
+              title={t('results.preview.iframeTitle')}
+              src={previewFrameUrl(previewUrl, window.location.hostname)}
+              allow="fullscreen"
+            />
           </div>
+        )}
+        {running && (
+          <a
+            className="preview-open-tab"
+            href={previewFrameUrl(previewUrl, window.location.hostname)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {t('results.preview.openTab')}
+          </a>
         )}
 
         {status.state === 'failed' && (
@@ -346,6 +367,8 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
   const [busy, setBusy] = useState<'optimize' | 'retry' | null>(null);
   const record = useJson(`/api/tasks/${encodeURIComponent(taskId)}`, parseTaskRecord, control.refreshToken);
   const workflows = useJson('/api/workflows', parseRows, control.refreshToken);
+  // F3: the source is read from the brief record, not inferred from the task title/goal.
+  const briefs = useJson('/api/work-briefs', parseWorkBriefs, control.refreshToken);
   // Each sibling step counts its own files, so the "whole delivery" hint reports what the
   // operator can actually download. Declared *above* the loading return on purpose: a hook
   // below it would run only once the record arrives, which is exactly React's "rendered more
@@ -377,8 +400,15 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
   }
 
   const state = resultsState(task.status);
+  // A blocked task is not "failed, retry it": reassign/retry are rejected by the task domain on
+  // purpose — the block is an explicit wait. The page says why and routes to the approver
+  // instead of offering a command the kernel will refuse.
+  const blockedReason = (task.blockedReason ?? '').trim();
+  const isBlocked = task.status.trim().toLowerCase() === 'blocked';
+  const blockedOnApproval = isBlocked && /^waiting_for_approval/i.test(blockedReason);
   const workflow = workflowById(workflows.data ?? snapshot.workflows, task.workflowInstanceId);
-  const kind = deliverableKind(task.result);
+  const source = resultSourceOf(briefs.data ?? [], task.correlationId);
+  const kind = deliverableKind(task.result, task);
   const view: DeliverableView = deliverableView(task, kind);
   const journey = workflow === null ? taskJourney(task.status) : workflowJourney(workflow);
   // The rest of the product the organization produced: the workflow's other delivered steps, in
@@ -494,6 +524,26 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
         </div>
       </section>
 
+      {/* F3: a sandbox-derived brief is shown as a source card, not by regex-matching the
+          title and embedding the workbench. The workbench itself stays at /api/sandbox. */}
+      {source !== null && (
+        <Panel
+          title={t('results.source.panel')}
+          className="result-source"
+          actions={<a className="link" href="/api/sandbox" target="_blank" rel="noreferrer">{t('results.source.open')}</a>}
+        >
+          <div className="fact-grid">
+            <div><span className="field-label">{t('results.source.session')}</span><p className="objective">{source.sessionId}</p></div>
+            <div><span className="field-label">{t('results.source.brief')}</span><p className="objective">{source.briefId}</p></div>
+            <div><span className="field-label">{t('results.source.title')}</span><p className="objective">{source.title}</p></div>
+          </div>
+          <p className="muted">{t('results.source.hint')}</p>
+        </Panel>
+      )}
+
+      {/* M2: the gate is decided where the delivery is read, not on another page. */}
+      <ResultApprovalPanel control={control} workflow={workflow} />
+
       <Panel title={t('results.summary.panel')} className="result-summary">
         <section className="detail-section">
           <span className="field-label">{t('results.summary.goal')}</span>
@@ -515,9 +565,15 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
         </section>
       </Panel>
 
+      {/* One hand-over: every step's artifact, the game/document/3D slots and a real ZIP. The live
+          runtime stays below so a package never starts a second server. */}
+      <DeliveryPackage task={task} workflow={workflow} control={control} />
+
       {/* The delivered project, running, above the artifact it delivered. A delivery that is not
           a runnable web app renders nothing here, so every other shape of page is unchanged. */}
-      <PreviewPanel taskId={taskId} control={control} />
+      <div id="result-preview">
+        <PreviewPanel taskId={taskId} control={control} />
+      </div>
 
       <div id="final-deliverable" className="result-anchor">
         <Panel title={t('results.deliverable.panel')} className="result-deliverable">
@@ -527,11 +583,34 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
             <section className="detail-section">
               <div className="deliverable-head">
                 <span className={`deliverable-kind kind-${kind}`}>{t(KIND_LABELS[kind])}</span>
+                {isPlayableGame(task) && (
+                  <span className="deliverable-kind kind-game">{t('results.deliverable.playableGame')}</span>
+                )}
                 <div>
                   <h4>{view.name}</h4>
                   <p>{view.description}</p>
                 </div>
               </div>
+
+              {kind === 'game' && (
+                <div className="deliverable-block deliverable-game">
+                  <span className="field-label">{t('results.deliverable.playableGame')}</span>
+                  <p className="deliverable-text">{t('results.deliverable.gameHint')}</p>
+                  <button type="button" className="primary" onClick={() => scrollTo('result-preview')}>
+                    {t('results.deliverable.runGame')}
+                  </button>
+                </div>
+              )}
+
+              {kind === '3d' && (
+                <div className="deliverable-block deliverable-3d">
+                  <span className="field-label">{t('results.deliverable.threeD')}</span>
+                  <p className="deliverable-text">{t('results.deliverable.threeDHint')}</p>
+                  <button type="button" className="primary" onClick={() => scrollTo('result-preview')}>
+                    {t('results.deliverable.open3d')}
+                  </button>
+                </div>
+              )}
 
               {kind === 'code' && (
                 <div className="deliverable-block">
@@ -549,11 +628,7 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
               {kind === 'document' && (
                 <div className="deliverable-block">
                   <span className="field-label">{t('results.deliverable.preview')}</span>
-                  {view.preview === '' ? (
-                    <p className="deliverable-text muted">{t('results.deliverable.previewMissing')}</p>
-                  ) : (
-                    <p className="result-preview-text">{view.preview}</p>
-                  )}
+                  <DocumentPreview task={task} fallback={view.preview} />
                 </div>
               )}
 
@@ -564,7 +639,9 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
                 </div>
               )}
 
-              {view.details.length > 0 && (
+              {/* A playable game / 3D scene is shown by the live preview and its file chips. Dumping
+                  the HTML source here makes the delivery read like a document again. */}
+              {kind !== 'game' && kind !== '3d' && view.details.length > 0 && (
                 <div className="deliverable-block">
                   <span className="field-label">{t('results.deliverable.details')}</span>
                   <Facts facts={view.details} />
@@ -626,7 +703,7 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
               {roles.map((role: Contribution) => (
                 <article className="role-card" key={`${role.roleTitle}|${role.personName}`}>
                   <div className="role-head">
-                    <Avatar name={role.personName === '' ? role.roleTitle : role.personName} tone="default" />
+                    <AgentAvatar name={role.personName} positionTitle={role.roleTitle} />
                     <div>
                       <b>{role.roleTitle === '' ? t('common.unassigned') : role.roleTitle}</b>
                       <span>{role.personName}</span>
@@ -674,11 +751,13 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
       <Panel title={t('results.actions.panel')} className="result-actions">
         <div className="result-actions-body">
           <p className="muted">
-            {state.kind === 'running'
-              ? t('results.actions.hintRunning')
-              : state.kind === 'failed'
-                ? t('results.actions.hintFailed')
-                : t('results.actions.hintCompleted')}
+            {isBlocked
+              ? t('results.actions.hintBlocked')
+              : state.kind === 'running'
+                ? t('results.actions.hintRunning')
+                : state.kind === 'failed'
+                  ? t('results.actions.hintFailed')
+                  : t('results.actions.hintCompleted')}
           </p>
           <div className="button-row">
             {state.kind === 'completed' && (
@@ -695,7 +774,21 @@ export function ResultsPage({ control, taskId }: { control: ConsoleControl; task
             {state.kind === 'running' && (
               <button type="button" className="primary" onClick={() => scrollTo('work-journey')}>{t('results.actions.progress')}</button>
             )}
-            {state.kind === 'failed' && (
+            {isBlocked && (
+              <>
+                <p className="muted">
+                  {t('results.actions.blockedReasonLabel')}: {blockedReason === '' ? t('common.noReason') : blockedReason}
+                </p>
+                {blockedOnApproval ? (
+                  <button type="button" className="primary" onClick={() => control.navigate('Approvals')}>
+                    {t('results.actions.goToApprovals')}
+                  </button>
+                ) : null}
+                <button type="button" onClick={() => control.navigate('Runtime')}>{t('results.actions.goToRuntime')}</button>
+                <button type="button" onClick={() => control.navigate('Tasks')}>{t('results.actions.newTask')}</button>
+              </>
+            )}
+            {!isBlocked && state.kind === 'failed' && (
               <>
                 <button type="button" className="primary" disabled={busy !== null || task.positionId === null} onClick={() => void retry()}>
                   {busy === 'retry' ? t('common.submitting') : t('results.actions.retry')}

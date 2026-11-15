@@ -11,8 +11,10 @@ import type {
 } from '@maoeh/shared-types';
 import type { AgentDefinition } from '@maoeh/agent-definition';
 import type {
+  AssignedTaskView,
   CognitionExecutor,
   CognitionProfile,
+  CommunicationView,
   OrganizationSnapshotView,
   WorkCatalogView,
 } from '@maoeh/agent-cognition';
@@ -51,6 +53,16 @@ const RETRYABLE_COGNITION_ERRORS = new Set<string>([
   'provider_error',
   'llm_rate_limited',
   'budget_exceeded',
+  // A live planner occasionally emits an action shape the executor rejects (an outline
+  // instead of content, a missing transition, a stale task status). The next cycle asks the
+  // model again; without this the task sits at `accepted`/`started` forever. The scheduler
+  // caps these retries, so a genuinely broken plan still stops.
+  'invalid_args',
+  'invalid_transition',
+  // A worker can mis-read an assigned step as a manager's dispatch and be refused by the A1/A2
+  // scope gate. The next cycle is a fresh plan with the executor convention in the prompt; the
+  // retry cap still stops a worker that genuinely lacks authority.
+  'permission_denied',
 ]);
 
 export interface PlanExecutionFailure {
@@ -122,6 +134,10 @@ export interface RunAgentCycleInput {
   readonly profile: CognitionProfile;
   readonly organization: OrganizationSnapshotView;
   readonly workCatalog?: WorkCatalogView;
+  /** Channels/messages this agent may act on — the surface `SendMessage` is executed against. */
+  readonly communication?: CommunicationView;
+  /** When set, the agent sees its own open tasks in the cognition prompt. */
+  readonly assignedTasks?: readonly AssignedTaskView[];
   readonly planExecutor: PlanExecutor;
   readonly maxLlmCalls: number;
   readonly maxEmittedEvents?: number;
@@ -236,6 +252,8 @@ export async function runAgentCycle(
     profile: input.profile,
     organization: input.organization,
     ...(input.workCatalog === undefined ? {} : { workCatalog: input.workCatalog }),
+    ...(input.communication === undefined ? {} : { communication: input.communication }),
+    ...(input.assignedTasks === undefined ? {} : { assignedTasks: input.assignedTasks }),
     inputEvent: event,
     simTime,
     maxLlmCalls: input.maxLlmCalls,

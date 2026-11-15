@@ -57,6 +57,9 @@ export type {
   WorkBriefSpec,
   WorkBriefView,
   WorkSubmitBriefCommand,
+  WorkflowConfirmStartCommand,
+  WorkflowInstanceAssignmentOverrideCommand,
+  WorkflowCanvasStepView,
   WorkflowSummary,
   WorkflowView,
 } from './types.js';
@@ -98,6 +101,8 @@ export {
   CONTROL_WORKFLOW_APPROVAL_DECIDED,
   CONTROL_WORKFLOW_CANCELLED,
   CONTROL_WORKFLOW_DELETED,
+  CONTROL_WORKFLOW_INSTANCE_ASSIGNMENT_OVERRIDDEN,
+  CONTROL_WORKFLOW_INSTANCE_CONFIRMED,
   controlAgentArchivedPayloadSchema,
   controlAgentCreatedPayloadSchema,
   controlAgentInstructedPayloadSchema,
@@ -123,6 +128,8 @@ export {
   controlWorkflowApprovalDecidedPayloadSchema,
   controlWorkflowCancelledPayloadSchema,
   controlWorkflowDeletedPayloadSchema,
+  controlWorkflowInstanceAssignmentOverriddenPayloadSchema,
+  controlWorkflowInstanceConfirmedPayloadSchema,
   isControlEvent,
   registerControlEvents,
 } from './events.js';
@@ -136,6 +143,8 @@ export type {
   ControlTaskAssignedPayload,
   ControlTaskInjectedPayload,
   ControlWorkBriefedPayload,
+  ControlWorkflowInstanceAssignmentOverriddenPayload,
+  ControlWorkflowInstanceConfirmedPayload,
 } from './events.js';
 
 export {
@@ -183,3 +192,74 @@ export {
   toEventView,
 } from './query.js';
 export type { AuditReader, ControlQuery, ControlQueryOptions } from './query.js';
+
+/**
+ * M3.1 · unified collaboration protocol + trace, and M3.0 legacy-work audit.
+ * Pure projections over the existing event log — no new event system, no writes.
+ */
+export {
+  COLLABORATION_EVENT_KINDS,
+  COLLABORATION_EVENT_PROTOCOL,
+  collaborationDescriptorOf,
+  collaborationKindOf,
+  isCollaborationEvent,
+  protocolDescriptorOf,
+} from './collaboration/protocol.js';
+export type {
+  CollaborationEventDescriptor,
+  CollaborationEventDirection,
+  CollaborationEventKind,
+  CollaborationEventStatus,
+  CollaborationTraceApplicability,
+} from './collaboration/protocol.js';
+export {
+  buildCollaborationTrace,
+  collaborationTraceOfSession,
+  collaborationTraceOfTask,
+} from './collaboration/trace.js';
+export type {
+  CollaborationTrace,
+  CollaborationTraceDanglingLink,
+  CollaborationTraceEntry,
+  CollaborationTraceOptions,
+  CollaborationTraceSession,
+} from './collaboration/trace.js';
+export { buildMessageLifecycles } from './collaboration/message-lifecycle.js';
+export type {
+  MessageDeliveryLike,
+  MessageLifecycle,
+  MessageRecipientLifecycle,
+  MessageRecipientState,
+} from './collaboration/message-lifecycle.js';
+
+/**
+ * M3.2 · collaboration theater: the seven business stages, the honest stage association and the
+ * per-event projection the SSE tail and the replay endpoint share.
+ */
+export {
+  THEATER_STAGES,
+  TheaterStageTracker,
+  buildTheaterEvents,
+  stageOfCapability,
+  stageOfEventType,
+  theaterEventOf,
+} from './collaboration/theater.js';
+export type {
+  TheaterEventView,
+  TheaterHistory,
+  TheaterHistoryInput,
+  TheaterStageBasis,
+  TheaterStageId,
+  TheaterStageSeed,
+  TheaterStageView,
+} from './collaboration/theater.js';
+export { auditLegacyWork, legacyRepairPlan } from './legacy-audit.js';
+export type {
+  LegacyAuditInput,
+  LegacyAuditReport,
+  LegacyFinding,
+  LegacyFindingCode,
+  LegacyFindingSeverity,
+  LegacyRepairAction,
+  LegacyRepairCommand,
+} from './legacy-audit.js';

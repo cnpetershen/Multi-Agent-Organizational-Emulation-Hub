@@ -21,6 +21,8 @@ import {
   createInMemoryMessageStore,
   isChannelOpenedEvent,
   isCollaborationRequestedEvent,
+  isMessageProcessedEvent,
+  isMessageSentEvent,
   registerCommunicationEvents,
 } from '@maoeh/agent-communication';
 import type { EventRegistry } from '@maoeh/event-system';
@@ -54,7 +56,8 @@ import {
   createTaskService,
   registerTaskEvents,
 } from '@maoeh/task-system';
-import type { WorkflowDefinition, WorkflowInstanceStore } from '@maoeh/workflow-engine';
+import { createAuthorityService } from '@maoeh/authority-engine';
+import type { WorkflowDefinition, WorkflowDefinitionStore, WorkflowInstanceStore } from '@maoeh/workflow-engine';
 import {
   createInMemoryWorkflowDefinitionStore,
   createInMemoryWorkflowInstanceStore,
@@ -103,6 +106,10 @@ export const DEFAULT_AGENT_POLICY: PermissionPolicy = {
     // org-domain threshold lives here (unmet ⇒ `NEEDS_APPROVAL`, escalating to the manager).
     { subject: { kind: 'any' }, action: 'ControlAgent', resource: 'position:*', minAuthority: { domain: 'org', level: 3 } },
     { subject: { kind: 'any' }, action: 'SendMessage', resource: 'channel:*' },
+    // M3.1 collaboration handoff: asking a colleague to take work, and answering such a request.
+    // The domain still decides who may ask (creator/executor) and which named employee may answer;
+    // this grant is only the right to use the primitive at all, like every other task action.
+    { subject: { kind: 'any' }, action: 'HandoffTask', resource: 'task:*' },
     { subject: { kind: 'any' }, action: 'UpdatePresence', resource: 'runtime:*' },
   ],
   denies: [],
@@ -116,6 +123,12 @@ export interface SimulationOptions {
   readonly cognition: CognitionExecutor;
   readonly config: SimulationConfigOptions;
   readonly policy?: PermissionPolicy;
+  /**
+   * M1.9: capability-generated workflows start parked as drafts on the canvas — the human
+   * confirms before the entry step is entered. The console sets this; headless kernels default
+   * to immediate execution as before.
+   */
+  readonly requirePlanConfirmation?: boolean;
   readonly eventStore?: EventStore;
   readonly schedules?: readonly ScheduleDefinition[];
 }
@@ -133,6 +146,8 @@ export interface Simulation {
   readonly workflow: ReturnType<typeof createWorkflowEngine>;
   readonly taskStore: TaskStore;
   readonly instanceStore: WorkflowInstanceStore;
+  /** M1.8: the workflow definition store; the canvas projection reads definitions through it. */
+  readonly definitions: WorkflowDefinitionStore;
   readonly communication: CommunicationService;
   readonly collaboration: CollaborationService;
   readonly agents: ReadonlyMap<EmployeeId, AgentBundle>;
@@ -256,6 +271,7 @@ export async function createSimulation(
   let instanceSeq = 0;
   let correlationSeq = 0;
   let collaborationSeq = 0;
+  let handoffSeq = 0;
   let cursor = 0;
   let lastTickMarker: OrgEvent | null = null;
   let lastTickResult: SimulationTickResult | null = null;
@@ -269,6 +285,7 @@ export async function createSimulation(
   const nextInstanceId = (): string => `instance-${String((instanceSeq += 1))}`;
   const nextCorrelationId = (): string => `corr-sim-${String((correlationSeq += 1))}`;
   const nextCollaborationId = (): string => `collab-${String((collaborationSeq += 1))}`;
+  const nextHandoffId = (): string => `handoff-${String((handoffSeq += 1))}`;
 
   const taskStore: TaskStore = createInMemoryTaskStore();
   const tasks = createTaskService({
@@ -278,6 +295,7 @@ export async function createSimulation(
     store: taskStore,
     eventIdGenerator: nextEventId,
     taskIdGenerator: nextTaskId,
+    handoffIdGenerator: nextHandoffId,
   });
 
   const definitionStore = createInMemoryWorkflowDefinitionStore(options.workflowDefinitions);
@@ -294,6 +312,8 @@ export async function createSimulation(
     instances: instanceStore,
     eventIdGenerator: nextEventId,
     instanceIdGenerator: nextInstanceId,
+    // M1.8: assignee-side authority checks for per-instance overrides.
+    authority: createAuthorityService(organization),
   });
 
   const communicationIdentity: CommunicationIdentity = {
@@ -822,11 +842,17 @@ export async function createSimulation(
         authz,
         organization,
         instances: instanceStore,
+        ...(options.requirePlanConfirmation === undefined
+          ? {}
+          : { requirePlanConfirmation: options.requirePlanConfirmation }),
       }),
     turnContext,
     agents,
     eligibilityDeps,
     wakeupSource,
+    stallHeartbeats: new Map(),
+    stallBootstrapped: false,
+    taskContinuations: new Map(),
     createAgent: materializeAgent,
     cursor: () => cursor,
     nextEventId,
@@ -897,11 +923,45 @@ export async function createSimulation(
   };
 
   /**
+   * M3.1: messages, their delivery ledger and their processing state are derived state too. A
+   * restarted kernel that forgot them could neither trace an in-flight message nor honour a
+   * sender's dedupe key, and the delivery ledger would report "nothing was ever delivered". The
+   * projection is idempotent and writes no events; channels are projected before this so a
+   * delivery can resolve its channel.
+   */
+  const projectMessages = (events: readonly OrgEvent[]): void => {
+    for (const event of events) {
+      if (!isMessageSentEvent(event.type)) continue;
+      communication.restoreMessage(event);
+    }
+  };
+
+  const projectDeliveries = (events: readonly OrgEvent[]): void => {
+    for (const event of events) {
+      if (!isMessageSentEvent(event.type)) continue;
+      communication.deliverFromEvent(event);
+    }
+  };
+
+  const projectMessageProcessing = (events: readonly OrgEvent[]): void => {
+    for (const event of events) {
+      if (!isMessageProcessedEvent(event.type)) continue;
+      communication.restoreProcessing(event);
+    }
+  };
+
+  /**
    * Company formation. A fresh company is not a mute company: it boots with one company-wide
    * channel, opened through the existing `Comm.openChannel` primitive and recorded as
    * `Communication.ChannelOpened`, so agents can `SendMessage` without an out-of-band setup step
    * (M1.0.1 K1). Idempotent: it opens nothing when the log already records the channel, which
    * keeps a restarted kernel (and recovery parity) byte-identical to a continuous run.
+   *
+   * Runs **after** `recover()`, and that order is load bearing: a starter company is founded with
+   * one employee (the CEO), and every colleague is a `Control.AgentCreated` fact replayed during
+   * recovery. Opening the channel before the replay found a one-member roster — below the
+   * channel contract's minimum of two — and silently returned, so the live company ran with no
+   * channel at all and every agent `SendMessage` would have failed with `unknown_channel`.
    */
   const bootstrapCompanyChannel = async (): Promise<void> => {
     const channelId = companyChannelId(String(config.companyId));
@@ -949,6 +1009,11 @@ export async function createSimulation(
       if (collaborationId !== null) {
         const value = numericSuffix(collaborationId, 'collab-');
         if (value !== null && value > collaborationSeq) collaborationSeq = value;
+      }
+      const handoffId = readString(event.payload, 'handoffId');
+      if (handoffId !== null) {
+        const value = numericSuffix(handoffId, 'handoff-');
+        if (value !== null && value > handoffSeq) handoffSeq = value;
       }
       const cycleId = readString(event.payload, 'cycleId');
       if (cycleId !== null) {
@@ -1017,6 +1082,9 @@ export async function createSimulation(
       stateStore.commit(replayed, 0);
     }
     projectChannels(events);
+    projectMessages(events);
+    projectDeliveries(events);
+    projectMessageProcessing(events);
     projectCollaborations(events);
     // M1.3: agents born / archived at runtime are facts on the log, so a replay restores them
     // before the tick markers decide the cursor.
@@ -1138,6 +1206,8 @@ export async function createSimulation(
     workflow,
     taskStore,
     instanceStore,
+    // M1.8: the canvas projection reads the definitions of running instances through this.
+    definitions: definitionStore,
     communication,
     collaboration,
     agents,
@@ -1190,10 +1260,11 @@ export async function createSimulation(
     },
   };
 
-  // Company formation precedes recovery so that the recovered report and the log agree: a fresh
-  // kernel records its company channel, a restarted one rebuilds it from that same record.
-  await bootstrapCompanyChannel();
+  // Recovery precedes company formation: replaying the log is what restores a starter company's
+  // roster, and the channel's member list is read from that roster. A restarted kernel rebuilds
+  // the channel from its own record instead, so the sequence stays idempotent.
   await recover();
+  await bootstrapCompanyChannel();
   await restoreControlOverlay(await allStoredEvents());
   return simulation;
 }

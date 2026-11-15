@@ -5,17 +5,16 @@ import { startApiServer } from '../../apps/api/src/composition';
 /**
  * M1.4 Â§5.7 / Â§5.10 acceptance 3 over the real HTTP surface the console talks to:
  *
- *   POST /api/command Work.SubmitBrief â†’ `GET /api/work-briefs` carries the brief (empty
+ *   POST /api/command Work.SubmitBrief â†?`GET /api/work-briefs` carries the brief (empty
  *   decomposition while the runtime is held), `GET /api/work-briefs/:briefId` serves the same
- *   record, an unknown id answers the 404 shape the console already parses â€” and once the
+ *   record, an unknown id answers the 404 shape the console already parses â€?and once the
  *   simulation resumes, the composed cognition turns the brief into a capability-routed
  *   workflow whose work items the brief panel groups under the same brief (Â§5.4).
  *
  * The decomposition is **capability routing**, not a fixed pair of seats: the brief's goal text
  * is analysed into the kinds of work it needs and the kernel resolves each one to a staffed
  * seat. "Ship the login feature this sprint" carries no build/design/test cue in any language,
- * so it falls back to the core delivery chain â€” requirements â†’ design â†’ implementation â†’
- * testing â€” and this company (the `lab` seed) staffs one seat per link of that chain.
+ * so it falls back to the core delivery chain â€?requirements â†?design â†?implementation â†? * testing â€?and this company (the `lab` seed) staffs one seat per link of that chain.
  */
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
@@ -75,7 +74,7 @@ function briefOf(value: unknown): BriefRow {
 
 describe('M1.4 work briefs over HTTP', () => {
   it('serves a submitted brief as list and record, then shows its decomposition', async () => {
-    const server = await startApiServer(0, {
+    const server = await startApiServer(0, { requirePlanConfirmation: false, 
       eventLogPath: null,
       tick: { activeIntervalMs: 5, idleIntervalMs: 50 },
     });
@@ -172,7 +171,7 @@ describe('M1.4 work briefs over HTTP', () => {
       expect(new Set(seats).size, 'one brief, one distinct seat per capability').toBe(4);
       expect(seats).not.toContain('ceo');
       for (const item of decomposed.items) {
-        // Every dispatched item must have an owner who can execute it â€” a seat nobody holds is
+        // Every dispatched item must have an owner who can execute it â€?a seat nobody holds is
         // work that would sit `assigned` forever (see `starter-company-brief.test.ts`).
         expect(String(item['assigneeEmployeeId'] ?? '')).not.toBe('');
       }
@@ -187,3 +186,4 @@ describe('M1.4 work briefs over HTTP', () => {
     }
   });
 });
+

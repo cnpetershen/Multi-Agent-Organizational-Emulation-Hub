@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import type { Row, TaskRecord } from '../../../apps/web/src/api';
 import {
   buildDeliveryPackage,
-  deliveryPackageGroups,
   deliveryProjects,
   filesByStep,
   packageKindOf,
@@ -111,24 +110,12 @@ describe('delivery package', () => {
   });
 
   it('recognises a 3D HTML scene as 3D, not as a document', () => {
-    expect(isThreeDimensionalContent('<script src="three.min.js"></script><canvas></canvas>')).toBe(true);
+    expect(isThreeDimensionalContent('<!doctype html><script src="three.min.js"></script><canvas></canvas>')).toBe(true);
     expect(isThreeDimensionalContent('<h1>plain</h1>')).toBe(false);
     const scene = withFiles('task-scene', '3D page', [
       { path: 'index.html', language: 'html', content: '<!doctype html><script src="three.min.js"></script><canvas></canvas>' },
     ]);
     expect(packageKindOf(scene, deliveredFiles(scene))).toBe('3d');
-  });
-
-  it('groups the workspace into one package per workflow plus standalone deliveries', () => {
-    const groups = deliveryPackageGroups([
-      { taskId: 'task-design', title: 'Design', status: 'completed', workflowInstanceId: 'instance-1', assigneeEmployeeId: 'bea' },
-      { taskId: 'task-game', title: 'Game', status: 'completed', workflowInstanceId: 'instance-1', assigneeEmployeeId: 'ada' },
-      { taskId: 'task-alone', title: 'Standalone', status: 'completed', workflowInstanceId: null, assigneeEmployeeId: 'cy' },
-      { taskId: 'task-running', title: 'Running', status: 'running', workflowInstanceId: 'instance-2', assigneeEmployeeId: 'dee' },
-    ], [workflow]);
-    expect(groups.map((group) => group.anchorTaskId)).toEqual(['task-design', 'task-alone']);
-    expect(groups[0]?.members).toBe(2);
-    expect(groups[1]?.standalone).toBe(true);
   });
 
   it('folds tasks into one project block with contributor rows', () => {
@@ -151,6 +138,31 @@ describe('delivery package', () => {
     ]);
     expect(projects[0]?.anchorTaskId).toBe('task-design');
     expect(projects[1]?.standalone).toBe(true);
+  });
+
+  it('opens the implementation task, not the first requirement document', () => {
+    const projects = deliveryProjects([
+      { taskId: 'task-req', title: 'Product Requirement', status: 'completed', workflowInstanceId: 'instance-1', workflowStepId: 'step-1', assigneeEmployeeId: 'bea' },
+      { taskId: 'task-build', title: 'Implementation', status: 'completed', workflowInstanceId: 'instance-1', workflowStepId: 'step-3', assigneeEmployeeId: 'ada' },
+      { taskId: 'task-test', title: 'Testing', status: 'completed', workflowInstanceId: 'instance-1', workflowStepId: 'step-4', assigneeEmployeeId: 'cy' },
+    ], [workflow]);
+    expect(projects[0]?.anchorTaskId).toBe('task-build');
+  });
+
+
+  it('keeps one project block per title, choosing the richer run', () => {
+    const projects = deliveryProjects([
+      { taskId: 'old-a', title: 'Old', status: 'completed', workflowInstanceId: 'old', assigneeEmployeeId: 'bea' },
+      { taskId: 'old-b', title: 'Old', status: 'created', workflowInstanceId: 'old', assigneeEmployeeId: 'ada' },
+      { taskId: 'new-a', title: 'New', status: 'completed', workflowInstanceId: 'new', assigneeEmployeeId: 'bea' },
+      { taskId: 'new-b', title: 'New', status: 'completed', workflowInstanceId: 'new', assigneeEmployeeId: 'ada' },
+    ], [
+      { ...workflow, instanceId: 'old', title: 'Fish', steps: [{ stepId: 'a', name: 'Requirement' }, { stepId: 'b', name: 'Implementation' }], stepStates: [{ stepId: 'a', status: 'done', taskId: 'old-a' }, { stepId: 'b', status: 'pending', taskId: 'old-b' }] },
+      { ...workflow, instanceId: 'new', title: 'Fish', steps: [{ stepId: 'a', name: 'Requirement' }, { stepId: 'b', name: 'Implementation' }], stepStates: [{ stepId: 'a', status: 'done', taskId: 'new-a' }, { stepId: 'b', status: 'done', taskId: 'new-b' }] },
+    ]);
+    expect(projects).toHaveLength(1);
+    expect(projects[0]?.completed).toBe(2);
+    expect(projects[0]?.anchorTaskId).toBe('new-b');
   });
 
   it('keeps unassigned work visible in an unassigned contributor row', () => {
@@ -180,3 +192,4 @@ describe('delivery package', () => {
     expect(pkg.kinds).toEqual(['3d']);
   });
 });
+

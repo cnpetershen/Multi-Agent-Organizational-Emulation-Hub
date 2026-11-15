@@ -27,6 +27,15 @@ export const CONTROL_WORKFLOW_APPROVAL_DECIDED = 'Control.WorkflowApprovalDecide
  * it record what actually left the organization.
  */
 export const CONTROL_WORKFLOW_DELETED = 'Control.WorkflowDeleted';
+/**
+ * M1.8: the operator re-pointed not-yet-entered task steps of a single instance at named
+ * employees (per-instance override). `Control.*` answers "who and why"; the beside
+ * `Workflow.StepAssignmentOverridden` facts answer "what changed and is now the truth".
+ */
+export const CONTROL_WORKFLOW_INSTANCE_ASSIGNMENT_OVERRIDDEN =
+  'Control.WorkflowInstanceAssignmentOverridden';
+/** M1.9: the operator confirmed a draft instance on the canvas; the engine enters the entry stage. */
+export const CONTROL_WORKFLOW_INSTANCE_CONFIRMED = 'Control.WorkflowInstanceConfirmed';
 export const CONTROL_TASK_CANCELLED = 'Control.TaskCancelled';
 export const CONTROL_TASK_REASSIGNED = 'Control.TaskReassigned';
 export const CONTROL_TASK_DELETED = 'Control.TaskDeleted';
@@ -69,6 +78,8 @@ export const CONTROL_EVENT_TYPES = [
   CONTROL_WORKFLOW_CANCELLED,
   CONTROL_WORKFLOW_APPROVAL_DECIDED,
   CONTROL_WORKFLOW_DELETED,
+  CONTROL_WORKFLOW_INSTANCE_ASSIGNMENT_OVERRIDDEN,
+  CONTROL_WORKFLOW_INSTANCE_CONFIRMED,
   CONTROL_TASK_CANCELLED,
   CONTROL_TASK_REASSIGNED,
   CONTROL_TASK_DELETED,
@@ -248,6 +259,31 @@ export const controlWorkflowDeletedPayloadSchema = z.object({
   instanceId: idSchema,
 });
 
+export const controlWorkflowInstanceConfirmedPayloadSchema = z.object({
+  ...controlEnvelope,
+  instanceId: idSchema,
+});
+
+/**
+ * M1.8: the audited summary of an assignment override command — only the entries that made
+ * it in (the command is whole-batch, so "all or none" is the only shape this event can have).
+ * `reason` is the per-override reason, falling back to the command-level reason upstream.
+ */
+export const controlWorkflowInstanceAssignmentOverriddenPayloadSchema = z.object({
+  ...controlEnvelope,
+  instanceId: idSchema,
+  overrides: z
+    .array(
+      z.object({
+        stepId: idSchema,
+        employeeId: idSchema,
+        reason: z.string().min(1).max(500).nullable(),
+      }),
+    )
+    .min(1)
+    .max(64),
+});
+
 export const controlTaskCancelledPayloadSchema = z.object({
   ...controlEnvelope,
   taskId: idSchema,
@@ -319,6 +355,8 @@ export const controlWorkBriefedPayloadSchema = z.object({
   goal: z.string().min(1).max(8000),
   context: z.string().max(8000).nullable(),
   verificationKeys: z.array(z.string().min(1).max(64)).min(1),
+  /** M2: the sandbox session a generated brief came from; absent for hand-written briefs. */
+  sourceSessionId: z.string().min(1).max(120).nullable().optional(),
   priority: z.number().int().min(1).max(9).nullable(),
   dueAtSim: simSchema.nullable(),
 });
@@ -350,6 +388,8 @@ export type ControlTaskAssignedPayload = z.infer<typeof controlTaskAssignedPaylo
 export type ControlDelegationDecidedPayload = z.infer<typeof controlDelegationDecidedPayloadSchema>;
 export type ControlEventInjectedPayload = z.infer<typeof controlEventInjectedPayloadSchema>;
 export type ControlWorkBriefedPayload = z.infer<typeof controlWorkBriefedPayloadSchema>;
+export type ControlWorkflowInstanceAssignmentOverriddenPayload = z.infer<typeof controlWorkflowInstanceAssignmentOverriddenPayloadSchema>;
+export type ControlWorkflowInstanceConfirmedPayload = z.infer<typeof controlWorkflowInstanceConfirmedPayloadSchema>;
 
 /**
  * M1.3 requirement names for the two lifecycle facts. The event *type* keeps the repository-wide
@@ -387,6 +427,8 @@ export function registerControlEvents(
     [CONTROL_WORKFLOW_CANCELLED, controlWorkflowCancelledPayloadSchema],
     [CONTROL_WORKFLOW_APPROVAL_DECIDED, controlWorkflowApprovalDecidedPayloadSchema],
     [CONTROL_WORKFLOW_DELETED, controlWorkflowDeletedPayloadSchema],
+    [CONTROL_WORKFLOW_INSTANCE_ASSIGNMENT_OVERRIDDEN, controlWorkflowInstanceAssignmentOverriddenPayloadSchema],
+    [CONTROL_WORKFLOW_INSTANCE_CONFIRMED, controlWorkflowInstanceConfirmedPayloadSchema],
     [CONTROL_TASK_CANCELLED, controlTaskCancelledPayloadSchema],
     [CONTROL_TASK_DELETED, controlTaskDeletedPayloadSchema],
     [CONTROL_TASK_REASSIGNED, controlTaskReassignedPayloadSchema],
